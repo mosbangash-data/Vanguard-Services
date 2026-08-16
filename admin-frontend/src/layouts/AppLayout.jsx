@@ -9,7 +9,7 @@ export function AppLayout({ title, navigation }) {
   const navigate = useNavigate()
   const { lang, setLang, t } = useLanguage()
   const [menuOpen, setMenuOpen] = useState(false)
-  const logout = () => { signOut(); navigate('/login', { replace: true }) }
+  const logout = () => { signOut(); navigate('/admin/login', { replace: true }) }
   const visibleNavigation = navigation.filter((item) => {
     if (item.roles && !item.roles.includes(user?.role) && user?.role !== 'SUPER_ADMIN') return false
     if (item.excludeRoles && item.excludeRoles.includes(user?.role)) return false

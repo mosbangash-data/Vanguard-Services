@@ -34,7 +34,7 @@ export function AdminDashboardPage({ user }) {
     queryFn: getDashboardOverview,
   })
   useEffect(() => {
-    if (error?.response?.status === 401) navigate('/login', { replace: true })
+    if (error?.response?.status === 401) navigate('/admin/login', { replace: true })
   }, [error, navigate])
   const tripTotal = data ? Object.values(data.trips || {}).reduce((sum, count) => sum + Number(count || 0), 0) : 0
   const stats = data ? [

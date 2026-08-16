@@ -42,7 +42,7 @@ export function AdminLayout() {
 
   const handleLogout = () => {
     signOut()
-    navigate('/login', { replace: true })
+    navigate('/admin/login', { replace: true })
   }
 
   const title = pageTitles[location.pathname] || 'Administration'

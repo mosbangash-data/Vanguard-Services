@@ -86,7 +86,8 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin/login" element={<LoginPage />} />
+          <Route path="/login" element={<Navigate to="/admin/login" replace />} />
           <Route path="/tickets/:ticketCode" element={<PublicTicketPage />} />
           <Route path="/public/vehicles" element={<ResourceRoute path="/public/vehicles" />} />
           
@@ -111,7 +112,7 @@ export default function App() {
           </Route>
 
           <Route path="/403" element={<ForbiddenPage />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<Navigate to="/admin/login" replace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AuthProvider>

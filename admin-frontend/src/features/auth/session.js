@@ -23,6 +23,6 @@ export const getDestination = (user) => {
     case 'VANGUARD_COACH': return '/transport'
     case 'CONSTRUCTION': return '/construction'
     case 'AUTO_SALES': return '/automobile'
-    default: return '/login'
+    default: return '/admin/login'
   }
 }
