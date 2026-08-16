@@ -1,0 +1,47 @@
+<div class="container dashboard">
+  <div class="page-header">
+    <div>
+      <p class="eyebrow">Tableau de bord</p>
+      <h1>Bienvenue, <%= user.role %></h1>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <article class="stat-card">
+      <span>Bus</span>
+      <strong><%= stats.buses %></strong>
+    </article>
+    <article class="stat-card">
+      <span>Trajets</span>
+      <strong><%= stats.trips %></strong>
+    </article>
+    <article class="stat-card">
+      <span>Réservations</span>
+      <strong><%= stats.bookings %></strong>
+    </article>
+    <article class="stat-card">
+      <span>Colis</span>
+      <strong><%= stats.parcels %></strong>
+    </article>
+  </div>
+
+  <div class="panel-grid">
+    <section class="panel">
+      <h3>Activités récentes</h3>
+      <ul class="list">
+        <li>Réservation confirmée pour Goma - Dar es Salaam</li>
+        <li>Paiement vérifié pour un colis express</li>
+        <li>Ticket émis avec QR code</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h3>Départements</h3>
+      <ul class="list">
+        <li>Vanguard Coach</li>
+        <li>Construction</li>
+        <li>Vente automobile</li>
+      </ul>
+    </section>
+  </div>
+</div>

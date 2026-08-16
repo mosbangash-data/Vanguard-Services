@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="acard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16233B"/>
+      <stop offset="1" stop-color="#0B1220"/>
+    </linearGradient>
+    <radialGradient id="afloor" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#C9A227" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#C9A227" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#acard)"/>
+  <ellipse cx="400" cy="380" rx="300" ry="60" fill="url(#afloor)"/>
+  <g transform="translate(180, 250)">
+    <path d="M30 60 Q30 30 80 30 L180 30 Q230 30 250 60 L280 60 Q300 60 300 75 L300 105 Q300 120 280 120 L260 120 Q260 135 230 135 Q200 135 200 120 L100 120 Q100 135 70 135 Q40 135 40 120 L20 120 Q0 120 0 105 L0 75 Q0 60 30 60 Z" fill="#1B2A44"/>
+    <path d="M30 60 Q30 30 80 30 L180 30 Q230 30 250 60" fill="none" stroke="#C9A227" stroke-width="2.5" opacity="0.7"/>
+    <rect x="60" y="42" width="70" height="24" rx="6" fill="#0E1726"/>
+    <rect x="140" y="42" width="70" height="24" rx="6" fill="#0E1726"/>
+    <circle cx="70" cy="135" r="26" fill="#0A0F1A" stroke="#C9A227" stroke-width="2.5"/>
+    <circle cx="230" cy="135" r="26" fill="#0A0F1A" stroke="#C9A227" stroke-width="2.5"/>
+    <circle cx="70" cy="135" r="12" fill="#2A3A5A"/>
+    <circle cx="230" cy="135" r="12" fill="#2A3A5A"/>
+    <rect x="120" y="70" width="60" height="14" rx="4" fill="#C9A227"/>
+  </g>
+  <line x1="100" y1="400" x2="700" y2="400" stroke="#C9A227" stroke-width="2" opacity="0.4"/>
+</svg>

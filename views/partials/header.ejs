@@ -1,0 +1,28 @@
+<header class="topbar">
+  <div class="container topbar__inner">
+    <div class="brand">
+      <span class="brand__mark">V</span>
+      <div>
+        <strong>Vanguard Services</strong>
+        <small>Multi-services</small>
+      </div>
+    </div>
+
+    <nav class="topnav" aria-label="Navigation principale">
+      <a href="/">Accueil</a>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/coach">Vanguard Coach</a>
+    </nav>
+
+    <div class="topbar__actions">
+      <% if (user) { %>
+        <span class="user-chip"><%= user.role %></span>
+        <form action="/auth/logout" method="POST">
+          <button type="submit" class="button button--ghost">Déconnexion</button>
+        </form>
+      <% } else { %>
+        <a href="/auth/login" class="button button--primary">Connexion</a>
+      <% } %>
+    </div>
+  </div>
+</header>

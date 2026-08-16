@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="cbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#16233B"/>
+    </linearGradient>
+    <linearGradient id="cgold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C9A227"/>
+      <stop offset="1" stop-color="#8A6A1B"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#cbg)"/>
+  <!-- Building under construction -->
+  <g transform="translate(420, 200)">
+    <rect x="0" y="120" width="360" height="380" fill="#1B2A44"/>
+    <rect x="0" y="120" width="360" height="380" fill="none" stroke="#C9A227" stroke-width="2" opacity="0.5"/>
+    <rect x="20" y="150" width="70" height="90" fill="#0E1726"/>
+    <rect x="110" y="150" width="70" height="90" fill="#0E1726"/>
+    <rect x="200" y="150" width="70" height="90" fill="#0E1726"/>
+    <rect x="290" y="150" width="50" height="90" fill="#0E1726"/>
+    <rect x="20" y="260" width="70" height="90" fill="#0E1726"/>
+    <rect x="110" y="260" width="70" height="90" fill="#0E1726"/>
+    <rect x="200" y="260" width="70" height="90" fill="#0E1726"/>
+    <rect x="290" y="260" width="50" height="90" fill="#0E1726"/>
+    <rect x="20" y="370" width="70" height="90" fill="#0E1726"/>
+    <rect x="110" y="370" width="70" height="90" fill="#0E1726"/>
+    <rect x="200" y="370" width="70" height="90" fill="#0E1726"/>
+    <rect x="290" y="370" width="50" height="90" fill="#0E1726"/>
+    <!-- Windows glow -->
+    <g fill="#C9A227" opacity="0.4">
+      <rect x="30" y="160" width="50" height="70"/>
+      <rect x="120" y="160" width="50" height="70"/>
+      <rect x="210" y="160" width="50" height="70"/>
+      <rect x="30" y="270" width="50" height="70"/>
+      <rect x="210" y="270" width="50" height="70"/>
+      <rect x="120" y="380" width="50" height="70"/>
+      <rect x="300" y="380" width="30" height="70"/>
+    </g>
+  </g>
+  <!-- Crane -->
+  <g transform="translate(180, 120)">
+    <rect x="18" y="0" width="16" height="480" fill="#1B2A44"/>
+    <rect x="0" y="0" width="300" height="14" rx="5" fill="#1B2A44"/>
+    <rect x="0" y="0" width="300" height="14" rx="5" fill="none" stroke="#C9A227" stroke-width="1.5" opacity="0.5"/>
+    <line x1="300" y1="7" x2="26" y2="480" stroke="#C9A227" stroke-width="2.5" opacity="0.5"/>
+    <rect x="210" y="14" width="12" height="50" fill="#C9A227" opacity="0.8"/>
+    <rect x="260" y="14" width="12" height="36" fill="#C9A227" opacity="0.8"/>
+  </g>
+  <!-- Second crane small -->
+  <g transform="translate(900, 250)">
+    <rect x="12" y="0" width="12" height="300" fill="#1B2A44"/>
+    <rect x="0" y="0" width="200" height="10" rx="4" fill="#1B2A44"/>
+    <line x1="200" y1="5" x2="18" y2="300" stroke="#C9A227" stroke-width="2" opacity="0.4"/>
+    <rect x="140" y="10" width="10" height="34" fill="#C9A227" opacity="0.7"/>
+  </g>
+  <!-- Ground -->
+  <rect x="0" y="580" width="1200" height="120" fill="#0A0F1A"/>
+  <rect x="0" y="580" width="1200" height="4" fill="#C9A227" opacity="0.3"/>
+</svg>

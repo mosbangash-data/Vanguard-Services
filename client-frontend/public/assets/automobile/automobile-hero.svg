@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="abg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#16233B"/>
+    </linearGradient>
+    <linearGradient id="agold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C9A227"/>
+      <stop offset="1" stop-color="#8A6A1B"/>
+    </linearGradient>
+    <radialGradient id="floor" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#C9A227" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#C9A227" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#abg)"/>
+  <ellipse cx="600" cy="560" rx="420" ry="80" fill="url(#floor)"/>
+  <!-- Car side view -->
+  <g transform="translate(300, 380)">
+    <path d="M30 60 Q30 30 80 30 L180 30 Q230 30 250 60 L280 60 Q300 60 300 75 L300 105 Q300 120 280 120 L260 120 Q260 135 230 135 Q200 135 200 120 L100 120 Q100 135 70 135 Q40 135 40 120 L20 120 Q0 120 0 105 L0 75 Q0 60 30 60 Z" fill="#1B2A44"/>
+    <path d="M30 60 Q30 30 80 30 L180 30 Q230 30 250 60" fill="none" stroke="#C9A227" stroke-width="2.5" opacity="0.7"/>
+    <rect x="60" y="42" width="70" height="24" rx="6" fill="#0E1726"/>
+    <rect x="140" y="42" width="70" height="24" rx="6" fill="#0E1726"/>
+    <circle cx="70" cy="135" r="26" fill="#0A0F1A" stroke="#C9A227" stroke-width="2.5"/>
+    <circle cx="230" cy="135" r="26" fill="#0A0F1A" stroke="#C9A227" stroke-width="2.5"/>
+    <circle cx="70" cy="135" r="12" fill="#2A3A5A"/>
+    <circle cx="230" cy="135" r="12" fill="#2A3A5A"/>
+    <rect x="120" y="70" width="60" height="14" rx="4" fill="#C9A227"/>
+    <text x="150" y="81" text-anchor="middle" font-family="Arial" font-size="10" font-weight="700" fill="#0B1220">VANGUARD</text>
+  </g>
+  <!-- Showroom floor line -->
+  <line x1="100" y1="560" x2="1100" y2="560" stroke="#C9A227" stroke-width="2" opacity="0.4"/>
+  <!-- Light beams -->
+  <g opacity="0.15">
+    <polygon points="200,0 260,0 380,560 320,560" fill="#C9A227"/>
+    <polygon points="900,0 960,0 1080,560 1020,560" fill="#C9A227"/>
+  </g>
+</svg>

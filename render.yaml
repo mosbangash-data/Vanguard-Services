@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: vanguard-services
+    env: node
+    rootDir: .
+    buildCommand: |
+      npm install
+      npm run prisma:generate
+      npm run build
+    startCommand: |
+      npx prisma migrate deploy
+      node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: APP_NAME
+        value: Vanguard Services
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: CORS_ORIGIN
+        sync: false
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: VITE_API_URL
+        value: /api
+      - key: VITE_ADMIN_URL
+        value: /admin/login
+      - key: VITE_PUBLIC_URL
+        value: /
+    healthCheckPath: /health
+    autoDeploy: true
+
+# PostgreSQL is provisioned separately in Render dashboard and should be linked via DATABASE_URL.
+databases:
+  - name: vanguard-services-db
+    databaseName: vanguard_services
+    user: vanguard_services

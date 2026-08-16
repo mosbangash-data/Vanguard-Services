@@ -1,0 +1,1272 @@
+/* ============================================================
+   VANGUARD SERVICES — STYLES DES PAGES PREMIUM
+   ============================================================ */
+
+/* ============ PAGE HERO ============ */
+.page-hero {
+  position: relative;
+  min-height: 40vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding-top: 76px;
+  background-color: var(--color-navy-950);
+}
+
+.page-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.02);
+}
+
+.page-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(7, 12, 24, 0.92) 0%,
+    rgba(7, 12, 24, 0.75) 50%,
+    rgba(7, 12, 24, 0.4) 100%
+  );
+}
+
+.page-hero-content {
+  position: relative;
+  z-index: 2;
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-8);
+}
+
+.page-hero-title {
+  font-size: clamp(2.2rem, 4.5vw, 3.4rem);
+  font-weight: 800;
+  color: var(--color-white);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-3);
+}
+
+.page-hero-subtitle {
+  font-size: 1.15rem;
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+/* ============ NOTICES ============ */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: var(--space-5);
+}
+
+.notice svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.notice-info {
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-border);
+  color: var(--color-navy-800);
+}
+
+.notice-error {
+  background: var(--color-danger-bg);
+  border: 1px solid #FECACA;
+  color: var(--color-danger);
+}
+
+.notice-success {
+  background: var(--color-success-bg);
+  border: 1px solid #BBF7D0;
+  color: var(--color-success);
+}
+
+/* ============ INPUT WITH ICON ============ */
+.input-with-icon {
+  position: relative;
+}
+
+.input-with-icon svg {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-primary);
+  pointer-events: none;
+}
+
+.input-with-icon .form-input {
+  padding-left: 2.75rem;
+}
+
+/* ============ TRANSPORT PAGE ============ */
+.booking-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-lg);
+  margin-top: -60px;
+  position: relative;
+  z-index: 10;
+}
+
+.booking-steps {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-8);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.booking-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-slate-500);
+  white-space: nowrap;
+  opacity: 0.6;
+}
+
+.booking-step-num {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-slate-200);
+  color: var(--color-navy-700);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.booking-step-active {
+  opacity: 1;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.booking-step-active .booking-step-num {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.booking-step-done {
+  opacity: 0.85;
+  color: var(--color-success);
+}
+
+.booking-step-done .booking-step-num {
+  background: var(--color-success);
+  color: var(--color-white);
+}
+
+.booking-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.booking-submit {
+  margin-bottom: var(--space-5);
+}
+
+.booking-results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-slate-200);
+}
+
+.booking-results-header h3 {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--color-navy-800);
+}
+
+/* Trip Card */
+.trip-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.trip-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  background: var(--color-slate-50);
+  border: 1.5px solid var(--color-slate-200);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+}
+
+.trip-card:hover {
+  background: var(--color-white);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.trip-card-route {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex: 1;
+}
+
+.trip-card-city {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trip-card-city-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--color-navy-800);
+  font-size: 1.15rem;
+}
+
+.trip-card-time {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.trip-card-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  max-width: 140px;
+}
+
+.trip-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.trip-card-line-bar {
+  flex: 1;
+  height: 2px;
+  background: var(--color-primary-border);
+}
+
+.trip-card-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.trip-card-price {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.trip-card-seats {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-slate-500);
+}
+
+/* Interactive Seat Selector */
+.seat-selection-container {
+  padding: var(--space-6) 0;
+}
+
+.seat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  max-width: 480px;
+  margin: var(--space-6) auto;
+  padding: var(--space-6);
+  background: var(--color-slate-50);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-xl);
+}
+
+.seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0.85rem 0.5rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 1.5px solid transparent;
+  transition: all var(--transition-fast);
+  background: var(--color-white);
+  cursor: pointer;
+}
+
+.seat-available {
+  border-color: var(--color-slate-300);
+  color: var(--color-navy-700);
+}
+
+.seat-available:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  transform: translateY(-2px);
+}
+
+.seat-occupied {
+  background: var(--color-slate-200);
+  color: var(--color-slate-400);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.seat-selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-white);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  transform: scale(1.04);
+}
+
+.seat-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.seat-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-slate-500);
+}
+
+.seat-legend-box {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+/* Summary Grid */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--space-4);
+  background: var(--color-slate-50);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+}
+
+.summary-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.summary-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-navy-800);
+  font-size: 1.05rem;
+}
+
+.summary-price {
+  color: var(--color-primary);
+  font-size: 1.3rem;
+}
+
+/* Confirmation & Payment */
+.booking-confirmation,
+.form-success {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+}
+
+.confirmation-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-success-bg);
+  border: 2px solid #BBF7D0;
+  color: var(--color-success);
+  border-radius: 50%;
+}
+
+.booking-confirmation h3,
+.form-success h3 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--color-navy-800);
+  margin-bottom: var(--space-2);
+}
+
+.booking-confirmation p,
+.form-success p {
+  color: var(--color-slate-500);
+  margin-bottom: var(--space-5);
+}
+
+.confirmation-code {
+  display: inline-block;
+  padding: var(--space-4) var(--space-8);
+  background: var(--color-primary-light);
+  border: 2px dashed var(--color-primary-border);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  letter-spacing: 0.06em;
+  margin-bottom: var(--space-6);
+}
+
+.payment-section {
+  max-width: 600px;
+  margin: var(--space-8) auto 0;
+  text-align: left;
+  background: var(--color-slate-50);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+}
+
+.payment-section h4 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-navy-800);
+  margin-bottom: var(--space-2);
+}
+
+.payment-note {
+  color: var(--color-slate-500);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-5);
+}
+
+/* ============ CONSTRUCTION PAGE ============ */
+.construction-capabilities {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-6);
+  margin-bottom: var(--space-16);
+}
+
+.capability-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.capability-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.capability-icon {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--color-construction-bg);
+  color: var(--color-construction);
+  margin-bottom: var(--space-4);
+}
+
+.capability-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-navy-800);
+  margin-bottom: var(--space-2);
+}
+
+.capability-desc {
+  color: var(--color-slate-500);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* Projets Publics Construction */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-8);
+}
+
+.project-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.project-card-image {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+}
+
+.project-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+
+.project-card:hover .project-card-image img {
+  transform: scale(1.05);
+}
+
+.project-card-badge {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+}
+
+.project-card-body {
+  padding: var(--space-6);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-card-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-navy-800);
+  margin-bottom: var(--space-2);
+}
+
+.project-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.85rem;
+  color: var(--color-slate-500);
+  margin-bottom: var(--space-4);
+}
+
+.project-card-desc {
+  color: var(--color-slate-500);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin-bottom: var(--space-5);
+  flex: 1;
+}
+
+.project-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-construction);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin-top: auto;
+}
+
+/* Forms Construction */
+.construction-forms-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+  margin-top: var(--space-12);
+}
+
+.construction-form-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-md);
+}
+
+.construction-form-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--color-navy-800);
+  margin-bottom: var(--space-2);
+}
+
+.construction-form-card p {
+  color: var(--color-slate-500);
+  font-size: 0.95rem;
+  margin-bottom: var(--space-6);
+}
+
+/* ============ AUTOMOBILE SHOWROOM ============ */
+.vehicle-filters {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-10);
+  flex-wrap: wrap;
+}
+
+.vehicle-search {
+  position: relative;
+  flex: 1;
+  min-width: 260px;
+}
+
+.vehicle-search svg {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-primary);
+  pointer-events: none;
+}
+
+.vehicle-search .form-input {
+  padding-left: 2.75rem;
+}
+
+.vehicle-filter-select {
+  width: auto;
+  min-width: 180px;
+}
+
+.vehicle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-8);
+}
+
+.vehicle-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-white);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+  text-decoration: none;
+}
+
+.vehicle-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.vehicle-card-image {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+}
+
+.vehicle-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+
+.vehicle-card:hover .vehicle-card-image img {
+  transform: scale(1.06);
+}
+
+.vehicle-card-status {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 2;
+}
+
+.vehicle-card-body {
+  padding: var(--space-6);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.vehicle-card-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--color-navy-800);
+  margin-bottom: var(--space-3);
+}
+
+.vehicle-card-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.vehicle-card-specs span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-slate-500);
+  background: var(--color-slate-50);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+}
+
+.vehicle-card-specs svg {
+  color: var(--color-primary);
+}
+
+.vehicle-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-slate-200);
+}
+
+.vehicle-card-price {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.vehicle-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-navy-700);
+  transition: color var(--transition-fast);
+}
+
+.vehicle-card:hover .vehicle-card-cta {
+  color: var(--color-primary);
+}
+
+/* ============ VEHICLE DETAIL ============ */
+.vehicle-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: var(--space-6);
+  text-decoration: none;
+}
+
+.vehicle-detail-back:hover {
+  text-decoration: underline;
+}
+
+.vehicle-detail-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: var(--space-10);
+  align-items: start;
+}
+
+.vehicle-gallery-main {
+  position: relative;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-slate-200);
+}
+
+.vehicle-gallery-main img {
+  width: 100%;
+  height: 400px;
+  object-fit: cover;
+}
+
+.vehicle-gallery-status {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+}
+
+.vehicle-gallery-thumbs {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  overflow-x: auto;
+}
+
+.vehicle-gallery-thumbs img {
+  width: 100px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.vehicle-gallery-thumbs img:hover {
+  border-color: var(--color-primary);
+}
+
+.vehicle-info-title {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--color-navy-800);
+  margin-bottom: var(--space-2);
+}
+
+.vehicle-info-price {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  margin-bottom: var(--space-6);
+}
+
+.vehicle-specs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.vehicle-spec {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-slate-50);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+}
+
+.vehicle-spec svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.vehicle-spec span {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-navy-800);
+}
+
+.vehicle-spec strong {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.vehicle-info-desc {
+  color: var(--color-slate-500);
+  line-height: 1.7;
+  margin-bottom: var(--space-6);
+}
+
+.vehicle-inquiry {
+  background: var(--color-white);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-md);
+}
+
+.vehicle-inquiry h3 {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--color-navy-800);
+  margin-bottom: var(--space-4);
+}
+
+/* ============ TICKET PAGE (BOARDING PASS) ============ */
+.ticket-page {
+  padding-top: 76px;
+  background: var(--color-slate-50);
+  min-height: 100vh;
+}
+
+.ticket-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: var(--space-6);
+  text-decoration: none;
+}
+
+.ticket-card {
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--color-white);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+}
+
+.ticket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-6) var(--space-8);
+  background: var(--color-navy-900);
+  color: var(--color-white);
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+.ticket-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ticket-brand img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+
+.ticket-brand-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  color: var(--color-white);
+}
+
+.ticket-brand-sub {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: #60A5FA;
+}
+
+.ticket-body {
+  padding: var(--space-8);
+}
+
+.ticket-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-slate-200);
+}
+
+.ticket-city-name {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--color-navy-800);
+}
+
+.ticket-city-time {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.ticket-route-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.ticket-route-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.ticket-route-bar {
+  flex: 1;
+  height: 2px;
+  background: var(--color-primary-border);
+}
+
+.ticket-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.ticket-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-slate-50);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+}
+
+.ticket-info-item svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ticket-info-item span {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-navy-800);
+}
+
+.ticket-info-item strong {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.ticket-qr-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+}
+
+.ticket-qr-code {
+  font-family: monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.ticket-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ============ AGENT PAGE ============ */
+.agent-page {
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 76px;
+  background: var(--color-slate-50);
+}
+
+.agent-card {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--color-white);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-10) var(--space-8);
+  text-align: center;
+  box-shadow: var(--shadow-xl);
+}
+
+.agent-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.agent-title {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--color-navy-800);
+  margin-bottom: var(--space-2);
+}
+
+.agent-message {
+  color: var(--color-slate-500);
+  margin-bottom: var(--space-6);
+  font-size: 1rem;
+}
+
+/* ============ RESPONSIVE PAGES ============ */
+@media (max-width: 1024px) {
+  .booking-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .construction-capabilities {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .project-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .vehicle-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .vehicle-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .booking-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .trip-card-meta {
+    align-items: flex-start;
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .construction-capabilities {
+    grid-template-columns: 1fr;
+  }
+
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .construction-forms-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vehicle-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket-route {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ticket-route-line {
+    width: 100%;
+  }
+}
+
+/* ============ PRINT STYLES ============ */
+@media print {
+  .navbar,
+  .footer,
+  .ticket-back,
+  .ticket-actions {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+  }
+
+  .ticket-card {
+    border: 1px solid black;
+    box-shadow: none;
+  }
+}

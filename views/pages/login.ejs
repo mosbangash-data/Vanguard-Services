@@ -1,0 +1,24 @@
+<div class="auth-shell">
+  <div class="auth-card">
+    <p class="eyebrow">Espace sécurisé</p>
+    <h1>Connexion</h1>
+
+    <% if (error) { %>
+      <div class="alert alert--danger"><%= error %></div>
+    <% } %>
+
+    <form action="/auth/login" method="POST" class="auth-form">
+      <label>
+        <span>Email</span>
+        <input type="email" name="email" placeholder="nom@vanguard.africa" required />
+      </label>
+
+      <label>
+        <span>Mot de passe</span>
+        <input type="password" name="password" placeholder="••••••••" required />
+      </label>
+
+      <button type="submit" class="button button--primary button--full">Se connecter</button>
+    </form>
+  </div>
+</div>

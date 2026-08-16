@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="tcard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16233B"/>
+      <stop offset="1" stop-color="#0B1220"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#tcard)"/>
+  <rect x="0" y="360" width="800" height="140" fill="#0A0F1A"/>
+  <line x1="0" y1="410" x2="800" y2="410" stroke="#C9A227" stroke-width="2.5" stroke-dasharray="30 25" opacity="0.4"/>
+  <g transform="translate(200, 210)">
+    <rect x="0" y="40" width="400" height="110" rx="16" fill="#1B2A44"/>
+    <rect x="0" y="40" width="400" height="110" rx="16" fill="none" stroke="#C9A227" stroke-width="2" opacity="0.6"/>
+    <rect x="12" y="10" width="376" height="48" rx="12" fill="#223452"/>
+    <rect x="24" y="20" width="74" height="28" rx="6" fill="#0E1726"/>
+    <rect x="110" y="20" width="74" height="28" rx="6" fill="#0E1726"/>
+    <rect x="196" y="20" width="74" height="28" rx="6" fill="#0E1726"/>
+    <rect x="282" y="20" width="74" height="28" rx="6" fill="#0E1726"/>
+    <circle cx="70" cy="160" r="30" fill="#0A0F1A" stroke="#C9A227" stroke-width="2"/>
+    <circle cx="330" cy="160" r="30" fill="#0A0F1A" stroke="#C9A227" stroke-width="2"/>
+    <circle cx="70" cy="160" r="13" fill="#2A3A5A"/>
+    <circle cx="330" cy="160" r="13" fill="#2A3A5A"/>
+    <rect x="170" y="70" width="60" height="14" rx="4" fill="#C9A227"/>
+  </g>
+</svg>

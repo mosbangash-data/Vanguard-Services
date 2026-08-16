@@ -1,0 +1,270 @@
+:root {
+  --ticket-bg: #f5f7fb;
+  --ticket-panel: #ffffff;
+  --ticket-primary: #111827;
+  --ticket-accent: #e5e7eb;
+  --ticket-soft: #f3f4f6;
+  --ticket-muted: #4b5563;
+  --ticket-success: #14532d;
+  --ticket-success-bg: #dcfce7;
+  --ticket-border: rgba(17, 24, 39, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.ticket-body {
+  margin: 0;
+  background: var(--ticket-bg);
+  color: var(--ticket-primary);
+  font-family: 'Inter', sans-serif;
+}
+
+.ticket-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.ticket-card {
+  width: min(920px, 100%);
+  background: var(--ticket-panel);
+  border: 1px solid var(--ticket-border);
+  border-radius: 28px;
+  box-shadow: 0 25px 55px rgba(17, 24, 39, 0.12);
+  padding: 28px 28px 18px;
+}
+
+.ticket-header,
+.ticket-meta-grid,
+.ticket-main-grid,
+.ticket-facts-grid,
+.journey-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.ticket-header {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--ticket-accent);
+}
+
+.ticket-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ticket-brand__mark {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--ticket-primary);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+
+.ticket-brand__name {
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.ticket-brand__sub {
+  color: var(--ticket-muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ticket-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+}
+
+.ticket-status-badge--valid {
+  background: var(--ticket-success-bg);
+  color: var(--ticket-success);
+}
+
+.ticket-meta-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 22px;
+}
+
+.meta-label,
+.field-label {
+  color: var(--ticket-muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.meta-value,
+.field-value {
+  font-size: 1rem;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.ticket-main-grid {
+  grid-template-columns: 1.8fr 0.95fr;
+  margin-top: 24px;
+}
+
+.ticket-passenger-block,
+.ticket-qr-block,
+.ticket-journey-block,
+.fact-block {
+  background: var(--ticket-soft);
+  border: 1px solid var(--ticket-accent);
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.section-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ticket-muted);
+  margin-bottom: 14px;
+}
+
+.field-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(17, 24, 39, 0.12);
+}
+
+.field-row:last-child {
+  border-bottom: 0;
+}
+
+.ticket-qr-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.qr-code-wrap {
+  background: #ffffff;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 18px;
+  padding: 16px;
+  min-height: 188px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-code-wrap svg {
+  width: 180px;
+  height: 180px;
+  display: block;
+}
+
+.qr-code-value {
+  margin-top: 12px;
+  font-size: 0.7rem;
+  color: var(--ticket-muted);
+  word-break: break-all;
+}
+
+.ticket-journey-block {
+  margin-top: 20px;
+}
+
+.journey-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ticket-facts-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.ticket-footer {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ticket-accent);
+  color: var(--ticket-muted);
+  font-size: 0.9rem;
+}
+
+.info-line + .info-line {
+  margin-top: 6px;
+}
+
+@media (max-width: 720px) {
+  .ticket-page {
+    padding: 16px;
+  }
+
+  .ticket-card {
+    padding: 18px 16px 14px;
+    border-radius: 18px;
+  }
+
+  .ticket-header,
+  .ticket-meta-grid,
+  .ticket-main-grid,
+  .journey-grid,
+  .ticket-facts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket-brand__name {
+    font-size: 1.3rem;
+  }
+
+  .field-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  .ticket-page {
+    padding: 0;
+    min-height: auto;
+  }
+
+  .ticket-card {
+    width: 100%;
+    box-shadow: none;
+    border-radius: 0;
+    border: 0;
+    margin: 0;
+  }
+}

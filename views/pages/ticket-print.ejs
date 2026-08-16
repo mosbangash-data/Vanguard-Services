@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="stylesheet" href="/css/ticket-print.css" />
+  </head>
+  <body class="ticket-body">
+    <main class="ticket-page">
+      <section class="ticket-card" aria-label="Billet Vanguard Coach">
+        <header class="ticket-header">
+          <div class="ticket-brand">
+            <div class="ticket-brand__mark">V</div>
+            <div>
+              <div class="ticket-brand__name">Vanguard Coach</div>
+              <div class="ticket-brand__sub">Billet électronique</div>
+            </div>
+          </div>
+          <div class="ticket-status-badge ticket-status-badge--valid">
+            <%= ticket.status %>
+          </div>
+        </header>
+
+        <div class="ticket-meta-grid">
+          <div>
+            <div class="meta-label">N° de billet</div>
+            <div class="meta-value"><%= ticket.ticketCode %></div>
+          </div>
+          <div>
+            <div class="meta-label">Série</div>
+            <div class="meta-value"><%= ticket.serialNumber %></div>
+          </div>
+          <div>
+            <div class="meta-label">Réservation</div>
+            <div class="meta-value"><%= ticket.reservationCode %></div>
+          </div>
+        </div>
+
+        <div class="ticket-main-grid">
+          <div class="ticket-passenger-block">
+            <div class="section-title">Passager</div>
+            <div class="field-row">
+              <span class="field-label">Nom</span>
+              <span class="field-value"><%= ticket.customerName %></span>
+            </div>
+            <div class="field-row">
+              <span class="field-label">Téléphone</span>
+              <span class="field-value"><%= ticket.customerPhone %></span>
+            </div>
+            <div class="field-row">
+              <span class="field-label">Email</span>
+              <span class="field-value"><%= ticket.customerEmail || '—' %></span>
+            </div>
+            <div class="field-row">
+              <span class="field-label">Siège</span>
+              <span class="field-value"><%= ticket.seatNumber %></span>
+            </div>
+            <div class="field-row price-row">
+              <span class="field-label"><strong>Prix</strong></span>
+              <span class="field-value price-value"><%= Number(ticket.totalAmount || 0).toFixed(2) %> <%= currency || 'USD' %></span>
+            </div>
+          </div>
+
+          <div class="ticket-qr-block">
+            <div class="section-title">QR Code</div>
+            <div class="qr-code-wrap"><%- ticket.qrSvg %></div>
+            <div class="qr-code-value"><%= ticket.qrCode %></div>
+          </div>
+        </div>
+
+        <div class="ticket-journey-block">
+          <div class="journey-header section-title">Trajet</div>
+          <div class="journey-grid">
+            <div>
+              <div class="meta-label">Départ</div>
+              <div class="meta-value"><%= ticket.departureCity %></div>
+            </div>
+            <div>
+              <div class="meta-label">Arrivée</div>
+              <div class="meta-value"><%= ticket.arrivalCity %></div>
+            </div>
+            <div>
+              <div class="meta-label">Date</div>
+              <div class="meta-value"><%= new Date(ticket.departureAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) %></div>
+            </div>
+            <div>
+              <div class="meta-label">Heure</div>
+              <div class="meta-value"><%= ticket.departureTime %></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ticket-facts-grid">
+          <div class="fact-block">
+            <div class="meta-label">Route</div>
+            <div class="meta-value"><%= ticket.routeCode %></div>
+          </div>
+          <div class="fact-block">
+            <div class="meta-label">Bus</div>
+            <div class="meta-value"><%= ticket.bus && ticket.bus.plateNumber ? ticket.bus.plateNumber : '—' %></div>
+          </div>
+          <div class="fact-block">
+            <div class="meta-label">Statut</div>
+            <div class="meta-value"><%= ticket.status %></div>
+          </div>
+          <div class="fact-block">
+            <div class="meta-label">Impression</div>
+            <div class="meta-value"><%= printType %></div>
+          </div>
+        </div>
+
+        <footer class="ticket-footer">
+          <div class="info-line"><strong>Informations utiles :</strong> Présentez ce billet à l'embarquement et gardez le QR code visible.</div>
+          <div class="info-line">Service Vanguard Coach • Contact: +243 000 000 000</div>
+        </footer>
+      </section>
+    </main>
+  </body>
+</html>

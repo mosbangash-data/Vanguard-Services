@@ -1,0 +1,45 @@
+<div class="container coach-page">
+  <div class="page-header">
+    <div>
+      <p class="eyebrow">Module opérationnel</p>
+      <h1>Vanguard Coach</h1>
+    </div>
+    <a href="/coach" class="button button--primary">Actualiser</a>
+  </div>
+
+  <div class="panel-grid panel-grid--wide">
+    <section class="panel">
+      <h3>Trajets disponibles</h3>
+      <div class="trip-list">
+        <% trips.forEach(function(trip) { %>
+          <article class="trip-card">
+            <div class="trip-card__top">
+              <strong><%= trip.route %></strong>
+              <span class="badge"><%= trip.seats %> places</span>
+            </div>
+            <div class="trip-card__meta">
+              <span>Départ <%= trip.departure %></span>
+              <span>Arrivée <%= trip.arrival %></span>
+            </div>
+            <div class="trip-card__bottom">
+              <strong><%= trip.price %> USD</strong>
+              <button type="button" class="button button--ghost">Réserver</button>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <h3>Actions rapides</h3>
+      <ul class="list list--stacked">
+        <li>Gestion des bus</li>
+        <li>Consultation des horaires</li>
+        <li>Réservation de sièges</li>
+        <li>Validation des paiements</li>
+        <li>Génération de billets</li>
+        <li>Suivi des colis</li>
+      </ul>
+    </aside>
+  </div>
+</div>
