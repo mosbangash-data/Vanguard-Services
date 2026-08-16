@@ -1,8 +1,10 @@
 import axios from 'axios'
 
-// Use an explicit environment variable in production. Falling back to a relative URL
-// keeps the app safe when served behind a reverse proxy or a deployment platform.
-const API_URL = import.meta.env.VITE_API_URL || ''
+// VITE_API_URL may be set to '/api' on the same origin or to an absolute backend origin.
+// Normalizing it prevents requests like /api/api/public/... while still accepting
+// /api-prefixed backend routes.
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim()
+const API_URL = rawApiUrl ? rawApiUrl.replace(/\/+$/, '').replace(/\/api$/, '') : ''
 
 export const apiClient = axios.create({
   baseURL: API_URL,

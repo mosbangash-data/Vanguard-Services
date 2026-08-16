@@ -165,6 +165,7 @@ const adminSpaPredicate = (req) => {
 };
 
 if (process.env.NODE_ENV === 'production') {
+  app.use('/admin/assets', express.static(path.join(adminDistDir, 'assets'), { index: false }));
   app.use('/admin', express.static(adminDistDir, { index: false }));
   app.use('/admin', serveSpaIndex(adminDistDir, adminSpaPredicate));
   app.use(express.static(clientDistDir, { index: false }));
