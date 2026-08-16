@@ -154,7 +154,6 @@ const clientSpaPredicate = (req) => {
     || pathname.startsWith('/contact')
     || pathname.startsWith('/tickets/')
     || pathname.startsWith('/public/')
-    || pathname === '/login';
 };
 
 const adminSpaPredicate = (req) => {
@@ -171,12 +170,6 @@ if (process.env.NODE_ENV === 'production') {
   app.use(serveSpaIndex(clientDistDir, clientSpaPredicate));
 }
 
-app.get('/', (req, res) => {
-  res.json({
-    name: process.env.APP_NAME || 'Vanguard Services',
-    status: 'backend running',
-  });
-});
 
 app.use(notFoundHandler);
 app.use(errorHandler);
