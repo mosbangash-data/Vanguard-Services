@@ -9,6 +9,7 @@ services:
       npm run build
     startCommand: |
       npx prisma migrate deploy
+      npm run prisma:seed
       node src/server.js
     envVars:
       - key: NODE_ENV
