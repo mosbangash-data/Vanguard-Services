@@ -1,8 +1,11 @@
 import axios from 'axios'
 import { getToken, clearSession } from '../features/auth/session'
 
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim()
+const API_URL = rawApiUrl ? rawApiUrl.replace(/\/+$/, '').replace(/\/api$/, '') : ''
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
 })
 
