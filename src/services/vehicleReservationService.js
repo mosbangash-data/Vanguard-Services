@@ -17,7 +17,7 @@ const normalizePage = (value) => {
 };
 
 const enforceReservationOwnership = (currentUser, reservation) => {
-  if (['AGENT', 'SALES_AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
+  if (['AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
     throw new AppError('Access denied', 403);
   }
 };
@@ -62,7 +62,7 @@ const listVehicleReservations = async (query = {}, currentUser) => {
     }
   }
 
-  if (['AGENT', 'SALES_AGENT'].includes(currentUser.role)) {
+  if (['AGENT'].includes(currentUser.role)) {
     where.createdByUserId = currentUser.id;
   }
 
@@ -118,7 +118,7 @@ const createVehicleReservation = async (data, currentUser) => {
   if (!vehicle) throw new AppError('Vehicle not found', 404);
   if (vehicle.status === 'SOLD') throw new AppError('Cannot reserve a sold vehicle', 409);
 
-  if (['AGENT', 'SALES_AGENT'].includes(currentUser.role) && currentUser.id) {
+  if (['AGENT'].includes(currentUser.role) && currentUser.id) {
     // agent ownership is tracked on createdByUserId, so the created reservation remains scoped to the acting agent
   }
 

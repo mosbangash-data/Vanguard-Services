@@ -59,14 +59,14 @@ test.after(async () => {
   await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
 });
 
-test('seeded construction role has correct permissions', async () => {
+test('seeded construction Service Admin has correct permissions', async () => {
   const rolesRes = await request('GET', '/api/roles', null, adminToken);
   assert.equal(rolesRes.status, 200);
-  const constructionRole = rolesRes.data.data.items.find((item) => item.name === 'CONSTRUCTION');
-  assert.ok(constructionRole, 'CONSTRUCTION role should be seeded');
-  assert.ok(constructionRole.permissions.includes('CREATE_CUSTOMER_REQUEST'));
-  assert.ok(constructionRole.permissions.includes('VIEW_PROJECT'));
-  assert.ok(constructionRole.permissions.includes('DELETE_PROJECT'));
+  const serviceAdminRole = rolesRes.data.data.items.find((item) => item.name === 'SERVICE_ADMIN');
+  assert.ok(serviceAdminRole, 'SERVICE_ADMIN role should be seeded');
+  assert.ok(serviceAdminRole.permissions.includes('CREATE_CUSTOMER_REQUEST'));
+  assert.ok(serviceAdminRole.permissions.includes('VIEW_PROJECT'));
+  assert.ok(serviceAdminRole.permissions.includes('DELETE_PROJECT'));
 });
 
 test('construction customer requests and quote requests and projects', async () => {

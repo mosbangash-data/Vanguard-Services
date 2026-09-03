@@ -1,9 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, EyeOff, Lock, User } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Lock, ShieldCheck, User } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
-import vanguardLogo from '../../assets/logos/vanguard-services.png'
+import { Link, useNavigate } from 'react-router-dom'
 import { LanguageProvider } from '../../i18n/LanguageProvider'
 import { useLanguage } from '../../i18n/useLanguage'
 import { login } from './authApi'
@@ -50,48 +49,44 @@ function LoginPageContent() {
 
   return (
     <div className="login-wrapper">
-      <div className="login-container">
-        {/* Brand & Logo Header */}
-        <div className="login-brand">
-          <img
-            src={vanguardLogo}
-            alt="Vanguard Services Logo"
-            className="login-logo"
-          />
-          <h1 className="login-brand-title">VANGUARD SERVICES</h1>
-          <span className="login-brand-subtitle">{t('brandSubtitle')}</span>
-        </div>
-
-        {/* Card Form */}
-        <div className="login-card">
-          <div className="login-card-header">
-            <div>
-              <h2>{t('welcomeTitle')}</h2>
-              <p>{t('welcomeSubtitle')}</p>
+      <div className="login-shell">
+        <section className="login-showcase" aria-label="Vanguard Services">
+          <div className="login-showcase-content">
+            <div className="login-showcase-brand">
+              <ShieldCheck size={34} aria-hidden="true" />
+              <span>VANGUARD SERVICES</span>
             </div>
+            <div>
+              <p className="login-showcase-eyebrow">{t('brandSubtitle')}</p>
+              <h1>{t('welcomeTitle')}</h1>
+              <p className="login-showcase-copy">{t('welcomeSubtitle')}</p>
+            </div>
+            <div className="login-showcase-services" aria-hidden="true">
+              <span>Coach</span>
+              <span>Construction</span>
+              <span>Automobile</span>
+            </div>
+          </div>
+        </section>
 
-            {/* Language Selector FR | EN */}
+        <section className="login-panel">
+          <div className="login-panel-topline">
+            <span className="login-panel-label"><ShieldCheck size={16} /> Administration</span>
             <div className="language-selector" aria-label="Language selector">
-              <button
-                type="button"
-                className={`lang-btn ${lang === 'fr' ? 'active' : ''}`}
-                onClick={() => setLang('fr')}
-              >
-                FR
-              </button>
+              <button type="button" className={`lang-btn ${lang === 'fr' ? 'active' : ''}`} onClick={() => setLang('fr')}>FR</button>
               <span className="lang-divider">|</span>
-              <button
-                type="button"
-                className={`lang-btn ${lang === 'en' ? 'active' : ''}`}
-                onClick={() => setLang('en')}
-              >
-                EN
-              </button>
+              <button type="button" className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
             </div>
           </div>
 
+          <div className="login-panel-heading">
+            <p className="login-panel-eyebrow">Vanguard Services</p>
+            <h2>Connexion</h2>
+            <p>Accédez à votre espace de gestion.</p>
+          </div>
+
           <form className="login-form" onSubmit={handleSubmit(onSubmit)} noValidate>
-            {serverError && <div className="alert alert-danger">{serverError}</div>}
+            {serverError && <div className="alert alert-danger" role="alert">{serverError}</div>}
 
             <div className="form-group">
               <label className="form-label" htmlFor="identifier">
@@ -136,7 +131,6 @@ function LoginPageContent() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? t('hidePassword') : t('showPassword')}
-                  tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -150,13 +144,15 @@ function LoginPageContent() {
 
             <button type="submit" className="login-submit-btn" disabled={isSubmitting}>
               {isSubmitting ? t('submitButtonLoading') : t('submitButton')}
+              {!isSubmitting && <ArrowRight size={18} aria-hidden="true" />}
             </button>
+            <Link to="/admin/forgot-password" className="login-forgot-link">
+              Mot de passe oublié ?
+            </Link>
           </form>
-        </div>
-
-        {/* Footer */}
-        <div className="login-footer">
-          <p>© {new Date().getFullYear()} Vanguard Services. {t('footerCopyright')}</p>
+          <div className="login-footer">
+            <p>© {new Date().getFullYear()} Vanguard Services. {t('footerCopyright')}</p>
+          </div>
         </div>
       </div>
     </div>

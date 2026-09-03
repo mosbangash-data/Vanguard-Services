@@ -18,10 +18,6 @@ const errorHandler = (err, req, res, next) => {
     message: err.message || 'Erreur interne du serveur',
   };
 
-  if (process.env.NODE_ENV !== 'production') {
-    response.stack = err.stack;
-  }
-
   return res.status(statusCode).json(response);
 };
 

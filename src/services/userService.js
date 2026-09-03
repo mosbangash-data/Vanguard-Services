@@ -33,15 +33,18 @@ const assertManageableUser = async (targetUser, currentUser, { creating = false,
   if (currentUser.role === 'SUPER_ADMIN') return;
 
   const departmentIds = await getAccessibleDepartmentIds(currentUser);
-  const targetDepartmentId = requestedDepartmentId || targetUser?.department?.id;
+  const targetDepartmentId = requestedDepartmentId || targetUser?.department?.id || targetUser?.departmentId;
   if (!targetDepartmentId || !departmentIds.includes(targetDepartmentId)) {
     throw new AppError('Access to this department is not allowed', 403);
   }
-  if (targetUser?.role?.name === 'SERVICE_ADMIN' || requestedRole?.name === 'SERVICE_ADMIN') {
-    throw new AppError('SERVICE_ADMIN cannot manage service administrators', 403);
+  if (targetUser?.role?.name === 'SUPER_ADMIN' || targetUser?.role?.name === 'SERVICE_ADMIN' || requestedRole?.name === 'SUPER_ADMIN' || requestedRole?.name === 'SERVICE_ADMIN') {
+    throw new AppError('Department administrators cannot manage other administrators', 403);
   }
-  if (creating && requestedRole?.name !== 'AGENT') {
-    throw new AppError('SERVICE_ADMIN can only create AGENT users', 403);
+  if (creating && !['AGENT', 'MANAGER'].includes(requestedRole?.name)) {
+    throw new AppError('Department administrators can only create departmental staff', 403);
+  }
+  if (creating && requestedRole?.name && !['VANGUARD_COACH'].includes((await prisma.department.findUnique({ where: { id: targetDepartmentId }, select: { type: true } }))?.type)) {
+    throw new AppError('MANAGER and AGENT roles are only available in VANGUARD_COACH', 403);
   }
 };
 
@@ -86,9 +89,18 @@ const listUsers = async (query = {}, currentUser) => {
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
-      include: {
-        role: true,
-        department: true,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        status: true,
+        firstLogin: true,
+        createdAt: true,
+        updatedAt: true,
+        role: { select: { id: true, name: true } },
+        department: { select: { id: true, type: true, name: true } },
       },
     }),
     userRepository.count(where),
@@ -167,7 +179,7 @@ const createUser = async (data, currentUser) => {
 
   await auditService.log('create_user', currentUser.id, { targetUserId: user.id, departmentId: department.id });
 
-  return { user: { id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email, status: user.status, role: user.role.name, department: user.department ? { type: user.department.type, name: user.department.name } : null, temporaryPassword }, firstLogin: true };
+  return { user: { id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email, status: user.status, role: user.role.name, department: user.department ? { type: user.department.type, name: user.department.name } : null }, firstLogin: true };
 };
 
 const updateUser = async (userId, data, currentUser) => {
@@ -227,7 +239,36 @@ const resetUserPassword = async (userId, currentUser) => {
 
   await auditService.log('reset_password', currentUser.id, { targetUserId: userId });
 
-  return { user: { id: updatedUser.id, firstName: updatedUser.firstName, lastName: updatedUser.lastName, email: updatedUser.email, firstLogin: updatedUser.firstLogin, role: updatedUser.role.name, department: updatedUser.department ? { type: updatedUser.department.type, name: updatedUser.department.name } : null, temporaryPassword } };
+  return { user: { id: updatedUser.id, firstName: updatedUser.firstName, lastName: updatedUser.lastName, email: updatedUser.email, firstLogin: updatedUser.firstLogin, role: updatedUser.role.name, department: updatedUser.department ? { type: updatedUser.department.type, name: updatedUser.department.name } : null } };
+};
+
+const deleteUser = async (userId, currentUser) => {
+  if (!currentUser || currentUser.role !== 'SUPER_ADMIN') {
+    throw new AppError('Only SUPER_ADMIN can delete users', 403);
+  }
+
+  const user = await userRepository.findById(userId);
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  if (user.id === currentUser.id) {
+    throw new AppError('Cannot delete your own account', 400);
+  }
+
+  try {
+    await userRepository.deleteUser(userId);
+    await auditService.log('delete_user', currentUser.id, { targetUserId: userId });
+    return { success: true, message: 'User deleted successfully' };
+  } catch (error) {
+    if (error.code === 'P2003' || error.message?.includes('Foreign key constraint')) {
+      // If historical data prevents deletion, deactivate instead of crashing
+      await userRepository.updateUserById(userId, { status: 'INACTIVE' });
+      await auditService.log('deactivate_user_on_delete', currentUser.id, { targetUserId: userId });
+      return { success: true, message: 'User has related records and has been marked INACTIVE' };
+    }
+    throw error;
+  }
 };
 
 module.exports = {
@@ -237,5 +278,6 @@ module.exports = {
   updateUser,
   updateUserStatus,
   resetUserPassword,
+  deleteUser,
   enforceDepartmentAccess,
 };

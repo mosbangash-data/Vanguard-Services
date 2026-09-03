@@ -3,15 +3,17 @@ const roleRepository = require('./roleRepository');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 
-const VALID_ROLE_NAMES = ['SUPER_ADMIN', 'SERVICE_ADMIN', 'AGENT', 'ENGINEER', 'CONSTRUCTION', 'SALES_AGENT'];
+const VALID_ROLE_NAMES = ['SUPER_ADMIN', 'SERVICE_ADMIN', 'MANAGER', 'AGENT'];
 
 const normalizeRoleName = (value) => {
   const rawName = typeof value === 'string' ? value.trim() : '';
-  if (!rawName) return 'AGENT';
+  if (!rawName) {
+    throw new AppError('Role name is required', 400);
+  }
 
   const upperName = rawName.toUpperCase();
   if (VALID_ROLE_NAMES.includes(upperName)) return upperName;
-  return 'AGENT';
+  throw new AppError('Invalid role name', 400);
 };
 
 const normalizePage = (value) => {

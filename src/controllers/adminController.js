@@ -202,6 +202,60 @@ const getAuditLogs = async (req, res, next) => {
   }
 };
 
+const getDepartmentSettings = async (req, res, next) => {
+  try {
+    const result = await departmentService.getDepartmentSettings(req.params.id, req.user);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateDepartmentSettings = async (req, res, next) => {
+  try {
+    const result = await departmentService.updateDepartmentSettings(req.params.id, req.body, req.user);
+    return res.status(200).json({ success: true, message: 'Department settings updated successfully', data: result });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const listPaymentMethods = async (req, res, next) => {
+  try {
+    const result = await departmentService.listPaymentMethods(req.params.id, req.user);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const createPaymentMethod = async (req, res, next) => {
+  try {
+    const result = await departmentService.createPaymentMethod(req.params.id, req.body, req.user);
+    return res.status(201).json({ success: true, message: 'Payment method created successfully', data: result });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updatePaymentMethod = async (req, res, next) => {
+  try {
+    const result = await departmentService.updatePaymentMethod(req.params.id, req.params.code, req.body, req.user);
+    return res.status(200).json({ success: true, message: 'Payment method updated successfully', data: result });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const deletePaymentMethod = async (req, res, next) => {
+  try {
+    const result = await departmentService.deletePaymentMethod(req.params.id, req.params.code, req.user);
+    return res.status(200).json({ success: true, message: result.message || 'Payment method deleted successfully' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   listUsers,
   getUserById,
@@ -224,5 +278,11 @@ module.exports = {
   createDepartment,
   updateDepartment,
   deleteDepartment,
+  getDepartmentSettings,
+  updateDepartmentSettings,
+  listPaymentMethods,
+  createPaymentMethod,
+  updatePaymentMethod,
+  deletePaymentMethod,
   getAuditLogs,
 };

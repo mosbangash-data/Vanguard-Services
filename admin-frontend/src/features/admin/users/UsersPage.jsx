@@ -100,10 +100,7 @@ export function UsersPage() {
       setIsCreateOpen(false)
       setCreateForm({ firstName: '', lastName: '', email: '', phone: '', roleId: '', departmentId: '' })
       setFormError('')
-      if (data?.data?.user?.temporaryPassword || data?.data?.temporaryPassword) {
-        const pass = data.data.user?.temporaryPassword || data.data.temporaryPassword
-        alert(`Utilisateur créé avec succès !\nMot de passe temporaire : ${pass}`)
-      }
+      alert('Utilisateur créé avec succès. Un parcours sécurisé de définition du mot de passe est requis.')
     },
     onError: (err) => {
       setFormError(err?.response?.data?.message || 'Échec de la création de l’utilisateur.')
@@ -144,9 +141,9 @@ export function UsersPage() {
       const response = await api.patch(`/api/users/${id}/password-reset`, {})
       return response.data
     },
-    onSuccess: (data) => {
-      const newPass = data?.data?.temporaryPassword || data?.data?.newPassword || 'Nouveau mot de passe généré'
-      setTempPassword(newPass)
+    onSuccess: () => {
+      setTempPassword('')
+      alert('Mot de passe réinitialisé. Un parcours sécurisé de définition du mot de passe est requis.')
     },
     onError: (err) => {
       alert(err?.response?.data?.message || 'Échec de la réinitialisation du mot de passe.')

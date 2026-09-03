@@ -7,7 +7,7 @@ import { hasPermission } from '../../auth/permissions'
 
 const inquiryStatuses = ['NEW', 'CONTACTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'CONVERTED', 'RESOLVED', 'CLOSED']
 const listItems = (payload) => Array.isArray(payload) ? payload : (payload?.items || payload?.data?.items || payload?.data || [])
-const isAgentUser = (user) => ['AGENT', 'SALES_AGENT'].includes(user?.role)
+const isAgentUser = (user) => ['AGENT'].includes(user?.role)
 const isOperationalAutoSalesUser = (user) => isAgentUser(user) || user?.role === 'SERVICE_ADMIN' || user?.role === 'SUPER_ADMIN'
 
 async function fetchAutoSalesDepartment() {
@@ -100,14 +100,11 @@ export function AutoSalesAgentManagementPage() {
         departmentId: autoSalesDepartment.id,
       })
     },
-    onSuccess: (response) => {
-      const tempPassword = response?.data?.data?.user?.temporaryPassword || response?.data?.temporaryPassword
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autosales-agents'] })
       setForm({ firstName: '', lastName: '', email: '', phone: '' })
       setError('')
-      if (tempPassword) {
-        window.alert(`Agent créé. Mot de passe temporaire : ${tempPassword}`)
-      }
+      window.alert('Agent créé. Un parcours sécurisé de définition du mot de passe est requis.')
     },
     onError: (err) => {
       setError(err?.response?.data?.message || 'Échec de la création de l’agent.')

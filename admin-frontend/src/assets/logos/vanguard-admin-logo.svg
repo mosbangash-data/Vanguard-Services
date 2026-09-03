@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 50" width="100%" height="100%">
+  <defs>
+    <linearGradient id="shieldGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5A93C"/>
+      <stop offset="100%" stop-color="#C2871A"/>
+    </linearGradient>
+    <linearGradient id="shieldNavy" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Shield & Monogram Icon -->
+  <g transform="translate(4, 4)">
+    <!-- Outer Shield Contour -->
+    <path d="M 21 0 L 38 7 L 38 24 C 38 33 28 40 21 42 C 14 40 4 33 4 24 L 4 7 Z" fill="#0F172A" stroke="#334155" stroke-width="1.5" stroke-linejoin="round"/>
+    <!-- Inner Navy Facets -->
+    <path d="M 21 3 L 35 9 L 35 23 C 35 30 27 36 21 38 C 15 36 7 30 7 23 Z" fill="#1E293B"/>
+    <!-- Gold V Monogram Inner Crest -->
+    <path d="M 21 11 L 30 18 L 26 22 L 21 18 L 16 22 L 12 18 Z" fill="url(#shieldGold)"/>
+    <path d="M 21 21 L 28 27 L 21 35 L 14 27 Z" fill="url(#shieldGold)"/>
+    <path d="M 21 24 L 25 28 L 21 32 L 17 28 Z" fill="#0F172A"/>
+    <!-- Center Dividing Accent -->
+    <line x1="21" y1="4" x2="21" y2="38" stroke="#E5A93C" stroke-width="1" opacity="0.6"/>
+  </g>
+
+  <!-- Typography -->
+  <g transform="translate(54, 12)">
+    <text x="0" y="16" font-family="'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif" font-weight="800" font-size="15" fill="#FFFFFF" letter-spacing="0.06em">VANGUARD</text>
+    <text x="96" y="16" font-family="'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif" font-weight="700" font-size="15" fill="#E5A93C" letter-spacing="0.06em">SERVICES</text>
+    <text x="0" y="30" font-family="'Inter', -apple-system, sans-serif" font-weight="600" font-size="8.5" fill="#94A3B8" letter-spacing="0.16em">ADMINISTRATION CONSOLE</text>
+  </g>
+</svg>

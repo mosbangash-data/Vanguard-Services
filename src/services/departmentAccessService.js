@@ -19,6 +19,20 @@ const requireCoachAdmin = (user) => {
   }
 };
 
+const requireAutomobileAdmin = (user) => {
+  requireDepartmentType(user, 'AUTO_SALES');
+  if (!['SUPER_ADMIN', 'SERVICE_ADMIN'].includes(user.role)) {
+    throw new AppError('Access denied', 403);
+  }
+};
+
+const requireConstructionAdmin = (user) => {
+  requireDepartmentType(user, 'CONSTRUCTION');
+  if (!['SUPER_ADMIN', 'SERVICE_ADMIN'].includes(user.role)) {
+    throw new AppError('Access denied', 403);
+  }
+};
+
 const getScopedDepartmentId = async (user, requestedDepartmentId, departmentType) => {
   requireDepartmentType(user, departmentType);
 
@@ -59,6 +73,8 @@ module.exports = {
   requireAuthenticatedUser,
   requireDepartmentType,
   requireCoachAdmin,
+  requireAutomobileAdmin,
+  requireConstructionAdmin,
   getScopedDepartmentId,
   assertDepartmentIdForUser,
 };

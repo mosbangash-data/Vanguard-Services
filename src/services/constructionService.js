@@ -10,13 +10,8 @@ const assertConstructionAccess = (currentUser) => {
   }
 };
 
-const isEngineer = (currentUser) => currentUser?.role === 'ENGINEER';
-
 const assertProjectAccess = async (project, currentUser) => {
   if (currentUser.role !== 'SUPER_ADMIN' && project.department?.type !== currentUser.department.type) {
-    throw new AppError('Access denied', 403);
-  }
-  if (isEngineer(currentUser) && !await constructionRepository.isProjectAssignedToUser(project.id, currentUser.id)) {
     throw new AppError('Access denied', 403);
   }
 };
@@ -332,6 +327,9 @@ const listProjects = async (query = {}, currentUser) => {
   if (query.status) where.status = query.status;
   if (query.publicationStatus) where.publicationStatus = query.publicationStatus;
   if (query.departmentId) where.departmentId = query.departmentId;
+  if (query.isTemplate !== undefined) {
+    where.isTemplate = query.isTemplate === 'true' || query.isTemplate === true;
+  }
   if (query.search) {
     const search = normalizeString(query.search);
     if (search) {
@@ -343,9 +341,7 @@ const listProjects = async (query = {}, currentUser) => {
     }
   }
 
-  if (isEngineer(currentUser)) {
-    where.assignments = { some: { userId: currentUser.id } };
-  } else if (currentUser.role !== 'SUPER_ADMIN') {
+  if (currentUser.role !== 'SUPER_ADMIN') {
     where.department = { type: currentUser.department.type };
   }
 
@@ -362,12 +358,6 @@ const getProject = async (projectId, currentUser) => {
   await assertProjectAccess(project, currentUser);
 
   return { project };
-};
-
-const listEngineerProjects = async (query = {}, currentUser) => {
-  assertConstructionAccess(currentUser);
-  if (!isEngineer(currentUser)) throw new AppError('Access denied', 403);
-  return listProjects(query, currentUser);
 };
 
 const createProject = async (data, currentUser) => {
@@ -401,6 +391,7 @@ const createProject = async (data, currentUser) => {
     budget: parseBudget(data.budget),
     status: normalizeString(data.status) || 'DRAFT',
     publicationStatus: normalizeString(data.publicationStatus) || 'DRAFT',
+    isTemplate: data.isTemplate !== undefined ? Boolean(data.isTemplate) : false,
   };
 
   const project = await constructionRepository.createProject(projectPayload);
@@ -425,6 +416,7 @@ const updateProject = async (projectId, data, currentUser) => {
   if (data.budget !== undefined) updatePayload.budget = parseBudget(data.budget);
   if (data.status !== undefined) updatePayload.status = normalizeString(data.status);
   if (data.publicationStatus !== undefined) updatePayload.publicationStatus = normalizeString(data.publicationStatus);
+  if (data.isTemplate !== undefined) updatePayload.isTemplate = Boolean(data.isTemplate);
   if (data.departmentId !== undefined) {
     const newDepartmentId = data.departmentId ? String(data.departmentId).trim() : null;
     if (currentUser.role !== 'SUPER_ADMIN' && newDepartmentId) {
@@ -468,7 +460,7 @@ const listProjectUpdates = async (query = {}, currentUser) => {
   assertConstructionAccess(currentUser);
   if (!currentUser.permissions.includes('VIEW_PROJECT')) throw new AppError('Insufficient permissions', 403);
 
-  if (isEngineer(currentUser) && query.projectId) {
+  if (currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SERVICE_ADMIN' && query.projectId) {
     const project = await constructionRepository.getProjectById(query.projectId);
     if (!project) throw new AppError('Project not found', 404);
     await assertProjectAccess(project, currentUser);
@@ -485,9 +477,7 @@ const listProjectUpdates = async (query = {}, currentUser) => {
     if (search) where.OR = [ { title: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } } ];
   }
 
-  if (isEngineer(currentUser)) {
-    where.project = { assignments: { some: { userId: currentUser.id } } };
-  } else if (currentUser.role !== 'SUPER_ADMIN') {
+  if (currentUser.role !== 'SUPER_ADMIN') {
     where.project = { department: { type: currentUser.department.type } };
   }
 
@@ -567,7 +557,7 @@ const listProjectGallery = async (query = {}, currentUser) => {
   assertConstructionAccess(currentUser);
   if (!currentUser.permissions.includes('VIEW_PROJECT')) throw new AppError('Insufficient permissions', 403);
 
-  if (isEngineer(currentUser) && query.projectId) {
+  if (currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SERVICE_ADMIN' && query.projectId) {
     const project = await constructionRepository.getProjectById(query.projectId);
     if (!project) throw new AppError('Project not found', 404);
     await assertProjectAccess(project, currentUser);
@@ -580,9 +570,7 @@ const listProjectGallery = async (query = {}, currentUser) => {
   const where = {};
   if (query.projectId) where.projectId = query.projectId;
 
-  if (isEngineer(currentUser)) {
-    where.project = { assignments: { some: { userId: currentUser.id } } };
-  } else if (currentUser.role !== 'SUPER_ADMIN') {
+  if (currentUser.role !== 'SUPER_ADMIN') {
     where.project = { department: { type: currentUser.department.type } };
   }
 
@@ -698,7 +686,6 @@ module.exports = {
   createQuoteRequest,
   updateQuoteRequest,
   listProjects,
-  listEngineerProjects,
   getProject,
   createProject,
   updateProject,

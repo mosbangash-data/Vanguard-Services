@@ -17,7 +17,7 @@ const assertAutoSalesAccess = (currentUser) => {
 const normalizeMethod = (value) => (typeof value === 'string' ? value.trim().toUpperCase() : '');
 
 const enforcePaymentOwnership = (currentUser, payment) => {
-  if (['AGENT', 'SALES_AGENT'].includes(currentUser.role) && payment.vehicleReservation?.createdByUserId !== currentUser.id) {
+  if (['AGENT'].includes(currentUser.role) && payment.vehicleReservation?.createdByUserId !== currentUser.id) {
     throw new AppError('Access denied', 403);
   }
 };
@@ -95,7 +95,7 @@ const createVehiclePayment = async (data, currentUser) => {
   if (!RESERVATION_ACCEPTED_STATUSES.includes(reservation.status)) {
     throw new AppError('Vehicle reservation is not in a payable state', 409);
   }
-  if (['AGENT', 'SALES_AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
+  if (['AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
     throw new AppError('Access denied', 403);
   }
 
@@ -147,7 +147,7 @@ const listVehiclePayments = async (reservationId, currentUser) => {
   if (!currentUser.permissions.includes('VIEW_RESERVATION')) throw new AppError('Insufficient permissions', 403);
 
   const reservation = await getReservationWithVehicle(reservationId);
-  if (['AGENT', 'SALES_AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
+  if (['AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
     throw new AppError('Access denied', 403);
   }
 
@@ -196,7 +196,7 @@ const updateVehiclePayment = async (paymentId, data, currentUser) => {
   if (!RESERVATION_ACCEPTED_STATUSES.includes(reservation.status)) {
     throw new AppError('Vehicle reservation is not in a payable state', 409);
   }
-  if (['AGENT', 'SALES_AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
+  if (['AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
     throw new AppError('Access denied', 403);
   }
 
@@ -272,7 +272,7 @@ const validateVehiclePayment = async (paymentId, currentUser) => {
   if (!RESERVATION_ACCEPTED_STATUSES.includes(reservation.status)) {
     throw new AppError('Vehicle reservation is not in a payable state', 409);
   }
-  if (['AGENT', 'SALES_AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
+  if (['AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
     throw new AppError('Access denied', 403);
   }
 

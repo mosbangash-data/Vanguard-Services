@@ -39,13 +39,13 @@ const reservationPaymentRoutes = require('./routes/reservationPayments');
 const constructionCustomerRequestsRoutes = require('./routes/constructionCustomerRequests');
 const constructionQuoteRequestsRoutes = require('./routes/constructionQuoteRequests');
 const constructionProjectsRoutes = require('./routes/constructionProjects');
-const constructionEngineerRoutes = require('./routes/constructionEngineer');
 const constructionProjectUpdatesRoutes = require('./routes/constructionProjectUpdates');
 const constructionProjectGalleryRoutes = require('./routes/constructionProjectGallery');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const adminMediaRoutes = require('./routes/adminMedia');
 const publicRoutes = require('./routes/public');
+const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 
@@ -134,7 +134,6 @@ app.use('/api/reservation-payments', reservationPaymentRoutes);
 app.use('/api/construction/customer-requests', constructionCustomerRequestsRoutes);
 app.use('/api/construction/quote-requests', constructionQuoteRequestsRoutes);
 app.use('/api/construction/projects', constructionProjectsRoutes);
-app.use('/api/construction/engineer', constructionEngineerRoutes);
 app.use('/api/construction/projects/:projectId/updates', constructionProjectUpdatesRoutes);
 app.use('/api/construction/projects/:projectId/gallery', constructionProjectGalleryRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -143,6 +142,7 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/media', adminMediaRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 const clientSpaPredicate = (req) => {
   const pathname = decodeURIComponent(req.path || '/');

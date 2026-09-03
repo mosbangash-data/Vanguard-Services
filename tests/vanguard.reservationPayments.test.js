@@ -210,7 +210,7 @@ test('permissions enforce coach department and manage reservation payment rights
     password: 'Password123!',
     firstName: 'Coach',
     lastName: 'User',
-    roleName: 'SALES_AGENT',
+    roleName: 'SERVICE_ADMIN',
     departmentType: 'VANGUARD_COACH',
     permissions: ['MANAGE_RESERVATION_PAYMENT', 'VIEW_RESERVATION'],
   });
@@ -231,7 +231,7 @@ test('permissions enforce coach department and manage reservation payment rights
     password: 'Password123!',
     firstName: 'Outsider',
     lastName: 'User',
-    roleName: 'SALES_AGENT',
+    roleName: 'SERVICE_ADMIN',
     departmentType: 'AUTO_SALES',
     permissions: ['MANAGE_RESERVATION_PAYMENT', 'VIEW_RESERVATION'],
   });

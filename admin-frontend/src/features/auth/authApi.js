@@ -14,3 +14,15 @@ export async function getCurrentUser() {
   if (!response.data?.success || !response.data?.data?.user) throw new Error('Session invalide')
   return response.data.data
 }
+
+export async function requestPasswordReset(email) {
+  const response = await api.post('/api/auth/forgot-password', { email })
+  if (!response.data?.success) throw new Error('Password reset request failed')
+  return response.data
+}
+
+export async function resetPassword({ token, newPassword, confirmPassword }) {
+  const response = await api.post('/api/auth/reset-password', { token, newPassword, confirmPassword })
+  if (!response.data?.success) throw new Error('Password reset failed')
+  return response.data
+}

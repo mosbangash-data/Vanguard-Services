@@ -1,7 +1,7 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 
-const ACTIVE_AGENT_ROLES = ['AGENT', 'SALES_AGENT'];
+const ACTIVE_AGENT_ROLES = ['AGENT'];
 const ACTIVE_ADMIN_ROLES = ['SUPER_ADMIN', 'SERVICE_ADMIN'];
 const CURRENCY_KEYS = ['USD', 'CDF'];
 const REVENUE_STATUSES = ['VERIFIED', 'COMPLETED'];
@@ -25,7 +25,7 @@ const getScopedDepartment = async (currentUser) => {
     return { scope: 'global', departmentId: null, departmentType: null };
   }
 
-  if (currentUser.role === 'SERVICE_ADMIN' || currentUser.role === 'CONSTRUCTION') {
+  if (currentUser.role === 'SERVICE_ADMIN') {
     const departmentType = currentUser.department?.type;
     if (!departmentType) {
       throw new AppError('Access denied', 403);

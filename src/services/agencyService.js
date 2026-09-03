@@ -32,6 +32,8 @@ const listAgencies = async (query = {}, currentUser) => {
         { name: { contains: s, mode: 'insensitive' } },
         { code: { contains: s, mode: 'insensitive' } },
         { address: { contains: s, mode: 'insensitive' } },
+        { city: { contains: s, mode: 'insensitive' } },
+        { managerName: { contains: s, mode: 'insensitive' } },
       ];
     }
   }
@@ -63,6 +65,11 @@ const createAgency = async (data, currentUser) => {
   const departmentId = await getScopedDepartmentId(currentUser, requestedDepartmentId, 'VANGUARD_COACH');
   const address = typeof data?.address === 'string' ? data.address.trim() : null;
   const phone = typeof data?.phone === 'string' ? data.phone.trim() : null;
+  const city = typeof data?.city === 'string' ? data.city.trim() : null;
+  const managerName = typeof data?.managerName === 'string' ? data.managerName.trim() : null;
+  const openingHours = typeof data?.openingHours === 'string' ? data.openingHours.trim() : null;
+  const email = typeof data?.email === 'string' ? data.email.trim() : null;
+  const isActive = data?.isActive !== undefined ? Boolean(data.isActive) : true;
 
   if (!name || !code || !departmentId) {
     throw new AppError('name, code and departmentId are required', 400);
@@ -76,7 +83,20 @@ const createAgency = async (data, currentUser) => {
   const dept = await prisma.department.findUnique({ where: { id: departmentId } });
   if (!dept) throw new AppError('Department not found', 404);
 
-  const agency = await prisma.agency.create({ data: { name, code, departmentId, address, phone } });
+  const agency = await prisma.agency.create({
+    data: {
+      name,
+      code,
+      departmentId,
+      address,
+      phone,
+      city,
+      managerName,
+      openingHours,
+      email,
+      isActive,
+    },
+  });
   await auditService.log('create_agency', currentUser.id, { targetAgencyId: agency.id, name, code });
 
   return { agency };
@@ -93,6 +113,10 @@ const updateAgency = async (agencyId, data, currentUser) => {
   if (data?.name !== undefined) updatePayload.name = typeof data.name === 'string' ? data.name.trim() : agency.name;
   if (data?.address !== undefined) updatePayload.address = typeof data.address === 'string' && data.address.trim() ? data.address.trim() : null;
   if (data?.phone !== undefined) updatePayload.phone = typeof data.phone === 'string' ? data.phone.trim() : null;
+  if (data?.city !== undefined) updatePayload.city = typeof data.city === 'string' ? data.city.trim() : null;
+  if (data?.managerName !== undefined) updatePayload.managerName = typeof data.managerName === 'string' ? data.managerName.trim() : null;
+  if (data?.openingHours !== undefined) updatePayload.openingHours = typeof data.openingHours === 'string' ? data.openingHours.trim() : null;
+  if (data?.email !== undefined) updatePayload.email = typeof data.email === 'string' ? data.email.trim() : null;
   if (data?.isActive !== undefined) updatePayload.isActive = Boolean(data.isActive);
 
   const updated = await prisma.agency.update({ where: { id: agencyId }, data: updatePayload });

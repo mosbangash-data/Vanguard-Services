@@ -3,4 +3,30 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../services/api'
 export function ForbiddenPage() { return <main className="center-page"><h1>403 — Accès refusé</h1><p>Vous n’avez pas les droits nécessaires pour cet espace.</p><Link to="/">Retour</Link></main> }
 export function NotFoundPage() { return <main className="center-page"><h1>Page introuvable</h1><Link to="/">Retour à l’accueil</Link></main> }
-export function PublicTicketPage() { const { ticketCode } = useParams(); const { data, isPending, isError } = useQuery({ queryKey: ['public-ticket', ticketCode], queryFn: async () => (await api.get(`/tickets/${ticketCode}`)).data?.data }); return <main className="public-page"><h1>Billet</h1>{isPending ? <p>Chargement…</p> : isError ? <p>Billet introuvable.</p> : <pre>{JSON.stringify(data, null, 2)}</pre>}</main> }
+export function PublicTicketPage() {
+	const { ticketCode } = useParams()
+	const { data, isPending, isError } = useQuery({
+		queryKey: ['public-ticket', ticketCode],
+		queryFn: async () => (await api.get(`/tickets/${ticketCode}`)).data?.data,
+	})
+	const ticket = data?.ticket
+	const reservation = ticket?.reservation
+	const trip = reservation?.trip
+	const route = trip?.schedule?.route
+
+	return (
+		<main className="public-page">
+			<h1>Billet</h1>
+			{isPending ? <p>Chargement…</p> : isError || !ticket ? <p>Billet introuvable.</p> : (
+				<section className="card" aria-label="Informations du billet">
+					<p><strong>Code billet :</strong> {ticket.ticketCode || '—'}</p>
+					<p><strong>Statut :</strong> {ticket.status || '—'}</p>
+					<p><strong>Passager :</strong> {reservation?.customerName || '—'}</p>
+					<p><strong>Siège :</strong> {reservation?.seatNumber || '—'}</p>
+					<p><strong>Trajet :</strong> {route ? `${route.departureCity || '—'} → ${route.arrivalCity || '—'}` : '—'}</p>
+					<p><strong>Départ :</strong> {trip?.departureAt ? new Date(trip.departureAt).toLocaleString('fr-FR') : '—'}</p>
+				</section>
+			)}
+		</main>
+	)
+}

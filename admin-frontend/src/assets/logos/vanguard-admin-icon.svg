@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="100%" height="100%">
+  <defs>
+    <linearGradient id="iconGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="iconNavy" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0B132B"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Outer Shield Contour -->
+  <path d="M 24 3 L 43 10 L 43 27 C 43 37 32 44 24 46 C 16 44 5 37 5 27 L 5 10 Z" fill="url(#iconNavy)" stroke="#334155" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Inner Facets -->
+  <path d="M 24 6 L 39 12 L 39 26 C 39 34 30 40 24 42 C 18 40 9 34 9 26 L 9 12 Z" fill="#1E293B"/>
+  <!-- Gold V Monogram -->
+  <path d="M 24 14 L 34 22 L 30 26 L 24 22 L 18 26 L 14 22 Z" fill="url(#iconGold)"/>
+  <path d="M 24 25 L 32 32 L 24 41 L 16 32 Z" fill="url(#iconGold)"/>
+  <path d="M 24 29 L 28 33 L 24 37 L 20 33 Z" fill="#0B132B"/>
+  <!-- Center Line -->
+  <line x1="24" y1="7" x2="24" y2="42" stroke="#F59E0B" stroke-width="1.2" opacity="0.75"/>
+</svg>

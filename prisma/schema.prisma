@@ -11,9 +11,6 @@ enum RoleName {
   SERVICE_ADMIN
   MANAGER
   AGENT
-  ENGINEER
-  CONSTRUCTION
-  SALES_AGENT
 }
 
 enum UserStatus {
@@ -72,6 +69,11 @@ enum PaymentStatus {
   VERIFIED
   REJECTED
   COMPLETED
+}
+
+enum PaymentChannel {
+  ONLINE
+  AGENCY
 }
 
 enum BusStatus {
@@ -135,9 +137,16 @@ enum PenaltyType {
 
 enum ParcelStatus {
   REGISTERED
+  PAYMENT_PENDING
+  PAID
+  ACCEPTED
   IN_TRANSIT
-  DELIVERED
+  ARRIVED_AT_AGENCY
+  READY_FOR_PICKUP
+  COLLECTED
   RETURNED
+  CANCELLED
+  DELIVERED
 }
 
 enum ProjectStatus {
@@ -267,12 +276,18 @@ model Agency {
   code         String   @unique
   name         String
   address      String?
+  city         String?
+  managerName  String?
+  openingHours String?
+  email        String?
   phone        String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  originParcels      Parcel[]   @relation("OriginAgency")
+  destinationParcels Parcel[]   @relation("DestinationAgency")
 }
 
 model Driver {
@@ -385,6 +400,10 @@ model User {
   quoteRequests                   QuoteRequest[]
   vehicleReservations             VehicleReservation[]
   projectAssignments              ProjectAssignment[]
+  passwordResetTokens             PasswordResetToken[]
+  receivedParcels                 Parcel[]                         @relation("ReceivedParcels")
+  collectedParcels                ParcelPickup[]                   @relation("CollectedParcels")
+  parcelStatusHistories           ParcelStatusHistory[]            @relation("ParcelStatusChanges")
 }
 
 model Media {
@@ -622,19 +641,24 @@ model ReservationCancellation {
 }
 
 model Payment {
-  id                   String        @id @default(cuid())
+  id                   String         @id @default(cuid())
   reservationId        String?
   vehicleReservationId String?
   parcelId             String?
-  amount               Decimal       @db.Decimal(10, 2)
+  amount               Decimal        @db.Decimal(10, 2)
+  currency             String         @default("USD")
+  channel              PaymentChannel @default(AGENCY)
   method               String
-  status               PaymentStatus @default(PENDING)
+  status               PaymentStatus  @default(PENDING)
+  provider             String?
+  providerTransactionId String?
+  providerReference    String?
   reference            String?
   comment              String?
   validatedById        String?
   validatedAt          DateTime?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   reservation        Reservation?        @relation(fields: [reservationId], references: [id], onDelete: SetNull)
   vehicleReservation VehicleReservation? @relation(fields: [vehicleReservationId], references: [id], onDelete: SetNull)
@@ -643,7 +667,10 @@ model Payment {
 
   @@index([reference])
   @@index([status])
+  @@index([channel])
+  @@index([providerReference])
   @@index([vehicleReservationId])
+  @@index([parcelId])
 }
 
 model Ticket {
@@ -691,25 +718,79 @@ model AuditLog {
 }
 
 model Parcel {
-  id              String       @id @default(cuid())
-  trackingCode    String       @unique
-  senderName      String
-  senderPhone     String
-  recipientName   String
-  recipientPhone  String
-  originCity      String
-  destinationCity String
-  weightKg        Decimal      @db.Decimal(8, 2)
-  volumeM3        Decimal      @db.Decimal(8, 2)
-  amount          Decimal      @db.Decimal(10, 2)
-  status          ParcelStatus @default(REGISTERED)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id                  String                @id @default(cuid())
+  trackingCode        String                @unique
+  senderName          String
+  senderPhone         String
+  senderEmail         String?
+  recipientName       String
+  recipientPhone      String
+  recipientEmail      String?
+  originAgencyId      String?
+  destinationAgencyId String?
+  originCity          String
+  destinationCity     String
+  category            String?               @default("STANDARD")
+  description         String?
+  weightKg            Decimal               @db.Decimal(8, 2)
+  volumeM3            Decimal               @db.Decimal(8, 2)
+  declaredValue       Decimal?              @db.Decimal(10, 2)
+  amount              Decimal               @db.Decimal(10, 2)
+  currency            String                @default("USD")
+  status              ParcelStatus          @default(REGISTERED)
+  receivedByUserId    String?
+  receivedAt          DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
 
-  payments Payment[]
+  originAgency        Agency?               @relation("OriginAgency", fields: [originAgencyId], references: [id], onDelete: SetNull)
+  destinationAgency   Agency?               @relation("DestinationAgency", fields: [destinationAgencyId], references: [id], onDelete: SetNull)
+  receivedBy          User?                 @relation("ReceivedParcels", fields: [receivedByUserId], references: [id], onDelete: SetNull)
+  payments            Payment[]
+  pickup              ParcelPickup?
+  statusHistory       ParcelStatusHistory[]
 
   @@index([trackingCode])
   @@index([status])
+  @@index([originAgencyId])
+  @@index([destinationAgencyId])
+}
+
+model ParcelPickup {
+  id                String   @id @default(cuid())
+  parcelId          String   @unique
+  collectorName     String
+  collectorPhone    String
+  idType            String
+  idNumberEncrypted String
+  idNumberMasked    String
+  pickedUpByUserId  String
+  pickedUpAt        DateTime @default(now())
+  notes             String?
+  createdAt         DateTime @default(now())
+
+  parcel            Parcel   @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  pickedUpBy        User     @relation("CollectedParcels", fields: [pickedUpByUserId], references: [id], onDelete: Restrict)
+
+  @@index([parcelId])
+  @@index([pickedUpByUserId])
+}
+
+model ParcelStatusHistory {
+  id              String        @id @default(cuid())
+  parcelId        String
+  previousStatus  ParcelStatus?
+  newStatus       ParcelStatus
+  changedByUserId String?
+  changedAt       DateTime      @default(now())
+  reason          String?
+  details         Json?
+
+  parcel          Parcel        @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  changedBy       User?         @relation("ParcelStatusChanges", fields: [changedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([parcelId])
+  @@index([changedAt])
 }
 
 model Project {
@@ -722,6 +803,7 @@ model Project {
   budget            Decimal?      @db.Decimal(12, 2)
   status            ProjectStatus @default(DRAFT)
   publicationStatus String        @default("DRAFT")
+  isTemplate        Boolean       @default(false)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
@@ -832,6 +914,7 @@ model Vehicle {
   currency     String        @default("USD")
   status       VehicleStatus @default(AVAILABLE)
   description  String?
+  isTemplate   Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -950,3 +1033,18 @@ model VehicleReservationCancellation {
   vehicleReservation VehicleReservation @relation(fields: [vehicleReservationId], references: [id], onDelete: Cascade)
   cancelledBy        User?              @relation("CancelledVehicleReservations", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
 }
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+

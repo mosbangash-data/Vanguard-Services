@@ -1,14 +1,22 @@
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const userRepository = require('./userRepository');
 const prisma = require('../config/prisma');
+const auditService = require('./auditService');
 const { AppError } = require('../middleware/errorHandler');
 
 const JWT_SECRET = env.jwtSecret;
 const JWT_EXPIRES_IN = env.jwtExpiresIn;
 
 const normalizeIdentifier = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const isRoleDepartmentCompatible = (roleName, departmentType) => (
+  roleName === 'SUPER_ADMIN'
+  || (roleName === 'SERVICE_ADMIN' && ['VANGUARD_COACH', 'CONSTRUCTION', 'AUTO_SALES'].includes(departmentType))
+  || (['MANAGER', 'AGENT'].includes(roleName) && departmentType === 'VANGUARD_COACH')
+);
 
 const resolvePermissionNames = async (user) => {
   const permissionNames = [];
@@ -50,6 +58,7 @@ const buildUserResponse = async (user) => {
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role?.name || null,
+    firstLogin: user.firstLogin ?? false,
     department: user.department
       ? {
           type: user.department.type,
@@ -75,6 +84,10 @@ const login = async ({ identifier, password }) => {
 
   if (user.status !== 'ACTIVE') {
     throw new AppError('User account is inactive', 403);
+  }
+
+  if (!isRoleDepartmentCompatible(user.role.name, user.department?.type)) {
+    throw new AppError('Role is not valid for this department', 403);
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
@@ -186,29 +199,154 @@ const updateUserStatus = async (userId, status) => {
   return { user: buildUserResponse(updatedUser) };
 };
 
-/**
- * @deprecated Administrative password resets should be handled through userService.
- */
-const resetPassword = async (userId, newPassword) => {
-  const existingUser = await userRepository.findById(userId);
-  if (!existingUser) {
+const changePassword = async (userId, data) => {
+  const user = await userRepository.findById(userId);
+  if (!user) {
     throw new AppError('User not found', 404);
   }
+  if (user.status !== 'ACTIVE') {
+    throw new AppError('User account is inactive', 403);
+  }
 
-  if (!newPassword) {
-    throw new AppError('New password is required', 400);
+  const currentPassword = data?.currentPassword || data?.oldPassword;
+  const newPassword = data?.newPassword;
+  const confirmPassword = data?.confirmPassword || data?.confirmNewPassword;
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    throw new AppError('Current password, new password and confirmation are required', 400);
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new AppError('New password and confirmation do not match', 400);
+  }
+
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    throw new AppError('New password must be at least 8 characters long', 400);
+  }
+
+  const isCurrentValid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isCurrentValid) {
+    throw new AppError('Current password is incorrect', 400);
+  }
+
+  const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+  if (isSamePassword) {
+    throw new AppError('New password must be different from current password', 400);
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  const updatedUser = await userRepository.updateUserById(userId, { passwordHash });
+  await userRepository.updateUserById(userId, {
+    passwordHash,
+    firstLogin: false,
+  });
 
-  return { user: buildUserResponse(updatedUser) };
+  await auditService.log('change_password', userId, { targetUserId: userId });
+
+  return { success: true, message: 'Password changed successfully' };
+};
+
+const forgotPassword = async ({ email }) => {
+  const normalizedEmail = (typeof email === 'string' ? email : '').toLowerCase().trim();
+  if (!normalizedEmail) {
+    throw new AppError('Email is required', 400);
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (user && user.status === 'ACTIVE') {
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await prisma.$transaction([
+      prisma.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } }),
+      prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+        },
+      }),
+    ]);
+
+    await auditService.log('forgot_password_requested', user.id, { email: normalizedEmail });
+
+  }
+
+  return {
+    success: true,
+    message: 'If this email is associated with an account, a password reset link has been sent.',
+  };
+};
+
+const resetPasswordWithToken = async (data) => {
+  const rawToken = typeof data?.token === 'string' ? data.token.trim() : '';
+  const newPassword = typeof data?.newPassword === 'string' ? data.newPassword : '';
+  const confirmPassword = typeof data?.confirmPassword === 'string'
+    ? data.confirmPassword
+    : (typeof data?.confirmNewPassword === 'string' ? data.confirmNewPassword : '');
+
+  if (!rawToken || !newPassword || !confirmPassword) {
+    throw new AppError('Token, new password and confirmation are required', 400);
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new AppError('New password and confirmation do not match', 400);
+  }
+
+  if (newPassword.length < 8) {
+    throw new AppError('New password must be at least 8 characters long', 400);
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const tokenRecord = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    include: { user: true },
+  });
+
+  if (!tokenRecord) {
+    throw new AppError('Invalid or expired password reset token', 400);
+  }
+
+  if (tokenRecord.usedAt !== null) {
+    throw new AppError('Password reset token has already been used', 400);
+  }
+
+  if (tokenRecord.expiresAt < new Date()) {
+    throw new AppError('Password reset token has expired', 400);
+  }
+
+  if (tokenRecord.user.status !== 'ACTIVE') {
+    throw new AppError('User account is inactive', 403);
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  await prisma.$transaction([
+    prisma.passwordResetToken.update({
+      where: { id: tokenRecord.id },
+      data: { usedAt: new Date() },
+    }),
+    prisma.user.update({
+      where: { id: tokenRecord.userId },
+      data: {
+        passwordHash,
+        firstLogin: false,
+      },
+    }),
+  ]);
+
+  await auditService.log('reset_password_completed', tokenRecord.userId, { targetUserId: tokenRecord.userId });
+
+  return { success: true, message: 'Password has been reset successfully' };
 };
 
 module.exports = {
   login,
   getUserForAuth,
   getCurrentUser,
+  changePassword,
+  forgotPassword,
+  resetPasswordWithToken,
   createUser,
   updateUser,
   updateUserStatus,

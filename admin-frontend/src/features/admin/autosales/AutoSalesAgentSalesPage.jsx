@@ -7,7 +7,7 @@ import { hasPermission } from '../../auth/permissions'
 import { useLanguage } from '../../../i18n/useLanguage'
 
 const listItems = (payload) => Array.isArray(payload) ? payload : (payload?.items || payload?.data?.items || payload?.data || [])
-const isAgentUser = (user) => ['AGENT', 'SALES_AGENT'].includes(user?.role)
+const isAgentUser = (user) => ['AGENT'].includes(user?.role)
 const formatDate = (value, lang) => {
   if (!value) return '—'
   const date = new Date(value)

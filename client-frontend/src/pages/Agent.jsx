@@ -5,7 +5,7 @@ import { useLanguage } from '../i18n/LanguageProvider'
 // Le login interne de Vanguard Services est hébergé par admin-frontend.
 // En production, il doit être fourni par VITE_ADMIN_URL. Sinon, on utilise un chemin
 // relatif pour éviter tout lien caché vers un host de développement local.
-const ADMIN_URL = import.meta.env.VITE_ADMIN_URL || '/login'
+const ADMIN_URL = import.meta.env.VITE_ADMIN_URL || '/admin/login'
 
 export default function Agent() {
   const { t } = useLanguage()

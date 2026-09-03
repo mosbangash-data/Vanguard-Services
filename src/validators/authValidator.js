@@ -63,9 +63,62 @@ const validatePasswordResetInput = (req, res, next) => {
   return next();
 };
 
+const validateChangePasswordInput = (req, res, next) => {
+  const currentPassword = normalizeString(req.body?.currentPassword || req.body?.oldPassword);
+  const newPassword = normalizeString(req.body?.newPassword);
+  const confirmPassword = normalizeString(req.body?.confirmPassword || req.body?.confirmNewPassword);
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return res.status(400).json({ success: false, message: 'currentPassword, newPassword and confirmation are required' });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ success: false, message: 'newPassword and confirmation do not match' });
+  }
+
+  if (newPassword.length < 8) {
+    return res.status(400).json({ success: false, message: 'newPassword must be at least 8 characters long' });
+  }
+
+  return next();
+};
+
+const validateForgotPasswordInput = (req, res, next) => {
+  const email = normalizeString(req.body?.email);
+
+  if (!email || !EMAIL_REGEX.test(email)) {
+    return res.status(400).json({ success: false, message: 'A valid email is required' });
+  }
+
+  return next();
+};
+
+const validateResetPasswordInput = (req, res, next) => {
+  const token = normalizeString(req.body?.token);
+  const newPassword = normalizeString(req.body?.newPassword);
+  const confirmPassword = normalizeString(req.body?.confirmPassword || req.body?.confirmNewPassword);
+
+  if (!token || !newPassword || !confirmPassword) {
+    return res.status(400).json({ success: false, message: 'token, newPassword and confirmation are required' });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ success: false, message: 'newPassword and confirmation do not match' });
+  }
+
+  if (newPassword.length < 8) {
+    return res.status(400).json({ success: false, message: 'newPassword must be at least 8 characters long' });
+  }
+
+  return next();
+};
+
 module.exports = {
   validateLoginInput,
   validateCreateUserInput,
   validateStatusInput,
   validatePasswordResetInput,
+  validateChangePasswordInput,
+  validateForgotPasswordInput,
+  validateResetPasswordInput,
 };

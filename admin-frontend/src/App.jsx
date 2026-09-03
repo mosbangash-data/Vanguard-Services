@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './features/auth/AuthProvider'
 import { LoginPage } from './features/auth/LoginPage'
+import { PasswordRecoveryPage } from './features/auth/PasswordRecoveryPage'
 import { ForbiddenPage, NotFoundPage, PublicTicketPage } from './components/Pages'
 import { DepartmentRoute, ProtectedRoute, RoleRoute } from './routes/guards'
 import { AppLayout } from './layouts/AppLayout'
@@ -14,6 +15,7 @@ import { PermissionsPage } from './features/admin/permissions/PermissionsPage'
 import { DepartmentsPage } from './features/admin/departments/DepartmentsPage'
 import { AuditLogsPage } from './features/admin/audit/AuditLogsPage'
 import { NotificationsPage } from './features/admin/notifications/NotificationsPage'
+import { AccountPage } from './features/admin/account/AccountPage'
 
 // Other Features & Resources
 import { DashboardPage } from './features/admin/DashboardPage'
@@ -21,13 +23,14 @@ import { ProjectDetailPage } from './features/construction/ProjectDetailPage'
 import { ConstructionDashboardPage } from './features/construction/ConstructionDashboardPage'
 import { ProjectListPage } from './features/construction/ProjectListPage'
 import { ProjectFormPage } from './features/construction/ProjectFormPage'
+import { ConstructionTemplatesPage } from './features/construction/ConstructionTemplatesPage'
 import { CustomerRequestsPage, CustomerRequestDetailPage } from './features/construction/CustomerRequestsPage'
 import { QuoteRequestsPage, QuoteRequestDetailPage } from './features/construction/QuoteRequestsPage'
-import { ConstructionEngineerDashboardPage } from './features/construction/ConstructionEngineerDashboardPage'
-import { ConstructionEngineerProjectsPage } from './features/construction/ConstructionEngineerProjectsPage'
-import { ConstructionEngineerProjectDetailPage } from './features/construction/ConstructionEngineerProjectDetailPage'
 import { ResourcePage } from './features/resources/ResourcePage'
 import { CoachOperationsPage } from './features/admin/coach/CoachOperationsPage'
+import { AgenciesManagementPage } from './features/admin/coach/AgenciesManagementPage'
+import { AgencyDetailPage } from './features/admin/coach/AgencyDetailPage'
+import { TicketScanner } from './features/admin/coach/TicketScanner'
 import { AutoSalesDashboardPage } from './features/admin/autosales/AutoSalesDashboardPage'
 import { AutoSalesAgentManagementPage, AutoSalesAgentWorkspacePage, AutoSalesAgentInquiryPage, AutoSalesAgentInquiryDetailPage } from './features/admin/autosales/AutoSalesAgentWorkspacePage'
 import { AutoSalesAgentReservationsPage } from './features/admin/autosales/AutoSalesAgentReservationsPage'
@@ -35,6 +38,7 @@ import { AutoSalesAgentPaymentsPage } from './features/admin/autosales/AutoSales
 import { AutoSalesAgentSalesPage } from './features/admin/autosales/AutoSalesAgentSalesPage'
 import { AutoSalesInquiryPage, AutoSalesReservationPage, AutoSalesPaymentPage, AutoSalesSalesPage } from './features/admin/autosales/AutoSalesCommercialPages'
 import { VehicleManagementPage, VehicleDetailPage } from './features/admin/autosales/VehicleManagementPage'
+import { VehicleTemplatesPage } from './features/admin/autosales/VehicleTemplatesPage'
 import { resourceByPath, resourceGroups } from './features/resources/resourceConfig'
 
 function ResourceRoute({ path }) {
@@ -47,8 +51,16 @@ function renderDepartmentRoutes({ base, department, title, resources, DashboardC
     <Route key={base} element={<DepartmentRoute department={department} />}>
       <Route element={<AppLayout title={title} navigation={resources} />}>
         <Route path={base} element={<DashboardComponent />} />
+        
+        {/* Transport / Coach dedicated routes */}
+        {department === 'VANGUARD_COACH' && <Route path="/transport/agencies" element={<AgenciesManagementPage />} />}
+        {department === 'VANGUARD_COACH' && <Route path="/transport/agencies/:id" element={<AgencyDetailPage />} />}
+        {department === 'VANGUARD_COACH' && <Route path="/transport/scanner" element={<TicketScanner />} />}
+
+        {/* Automobile dedicated routes */}
         {department === 'AUTO_SALES' && <Route path="/automobile/vehicles" element={<VehicleManagementPage />} />}
         {department === 'AUTO_SALES' && <Route path="/automobile/vehicles/:id" element={<VehicleDetailPage />} />}
+        {department === 'AUTO_SALES' && <Route path="/automobile/templates" element={<VehicleTemplatesPage />} />}
         {department === 'AUTO_SALES' && <Route path="/automobile/inquiries" element={<AutoSalesInquiryPage />} />}
         {department === 'AUTO_SALES' && <Route path="/automobile/reservations" element={<AutoSalesReservationPage />} />}
         {department === 'AUTO_SALES' && <Route path="/automobile/payments" element={<AutoSalesPaymentPage />} />}
@@ -60,19 +72,21 @@ function renderDepartmentRoutes({ base, department, title, resources, DashboardC
         {department === 'AUTO_SALES' && <Route path="/automobile/agent/reservations" element={<AutoSalesAgentReservationsPage />} />}
         {department === 'AUTO_SALES' && <Route path="/automobile/agent/payments" element={<AutoSalesAgentPaymentsPage />} />}
         {department === 'AUTO_SALES' && <Route path="/automobile/agent/sales" element={<AutoSalesAgentSalesPage />} />}
-        {department === 'CONSTRUCTION' && <Route path="/construction/engineer" element={<ConstructionEngineerDashboardPage />} />}
-        {department === 'CONSTRUCTION' && <Route path="/construction/engineer/projects" element={<ConstructionEngineerProjectsPage />} />}
-        {department === 'CONSTRUCTION' && <Route path="/construction/engineer/projects/:id" element={<ConstructionEngineerProjectDetailPage />} />}
+
+        {/* Construction dedicated routes */}
         {department === 'CONSTRUCTION' && <Route path="/construction/projects" element={<ProjectListPage />} />}
         {department === 'CONSTRUCTION' && <Route path="/construction/projects/new" element={<ProjectFormPage />} />}
         {department === 'CONSTRUCTION' && <Route path="/construction/projects/:id/edit" element={<ProjectFormPage />} />}
         {department === 'CONSTRUCTION' && <Route path="/construction/projects/:id" element={<ProjectDetailPage />} />}
         {department === 'CONSTRUCTION' && <Route path="/construction/projects/:id/updates" element={<ProjectDetailPage />} />}
         {department === 'CONSTRUCTION' && <Route path="/construction/projects/:id/gallery" element={<ProjectDetailPage />} />}
+        {department === 'CONSTRUCTION' && <Route path="/construction/templates" element={<ConstructionTemplatesPage />} />}
         {department === 'CONSTRUCTION' && <Route path="/construction/customer-requests" element={<CustomerRequestsPage />} />}
         {department === 'CONSTRUCTION' && <Route path="/construction/customer-requests/:id" element={<CustomerRequestDetailPage />} />}
         {department === 'CONSTRUCTION' && <Route path="/construction/quote-requests" element={<QuoteRequestsPage />} />}
         {department === 'CONSTRUCTION' && <Route path="/construction/quote-requests/:id" element={<QuoteRequestDetailPage />} />}
+
+        {/* Dynamic resource fallback routes */}
         {resources.map((item) => (
           <Route key={item.path} path={item.path} element={<ResourceRoute path={item.path} />} />
         ))}
@@ -87,6 +101,8 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/admin/login" element={<LoginPage />} />
+          <Route path="/admin/forgot-password" element={<PasswordRecoveryPage />} />
+          <Route path="/admin/reset-password" element={<PasswordRecoveryPage />} />
           <Route path="/login" element={<Navigate to="/admin/login" replace />} />
           <Route path="/tickets/:ticketCode" element={<PublicTicketPage />} />
           <Route path="/public/vehicles" element={<ResourceRoute path="/public/vehicles" />} />
@@ -103,6 +119,11 @@ export default function App() {
                 <Route path="/admin/audit" element={<AuditLogsPage />} />
                 <Route path="/admin/notifications" element={<NotificationsPage />} />
               </Route>
+            </Route>
+
+            {/* Common Account & Settings Route */}
+            <Route element={<AdminLayout />}>
+              <Route path="/admin/account" element={<AccountPage />} />
             </Route>
 
             {/* Department Specific Spaces */}

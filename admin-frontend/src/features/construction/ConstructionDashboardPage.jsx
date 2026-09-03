@@ -1,17 +1,33 @@
+import React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate, Link } from 'react-router-dom'
 import {
-  Activity,
-  AlertTriangle,
+  HardHat,
   Building2,
-  ClipboardList,
+  FileSpreadsheet,
   FileText,
-  ImageIcon,
+  Plus,
   RefreshCw,
+  Layers,
+  ArrowRight,
   TrendingUp,
-  Users,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react'
 import { useLanguage } from '../../i18n/useLanguage'
 import { api } from '../../services/api'
+import {
+  PageHeader,
+  StatCard,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
+  StatusBadge,
+  LoadingState,
+  ErrorState,
+} from '../../components/ui'
 
 async function fetchConstructionOverview() {
   const response = await api.get('/api/dashboard/overview')
@@ -24,249 +40,221 @@ const formatNumber = (value, lang = 'fr') => {
   return new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR').format(numeric)
 }
 
-const getStatusLabel = (status, t) => {
-  const labels = {
-    DRAFT: t('dashboard.draft'),
-    PUBLISHED: t('dashboard.published'),
-    ARCHIVED: t('dashboard.archived'),
-    NEW: t('status.new'),
-    IN_PROGRESS: t('status.in_progress'),
-    COMPLETED: t('status.completed'),
-    CANCELLED: t('status.cancelled'),
-    WAITING_FOR_CLIENT: t('dashboard.waitingForClient'),
-    WAITING_CLIENT: t('dashboard.waitingForClient'),
-    CLOSED: t('status.closed'),
-    ACTIVE: t('dashboard.active'),
-    SUSPENDED: t('status.cancelled'),
-  }
-
-  return labels[status] || status?.replace(/_/g, ' ') || '—'
-}
-
-function StatCard({ label, value, sub, icon: Icon, accent = 'default' }) {
-  return (
-    <article className={`stat-card stat-card--${accent}`}>
-      <div className="stat-header">
-        <span>{label}</span>
-        <Icon size={18} className="stat-icon" aria-hidden="true" />
-      </div>
-      <div className="stat-value">{value}</div>
-      {sub && <div className="stat-sub">{sub}</div>}
-    </article>
-  )
-}
-
-function StatusList({ values, t }) {
-  const entries = Object.entries(values || {}).filter(([key]) => key !== 'total')
-  if (!entries.length) return null
-
-  return (
-    <div className="status-grid">
-      {entries.map(([key, count]) => (
-        <div key={key} className="status-item">
-          <span>{getStatusLabel(key, t)}</span>
-          <strong>{formatNumber(count, 'fr')}</strong>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function ActivityList({ items, t }) {
-  if (!items || !items.length) {
-    return <div className="empty-state">{t('dashboard.noActivity')}</div>
-  }
-
-  return (
-    <div className="activity-list">
-      {items.map((item) => {
-        const details = item.details && typeof item.details === 'object' ? JSON.stringify(item.details) : item.details
-        return (
-          <article key={item.id || `${item.action}-${item.createdAt}`} className="activity-item">
-            <div className="activity-topline">
-              <strong>{item.action || t('dashboard.activity')}</strong>
-              <span>{new Date(item.createdAt).toLocaleString()}</span>
-            </div>
-            <div className="activity-meta">
-              {item.actorId ? `${t('dashboard.actor')}: ${item.actorId}` : t('dashboard.system')}
-            </div>
-            {details ? <div className="activity-details">{details}</div> : null}
-          </article>
-        )
-      })}
-    </div>
-  )
-}
-
 export function ConstructionDashboardPage() {
   const { lang, t } = useLanguage()
-  const { data, isPending, isError, error, refetch } = useQuery({
+  const navigate = useNavigate()
+
+  const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['construction-dashboard-overview'],
     queryFn: fetchConstructionOverview,
   })
 
   if (isPending) {
     return (
-      <section className="page">
-        <div className="page-head">
-          <div>
-            <h1>{t('construction.title')}</h1>
-            <p>{t('construction.subtitle')}</p>
-          </div>
-        </div>
-        <div className="dashboard-stats-grid">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div key={index} className="stat-card skeleton-pulse">
-              <div className="stat-header">
-                <div className="skeleton-line" style={{ width: '60%', height: '16px' }} />
-                <div className="skeleton-line" style={{ width: '18px', height: '18px', borderRadius: '50%' }} />
-              </div>
-              <div className="stat-value" style={{ margin: '16px 0 8px' }}>
-                <div className="skeleton-line" style={{ width: '40%', height: '36px' }} />
-              </div>
-              <div className="stat-sub">
-                <div className="skeleton-line" style={{ width: '80%', height: '14px' }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="page vanguard-construction-dashboard">
+        <PageHeader
+          eyebrow="VANGUARD SERVICES · CONSTRUCTION"
+          title="Dashboard Construction"
+          subtitle="Chargement des indicateurs chantiers & devis..."
+        />
+        <LoadingState type="cards" cardCount={4} />
+      </div>
     )
   }
 
   if (isError) {
-    const errorMsg = error?.response?.data?.message || t('dashboard.errorState')
     return (
-      <section className="page">
-        <div className="page-head">
-          <div>
-            <h1>{t('construction.title')}</h1>
-            <p>{t('construction.subtitle')}</p>
-          </div>
-        </div>
-        <div className="state-container">
-          <AlertTriangle size={36} style={{ color: 'var(--color-danger)' }} />
-          <h3 style={{ margin: '12px 0 6px', color: 'var(--color-dark)' }}>{t('dashboard.errorTitle')}</h3>
-          <p style={{ color: 'var(--color-medium-gray)', marginBottom: '16px' }}>{errorMsg}</p>
-          <button type="button" className="button secondary" onClick={() => refetch()}>
-            <RefreshCw size={16} />
-            <span>{t('dashboard.retry')}</span>
-          </button>
-        </div>
-      </section>
+      <div className="page vanguard-construction-dashboard">
+        <PageHeader
+          eyebrow="VANGUARD SERVICES · CONSTRUCTION"
+          title="Dashboard Construction"
+          subtitle="Supervision des chantiers, demandes clients et devis."
+        />
+        <ErrorState
+          title="Impossible de charger le tableau de bord Construction"
+          message={error?.response?.data?.message || 'Une erreur est survenue lors de la récupération des données de construction.'}
+          onRetry={() => refetch()}
+        />
+      </div>
     )
   }
 
   const overview = data || {}
   const construction = overview.construction || {}
-  const recentActivity = overview.recentActivity || []
 
-  const stats = [
-    {
-      label: t('construction.stats.totalProjects'),
-      value: formatNumber(construction.projects?.total || 0, lang),
-      sub: t('construction.stats.totalProjectsSub'),
-      icon: Building2,
-      accent: 'primary',
-    },
-    {
-      label: t('construction.stats.activeProjects'),
-      value: formatNumber(construction.projects?.PUBLISHED || 0, lang),
-      sub: t('construction.stats.activeProjectsSub'),
-      icon: TrendingUp,
-      accent: 'success',
-    },
-    {
-      label: t('construction.stats.completedProjects'),
-      value: formatNumber(construction.projects?.ARCHIVED || 0, lang),
-      sub: t('construction.stats.completedProjectsSub'),
-      icon: ClipboardList,
-      accent: 'secondary',
-    },
-    {
-      label: t('construction.stats.pendingQuoteRequests'),
-      value: formatNumber(construction.quoteRequests?.NEW || 0, lang),
-      sub: t('construction.stats.pendingQuoteRequestsSub'),
-      icon: FileText,
-      accent: 'neutral',
-    },
-  ]
+  const totalProjects = construction.projects?.total || 0
+  const inProgressProjects = construction.projects?.IN_PROGRESS || construction.projects?.PUBLISHED || 0
+  const completedProjects = construction.projects?.COMPLETED || construction.projects?.ARCHIVED || 0
+  const quoteRequestsCount = construction.quoteRequests?.total || construction.quoteRequests?.NEW || 0
 
   return (
-    <section className="page">
-      <div className="page-head">
-        <div>
-          <h1>{t('construction.title')}</h1>
-          <p>{t('construction.subtitle')}</p>
-        </div>
+    <div className="page vanguard-construction-dashboard">
+      <PageHeader
+        eyebrow="VANGUARD SERVICES · CONSTRUCTION & BTP"
+        title="Dashboard Construction"
+        subtitle="Pilotage opérationnel des chantiers, ingénieurs, demandes clients et devis."
+        actions={
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={RefreshCw}
+              loading={isFetching}
+              onClick={() => refetch()}
+            >
+              Actualiser
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Plus}
+              onClick={() => navigate('/construction/projects/new')}
+            >
+              Nouveau Projet
+            </Button>
+          </div>
+        }
+      />
+
+      {/* KPI Cards */}
+      <div className="vanguard-stats-grid">
+        <StatCard
+          title="Total Projets"
+          value={formatNumber(totalProjects, lang)}
+          subtitle="Tous chantiers confondus"
+          icon={Building2}
+          accent="construction"
+          onClick={() => navigate('/construction/projects')}
+        />
+        <StatCard
+          title="Chantiers en Cours"
+          value={formatNumber(inProgressProjects, lang)}
+          subtitle="Projets actifs sur le terrain"
+          icon={TrendingUp}
+          accent="primary"
+          onClick={() => navigate('/construction/projects')}
+        />
+        <StatCard
+          title="Projets Livrés"
+          value={formatNumber(completedProjects, lang)}
+          subtitle="Chantiers finalisés"
+          icon={CheckCircle2}
+          accent="revenue"
+          onClick={() => navigate('/construction/projects')}
+        />
+        <StatCard
+          title="Demandes de Devis"
+          value={formatNumber(quoteRequestsCount, lang)}
+          subtitle="Nouvelles demandes à chiffrer"
+          icon={FileText}
+          accent="warning"
+          onClick={() => navigate('/construction/quote-requests')}
+        />
       </div>
 
-      <div className="dashboard-stats-grid">
-        {stats.map((stat) => (
-          <StatCard key={stat.label} label={stat.label} value={stat.value} sub={stat.sub} icon={stat.icon} accent={stat.accent} />
-        ))}
+      {/* Quick Actions Card */}
+      <Card style={{ marginBottom: '24px' }}>
+        <CardHeader style={{ padding: '14px 20px' }}>
+          <CardTitle style={{ fontSize: '0.95rem' }}>Gestion & Chantiers</CardTitle>
+        </CardHeader>
+        <CardContent style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Building2}
+              onClick={() => navigate('/construction/projects')}
+            >
+              Liste des projets
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Layers}
+              onClick={() => navigate('/construction/templates')}
+            >
+              Projets Templates
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={FileSpreadsheet}
+              onClick={() => navigate('/construction/customer-requests')}
+            >
+              Demandes clients
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={FileText}
+              onClick={() => navigate('/construction/quote-requests')}
+            >
+              Devis & Estimations
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Status Breakdown Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+        {/* Projects Breakdown */}
+        <Card>
+          <CardHeader>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <HardHat size={18} color="#EA580C" />
+                <CardTitle>État des Chantiers</CardTitle>
+              </div>
+              <Link to="/construction/projects" style={{ fontSize: '0.8125rem', color: '#2563EB', fontWeight: 600, textDecoration: 'none' }}>
+                Gérer →
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px' }}>
+                <span style={{ fontSize: '0.84rem', color: '#475569' }}>En cours de réalisation</span>
+                <StatusBadge label={`${inProgressProjects} chantier(s)`} variant="primary" />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px' }}>
+                <span style={{ fontSize: '0.84rem', color: '#475569' }}>Chantiers terminés / livrés</span>
+                <StatusBadge label={`${completedProjects} projet(s)`} variant="success" />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px' }}>
+                <span style={{ fontSize: '0.84rem', color: '#475569' }}>Brouillons / En préparation</span>
+                <StatusBadge label={`${construction.projects?.DRAFT || 0} projet(s)`} variant="neutral" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quotes & Customer Requests */}
+        <Card>
+          <CardHeader>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={18} color="#2563EB" />
+                <CardTitle>Demandes & Devis</CardTitle>
+              </div>
+              <Link to="/construction/quote-requests" style={{ fontSize: '0.8125rem', color: '#2563EB', fontWeight: 600, textDecoration: 'none' }}>
+                Consulter →
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px' }}>
+                <span style={{ fontSize: '0.84rem', color: '#475569' }}>Nouvelles demandes de devis</span>
+                <StatusBadge label={`${quoteRequestsCount} nouvelle(s)`} variant="warning" />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px' }}>
+                <span style={{ fontSize: '0.84rem', color: '#475569' }}>Demandes clients en attente</span>
+                <StatusBadge label="Suivi actif" variant="info" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      <div className="panel-grid two-column">
-        <section className="dashboard-panel">
-          <div className="panel-header">
-            <div className="panel-title-wrap">
-              <Building2 size={18} className="panel-icon" aria-hidden="true" />
-              <h2>{t('construction.projects.title')}</h2>
-            </div>
-          </div>
-          <StatusList values={construction.projects} t={t} />
-        </section>
-
-        <section className="dashboard-panel">
-          <div className="panel-header">
-            <div className="panel-title-wrap">
-              <FileText size={18} className="panel-icon" aria-hidden="true" />
-              <h2>{t('construction.quoteRequests.title')}</h2>
-            </div>
-          </div>
-          <StatusList values={construction.quoteRequests} t={t} />
-        </section>
-      </div>
-
-      <div className="panel-grid two-column">
-        <section className="dashboard-panel">
-          <div className="panel-header">
-            <div className="panel-title-wrap">
-              <Activity size={18} className="panel-icon" aria-hidden="true" />
-              <h2>{t('dashboard.recentActivity')}</h2>
-            </div>
-          </div>
-          <ActivityList items={recentActivity} t={t} />
-        </section>
-
-        <section className="dashboard-panel">
-          <div className="panel-header">
-            <div className="panel-title-wrap">
-              <Users size={18} className="panel-icon" aria-hidden="true" />
-              <h2>{t('construction.quickAccess.title')}</h2>
-            </div>
-          </div>
-          <div className="quick-links-grid">
-            <div className="quick-link-box">
-              <ImageIcon size={18} />
-              <span>{t('construction.quickAccess.gallery')}</span>
-            </div>
-            <div className="quick-link-box">
-              <ClipboardList size={18} />
-              <span>{t('construction.quickAccess.requests')}</span>
-            </div>
-            <div className="quick-link-box">
-              <FileText size={18} />
-              <span>{t('construction.quickAccess.quotes')}</span>
-            </div>
-            <div className="quick-link-box">
-              <Users size={18} />
-              <span>{t('construction.quickAccess.team')}</span>
-            </div>
-          </div>
-        </section>
-      </div>
-    </section>
+    </div>
   )
 }

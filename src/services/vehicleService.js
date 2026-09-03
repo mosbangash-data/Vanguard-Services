@@ -52,6 +52,9 @@ const listVehicles = async (query = {}, currentUser) => {
   const departmentId = await getScopedDepartmentId(currentUser, query.departmentId, 'AUTO_SALES');
   if (departmentId) where.departmentId = departmentId;
   if (query.status) where.status = query.status;
+  if (query.isTemplate !== undefined) {
+    where.isTemplate = query.isTemplate === 'true' || query.isTemplate === true;
+  }
   if (query.search) {
     const search = typeof query.search === 'string' ? query.search.trim() : '';
     if (search) {
@@ -102,6 +105,7 @@ const createVehicle = async (data, currentUser) => {
     throw new AppError('mileage must be a non-negative integer', 400);
   }
   const currency = await resolveVehicleCurrency(departmentId, data?.currency);
+  const isTemplate = data?.isTemplate !== undefined ? Boolean(data.isTemplate) : false;
 
   const vehicle = await vehicleRepository.createVehicle({
     departmentId,
@@ -115,6 +119,7 @@ const createVehicle = async (data, currentUser) => {
     currency,
     color,
     description,
+    isTemplate,
   });
 
   await auditService.log('create_vehicle', currentUser.id, { targetVehicleId: vehicle.id });
@@ -130,6 +135,9 @@ const updateVehicle = async (id, data, currentUser) => {
   await assertDepartmentIdForUser(currentUser, vehicle.departmentId, 'AUTO_SALES');
 
   const updatePayload = {};
+  if (data?.isTemplate !== undefined) {
+    updatePayload.isTemplate = Boolean(data.isTemplate);
+  }
   if (data?.departmentId !== undefined) {
     const departmentId = typeof data.departmentId === 'string' && data.departmentId.trim() ? data.departmentId.trim() : null;
     if (!departmentId) throw new AppError('departmentId must be a valid identifier', 400);
@@ -213,14 +221,16 @@ const deleteVehicle = async (id, currentUser) => {
   if (!vehicle) throw new AppError('Vehicle not found', 404);
   await assertDepartmentIdForUser(currentUser, vehicle.departmentId, 'AUTO_SALES');
 
-  const inquiryCount = await vehicleRepository.countVehicleInquiries(id);
-  if (inquiryCount > 0) {
-    throw new AppError('Cannot delete vehicle with existing inquiries', 409);
-  }
+  if (!vehicle.isTemplate) {
+    const inquiryCount = await vehicleRepository.countVehicleInquiries(id);
+    if (inquiryCount > 0) {
+      throw new AppError('Cannot delete vehicle with existing inquiries', 409);
+    }
 
-  const reservationCount = await vehicleRepository.countVehicleReservations(id);
-  if (reservationCount > 0) {
-    throw new AppError('Cannot delete vehicle with existing reservations', 409);
+    const reservationCount = await vehicleRepository.countVehicleReservations(id);
+    if (reservationCount > 0) {
+      throw new AppError('Cannot delete vehicle with existing reservations', 409);
+    }
   }
 
   await vehicleRepository.deleteVehicle(id);

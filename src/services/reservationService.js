@@ -55,7 +55,7 @@ const createReservation = async (data, currentUser) => {
   if (existing) throw new AppError('Seat already reserved', 409);
 
   const reservationCode = `RSV-${Date.now()}`;
-  const totalAmount = data.totalAmount ?? String(trip.schedule.price ?? '0.00');
+  const totalAmount = String(trip.schedule.price ?? '0.00');
 
   const reservation = await prisma.reservation.create({ data: { reservationCode, tripId, customerName, customerPhone, customerEmail, seatNumber: String(seatNumber), totalAmount, createdByUserId: currentUser.id } });
   await auditService.log('create_reservation', currentUser.id, { targetReservationId: reservation.id });

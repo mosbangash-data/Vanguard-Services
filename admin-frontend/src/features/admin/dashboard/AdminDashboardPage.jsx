@@ -1,23 +1,41 @@
+import React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate, Link } from 'react-router-dom'
 import {
-  Activity,
-  AlertTriangle,
-  Banknote,
+  Users,
+  ShieldCheck,
   Building2,
   Bus,
-  CalendarCheck,
   CarFront,
+  HardHat,
+  Banknote,
   FileText,
+  UserPlus,
+  Plus,
+  ArrowRight,
   RefreshCw,
-  ShieldCheck,
-  Users,
+  Clock,
+  Sparkles,
+  Layers,
+  Settings,
 } from 'lucide-react'
 import { useLanguage } from '../../../i18n/useLanguage'
 import { api } from '../../../services/api'
+import {
+  PageHeader,
+  StatCard,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
+  LoadingState,
+  ErrorState,
+} from '../../../components/ui'
 
 async function fetchDashboardOverview() {
   const response = await api.get('/api/dashboard/overview')
-  return response.data
+  return response.data?.data || response.data
 }
 
 const formatNumber = (value, lang = 'fr') => {
@@ -28,7 +46,7 @@ const formatNumber = (value, lang = 'fr') => {
 
 const formatMoney = (value, currency, lang = 'fr') => {
   const numeric = Number(value || 0)
-  if (!Number.isFinite(numeric)) return 'N/A'
+  if (!Number.isFinite(numeric)) return '0'
 
   if (currency === 'CDF') {
     return `${new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
@@ -43,366 +61,409 @@ const formatMoney = (value, currency, lang = 'fr') => {
   }).format(numeric)}`
 }
 
-const getStatusLabel = (status, t) => {
-  const labels = {
-    SCHEDULED: t('status.scheduled'),
-    IN_PROGRESS: t('status.in_progress'),
-    COMPLETED: t('status.completed'),
-    CANCELLED: t('status.cancelled'),
-    PENDING: t('status.pending'),
-    CONFIRMED: t('status.confirmed'),
-    VALID: t('status.valid'),
-    USED: t('status.used'),
-    VERIFIED: t('status.verified'),
-    REJECTED: t('status.rejected'),
-    AVAILABLE: t('status.available'),
-    RESERVED: t('status.reserved'),
-    SOLD: t('status.sold'),
-    IN_MAINTENANCE: t('status.in_maintenance'),
-    NEW: t('status.new'),
-    CONTACTED: t('status.contacted'),
-    CONVERTED: t('status.converted'),
-    CLOSED: t('status.closed'),
-    DRAFT: t('dashboard.draft'),
-    PUBLISHED: t('dashboard.published'),
-    ARCHIVED: t('dashboard.archived'),
-    WAITING_FOR_CLIENT: t('dashboard.waitingForClient'),
-    WAITING_CLIENT: t('dashboard.waitingForClient'),
-    RESOLVED: t('dashboard.resolved'),
-    EXPIRED: t('dashboard.expired'),
-    OPEN: t('dashboard.open'),
-    ACTIVE: t('dashboard.active'),
-  }
-
-  return labels[status] || status.replace(/_/g, ' ')
-}
-
-const hasAnyData = (value) => {
-  if (typeof value === 'number') return value > 0
-  if (Array.isArray(value)) return value.length > 0
-  if (value && typeof value === 'object') {
-    return Object.values(value).some((entry) => hasAnyData(entry))
-  }
-  return Boolean(value)
-}
-
-const summarizeTotals = (group) => {
-  if (!group || typeof group !== 'object') return 0
-  return Object.entries(group).reduce((sum, [key, value]) => {
-    if (key === 'total') return sum
-    return sum + Number(value || 0)
-  }, 0)
-}
-
-function renderMoneyLine(value, currency, lang, t) {
-  const label = currency === 'CDF' ? 'CDF' : 'USD'
-  const formatted = formatMoney(value || 0, currency, lang)
-  return (
-    <div className="currency-box" key={currency}>
-      <span>{label}</span>
-      <strong>{formatted}</strong>
-    </div>
-  )
-}
-
-function StatCard({ label, value, sub, icon: Icon, accent = 'default' }) {
-  return (
-    <article className={`stat-card stat-card--${accent}`}>
-      <div className="stat-header">
-        <span>{label}</span>
-        <Icon size={18} className="stat-icon" aria-hidden="true" />
-      </div>
-      <div className="stat-value">{value}</div>
-      {sub && <div className="stat-sub">{sub}</div>}
-    </article>
-  )
-}
-
-function StatusList({ values, t }) {
-  const entries = Object.entries(values || {}).filter(([key]) => key !== 'total')
-  if (!entries.length) return null
-
-  return (
-    <div className="status-grid">
-      {entries.map(([key, count]) => (
-        <div key={key} className="status-item">
-          <span>{getStatusLabel(key, t)}</span>
-          <strong>{formatNumber(count, 'fr')}</strong>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function ActivityList({ items, t }) {
-  if (!items || !items.length) {
-    return <div className="empty-state">{t('dashboard.noActivity')}</div>
-  }
-
-  return (
-    <div className="activity-list">
-      {items.map((item) => {
-        const details = item.details && typeof item.details === 'object' ? JSON.stringify(item.details) : item.details
-        return (
-          <article key={item.id || `${item.action}-${item.createdAt}`} className="activity-item">
-            <div className="activity-topline">
-              <strong>{item.action || t('dashboard.activity')}</strong>
-              <span>{new Date(item.createdAt).toLocaleString()}</span>
-            </div>
-            <div className="activity-meta">
-              {item.actorId ? `${t('dashboard.actor')}: ${item.actorId}` : t('dashboard.system')}
-            </div>
-            {details ? <div className="activity-details">{details}</div> : null}
-          </article>
-        )
-      })}
-    </div>
-  )
-}
-
-function DashboardSection({ title, icon: Icon, children, empty, hasData }) {
-  return (
-    <section className="dashboard-panel">
-      <div className="panel-header">
-        <div className="panel-title-wrap">
-          <Icon size={18} className="panel-icon" aria-hidden="true" />
-          <h2>{title}</h2>
-        </div>
-      </div>
-      {hasData ? children : <div className="empty-state">{empty}</div>}
-    </section>
-  )
-}
-
 export function AdminDashboardPage() {
   const { lang, t } = useLanguage()
-  const { data, isPending, isError, error, refetch } = useQuery({
+  const navigate = useNavigate()
+
+  const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['admin-dashboard-overview'],
     queryFn: fetchDashboardOverview,
   })
 
   if (isPending) {
     return (
-      <div className="page">
-        <div className="page-head">
-          <div>
-            <h1>{t('dashboard.globalTitle')}</h1>
-            <p>{t('dashboard.globalSubtitle')}</p>
-          </div>
-        </div>
-        <div className="dashboard-stats-grid">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div key={index} className="stat-card skeleton-pulse">
-              <div className="stat-header">
-                <div className="skeleton-line" style={{ width: '60%', height: '16px' }} />
-                <div className="skeleton-line" style={{ width: '18px', height: '18px', borderRadius: '50%' }} />
-              </div>
-              <div className="stat-value" style={{ margin: '16px 0 8px' }}>
-                <div className="skeleton-line" style={{ width: '40%', height: '36px' }} />
-              </div>
-              <div className="stat-sub">
-                <div className="skeleton-line" style={{ width: '80%', height: '14px' }} />
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="page vanguard-dashboard-page">
+        <PageHeader
+          eyebrow="VANGUARD SERVICES · SUPER ADMIN"
+          title="Tableau de bord Global"
+          subtitle="Chargement des indicateurs de performance de la plateforme..."
+        />
+        <LoadingState type="cards" cardCount={4} />
       </div>
     )
   }
 
   if (isError) {
-    const errorMsg = error?.response?.data?.message || t('dashboard.errorState')
     return (
-      <div className="page">
-        <div className="page-head">
-          <div>
-            <h1>{t('dashboard.globalTitle')}</h1>
-            <p>{t('dashboard.globalSubtitle')}</p>
-          </div>
-        </div>
-        <div className="state-container">
-          <AlertTriangle size={36} style={{ color: 'var(--color-danger)' }} />
-          <h3 style={{ margin: '12px 0 6px', color: 'var(--color-dark)' }}>{t('dashboard.errorTitle')}</h3>
-          <p style={{ color: 'var(--color-medium-gray)', marginBottom: '16px' }}>{errorMsg}</p>
-          <button type="button" className="button secondary" onClick={() => refetch()}>
-            <RefreshCw size={16} />
-            <span>{t('dashboard.retry')}</span>
-          </button>
-        </div>
+      <div className="page vanguard-dashboard-page">
+        <PageHeader
+          eyebrow="VANGUARD SERVICES · SUPER ADMIN"
+          title="Tableau de bord Global"
+          subtitle="Supervision consolidée de l’ensemble des départements Vanguard Services."
+        />
+        <ErrorState
+          title="Impossible de charger le tableau de bord"
+          message={error?.response?.data?.message || 'Une erreur est survenue lors de la récupération des statistiques globales.'}
+          onRetry={() => refetch()}
+        />
       </div>
     )
   }
 
-  const overview = data?.data || data || {}
+  const overview = data || {}
   const global = overview.global || {}
   const transport = overview.transport || {}
   const construction = overview.construction || {}
   const autoSales = overview.autoSales || {}
   const revenue = overview.revenue || { USD: 0, CDF: 0 }
-  const recentActivity = overview.recentActivity || []
-
-  const globalCards = [
-    {
-      label: t('dashboard.activeAgents'),
-      value: formatNumber(global.activeAgents, lang),
-      sub: t('dashboard.globalAgentsSub'),
-      icon: Users,
-      accent: 'primary',
-    },
-    {
-      label: t('dashboard.activeAdmins'),
-      value: formatNumber(global.activeAdmins, lang),
-      sub: t('dashboard.globalAdminsSub'),
-      icon: ShieldCheck,
-      accent: 'primary',
-    },
-    {
-      label: t('dashboard.activeUsers'),
-      value: formatNumber(global.activeUsers, lang),
-      sub: t('dashboard.globalUsersSub'),
-      icon: Users,
-      accent: 'default',
-    },
-    {
-      label: t('dashboard.revenueTotal'),
-      value: formatMoney(revenue.USD || 0, 'USD', lang),
-      sub: formatMoney(revenue.CDF || 0, 'CDF', lang),
-      icon: Banknote,
-      accent: 'revenue',
-    },
-  ]
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <div>
-          <h1>{t('dashboard.globalTitle')}</h1>
-          <p>{t('dashboard.globalSubtitle')}</p>
-        </div>
-        <button type="button" className="button secondary sm" onClick={() => refetch()}>
-          <RefreshCw size={14} />
-          <span>{t('dashboard.refresh')}</span>
-        </button>
+    <div className="page vanguard-dashboard-page">
+      <PageHeader
+        eyebrow="VANGUARD SERVICES · SUPER ADMIN"
+        title="Tableau de bord Global"
+        subtitle="Supervision consolidée et indicateurs clés de tous les départements Vanguard."
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={RefreshCw}
+            loading={isFetching}
+            onClick={() => refetch()}
+          >
+            Actualiser
+          </Button>
+        }
+      />
+
+      {/* 1. Global Performance Metrics (Essential KPIs) */}
+      <div className="vanguard-stats-grid">
+        <StatCard
+          title="Agents Actifs"
+          value={formatNumber(global.activeAgents, lang)}
+          subtitle="Tous départements"
+          icon={Users}
+          accent="primary"
+          onClick={() => navigate('/admin/users')}
+        />
+        <StatCard
+          title="Administrateurs"
+          value={formatNumber(global.activeAdmins, lang)}
+          subtitle="Super Admins & Modules"
+          icon={ShieldCheck}
+          accent="primary"
+          onClick={() => navigate('/admin/users')}
+        />
+        <StatCard
+          title="Revenus (USD)"
+          value={formatMoney(revenue.USD || 0, 'USD', lang)}
+          subtitle="Chiffre d’affaires global"
+          icon={Banknote}
+          accent="revenue"
+        />
+        <StatCard
+          title="Revenus (CDF)"
+          value={formatMoney(revenue.CDF || 0, 'CDF', lang)}
+          subtitle="Chiffre d’affaires en Francs Congolais"
+          icon={Banknote}
+          accent="revenue"
+        />
       </div>
 
-      <div className="dashboard-stats-grid">
-        {globalCards.map((card) => (
-          <StatCard
-            key={card.label}
-            label={card.label}
-            value={card.value}
-            sub={card.sub}
-            icon={card.icon}
-            accent={card.accent}
-          />
-        ))}
+      {/* 2. Quick Actions Bar */}
+      <Card style={{ marginBottom: '24px' }}>
+        <CardHeader style={{ padding: '14px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sparkles size={16} color="#D97706" />
+            <CardTitle style={{ fontSize: '0.95rem' }}>Actions Rapides</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={UserPlus}
+              onClick={() => navigate('/admin/users')}
+            >
+              + Nouvel Utilisateur
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Building2}
+              onClick={() => navigate('/transport/agencies')}
+            >
+              + Nouvelle Agence
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={CarFront}
+              onClick={() => navigate('/automobile/vehicles')}
+            >
+              + Nouveau Véhicule
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={HardHat}
+              onClick={() => navigate('/construction/projects')}
+            >
+              + Nouveau Projet
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={Settings}
+              onClick={() => navigate('/admin/account')}
+            >
+              Mon Compte
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 3. Department Synthesis Cards */}
+      <h2 style={{
+        fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif",
+        fontSize: '1.15rem',
+        fontWeight: 800,
+        color: '#0F172A',
+        margin: '0 0 16px',
+        letterSpacing: '-0.02em'
+      }}>
+        Synthèse des Départements
+      </h2>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '28px' }}>
+        {/* Vanguard Coach Synthesis */}
+        <Card className="vanguard-dept-card vanguard-dept-card--coach">
+          <CardHeader>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                backgroundColor: '#EFF6FF',
+                color: '#2563EB',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Bus size={18} />
+              </div>
+              <div>
+                <CardTitle>Vanguard Coach</CardTitle>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>Transport interurbain & réservations</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '18px' }}>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Réservations</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatNumber(transport.reservations?.total || 0, lang)}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Billets</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatNumber(transport.tickets?.total || 0, lang)}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Voyages planifiés</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatNumber(transport.trips?.total || 0, lang)}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Recettes Coach</span>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatMoney(transport.revenue?.USD || 0, 'USD', lang)}
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              style={{ width: '100%', justifyContent: 'space-between' }}
+              onClick={() => navigate('/transport')}
+            >
+              <span>Accéder au module Coach</span>
+              <ArrowRight size={15} />
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Vanguard Automobile Synthesis */}
+        <Card className="vanguard-dept-card vanguard-dept-card--auto">
+          <CardHeader>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                backgroundColor: '#F0FDF4',
+                color: '#16A34A',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <CarFront size={18} />
+              </div>
+              <div>
+                <CardTitle>Vanguard Automobile</CardTitle>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>Vente de véhicules & réservations</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '18px' }}>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Véhicules en stock</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatNumber(autoSales.vehicles?.total || 0, lang)}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Demandes clients</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatNumber(autoSales.inquiries?.total || 0, lang)}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Réservations</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatNumber(autoSales.reservations?.total || 0, lang)}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Recettes Auto</span>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatMoney(autoSales.revenue?.USD || 0, 'USD', lang)}
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              style={{ width: '100%', justifyContent: 'space-between' }}
+              onClick={() => navigate('/automobile')}
+            >
+              <span>Accéder au module Automobile</span>
+              <ArrowRight size={15} />
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Vanguard Construction Synthesis */}
+        <Card className="vanguard-dept-card vanguard-dept-card--construction">
+          <CardHeader>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                backgroundColor: '#FFF7ED',
+                color: '#EA580C',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <HardHat size={18} />
+              </div>
+              <div>
+                <CardTitle>Vanguard Construction</CardTitle>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>Chantiers, projets & devis</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '18px' }}>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Total Projets</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatNumber(construction.projects?.total || 0, lang)}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>En cours</span>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#EA580C' }}>
+                  {formatNumber(construction.projects?.IN_PROGRESS || 0, lang)}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Demandes de devis</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatNumber(construction.quoteRequests?.total || 0, lang)}
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Terminés</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
+                  {formatNumber(construction.projects?.COMPLETED || 0, lang)}
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              style={{ width: '100%', justifyContent: 'space-between' }}
+              onClick={() => navigate('/construction')}
+            >
+              <span>Accéder au module Construction</span>
+              <ArrowRight size={15} />
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
-      <DashboardSection
-        title={t('dashboard.transportTitle')}
-        icon={Bus}
-        empty={t('dashboard.emptyState')}
-        hasData={hasAnyData(transport)}
-      >
-        <div className="panel-grid">
-          <div className="metric-card">
-            <h3>{t('dashboard.trips')}</h3>
-            <div className="metric-value">{formatNumber(transport.trips?.total || 0, lang)}</div>
-            <StatusList values={transport.trips} t={t} />
-          </div>
-          <div className="metric-card">
-            <h3>{t('dashboard.reservations')}</h3>
-            <div className="metric-value">{formatNumber(transport.reservations?.total || 0, lang)}</div>
-            <StatusList values={transport.reservations} t={t} />
-          </div>
-          <div className="metric-card">
-            <h3>{t('dashboard.tickets')}</h3>
-            <div className="metric-value">{formatNumber(transport.tickets?.total || 0, lang)}</div>
-            <StatusList values={transport.tickets} t={t} />
-          </div>
-          <div className="metric-card">
-            <h3>{t('dashboard.payments')}</h3>
-            <div className="metric-value">{formatNumber(summarizeTotals(transport.payments), lang)}</div>
-            <StatusList values={transport.payments} t={t} />
-          </div>
-        </div>
-        <div className="revenue-boxes">
-          {['USD', 'CDF'].map((currency) => renderMoneyLine(transport.revenue?.[currency], currency, lang, t))}
-        </div>
-      </DashboardSection>
+      {/* 4. Discrete Audit & Activity Callout (Requirement: Do NOT clutter dashboard with a massive log table) */}
+      <Card style={{
+        background: 'linear-gradient(135deg, #0B132B 0%, #1E293B 100%)',
+        color: '#FFFFFF',
+        border: '1px solid rgba(255, 255, 255, 0.1)'
+      }}>
+        <CardContent style={{ padding: '22px 26px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '20px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#F59E0B'
+              }}>
+                <FileText size={22} />
+              </div>
+              <div>
+                <h3 style={{ margin: '0 0 4px', fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>
+                  Audit & Activité Système
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.84rem', color: '#94A3B8' }}>
+                  Consultez le journal complet des événements, connexions et opérations sensibles effectuées sur la plateforme.
+                </p>
+              </div>
+            </div>
 
-      <DashboardSection
-        title={t('dashboard.constructionTitle')}
-        icon={Building2}
-        empty={t('dashboard.emptyState')}
-        hasData={hasAnyData(construction)}
-      >
-        <div className="panel-grid">
-          <div className="metric-card">
-            <h3>{t('dashboard.projects')}</h3>
-            <div className="metric-value">{formatNumber(construction.projects?.total || 0, lang)}</div>
-            <StatusList values={construction.projects} t={t} />
+            <Button
+              variant="secondary"
+              size="md"
+              icon={ArrowRight}
+              onClick={() => navigate('/admin/audit')}
+              style={{
+                backgroundColor: '#FFFFFF',
+                color: '#0F172A',
+                fontWeight: 700
+              }}
+            >
+              Accéder à l’Audit
+            </Button>
           </div>
-          <div className="metric-card">
-            <h3>{t('dashboard.quoteRequests')}</h3>
-            <div className="metric-value">{formatNumber(construction.quoteRequests?.total || 0, lang)}</div>
-            <StatusList values={construction.quoteRequests} t={t} />
-          </div>
-        </div>
-      </DashboardSection>
-
-      <DashboardSection
-        title={t('dashboard.autoSalesTitle')}
-        icon={CarFront}
-        empty={t('dashboard.emptyState')}
-        hasData={hasAnyData(autoSales)}
-      >
-        <div className="panel-grid">
-          <div className="metric-card">
-            <h3>{t('dashboard.vehicles')}</h3>
-            <div className="metric-value">{formatNumber(autoSales.vehicles?.total || 0, lang)}</div>
-            <StatusList values={autoSales.vehicles} t={t} />
-          </div>
-          <div className="metric-card">
-            <h3>{t('dashboard.inquiries')}</h3>
-            <div className="metric-value">{formatNumber(autoSales.inquiries?.total || 0, lang)}</div>
-            <StatusList values={autoSales.inquiries} t={t} />
-          </div>
-          <div className="metric-card">
-            <h3>{t('dashboard.reservations')}</h3>
-            <div className="metric-value">{formatNumber(autoSales.reservations?.total || 0, lang)}</div>
-            <StatusList values={autoSales.reservations} t={t} />
-          </div>
-          <div className="metric-card">
-            <h3>{t('dashboard.payments')}</h3>
-            <div className="metric-value">{formatNumber(summarizeTotals(autoSales.payments), lang)}</div>
-            <StatusList values={autoSales.payments} t={t} />
-          </div>
-        </div>
-        <div className="revenue-boxes">
-          {['USD', 'CDF'].map((currency) => renderMoneyLine(autoSales.revenue?.[currency], currency, lang, t))}
-        </div>
-      </DashboardSection>
-
-      <DashboardSection
-        title={t('dashboard.revenueTitle')}
-        icon={Banknote}
-        empty={t('dashboard.emptyState')}
-        hasData={hasAnyData(revenue)}
-      >
-        <div className="revenue-boxes">
-          {['USD', 'CDF'].map((currency) => renderMoneyLine(revenue?.[currency], currency, lang, t))}
-        </div>
-      </DashboardSection>
-
-      <DashboardSection
-        title={t('dashboard.recentActivityTitle')}
-        icon={Activity}
-        empty={t('dashboard.noActivity')}
-        hasData={recentActivity.length > 0}
-      >
-        <ActivityList items={recentActivity} t={t} />
-      </DashboardSection>
+        </CardContent>
+      </Card>
     </div>
   )
 }

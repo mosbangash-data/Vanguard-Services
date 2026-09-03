@@ -36,7 +36,7 @@ async function main() {
     });
   }
 
-  const roleNames = ['SUPER_ADMIN', 'SERVICE_ADMIN', 'MANAGER', 'AGENT', 'ENGINEER', 'CONSTRUCTION', 'SALES_AGENT'];
+  const roleNames = ['SUPER_ADMIN', 'SERVICE_ADMIN', 'MANAGER', 'AGENT'];
   for (const roleName of roleNames) {
     await prisma.role.upsert({
       where: { name: roleName },
@@ -96,6 +96,16 @@ async function main() {
     'CREATE_DEPARTMENT',
     'UPDATE_DEPARTMENT',
     'DELETE_DEPARTMENT',
+    'CREATE_PARCEL',
+    'VIEW_PARCEL',
+    'UPDATE_PARCEL',
+    'RECEIVE_PARCEL',
+    'CHANGE_PARCEL_STATUS',
+    'VERIFY_PARCEL_PAYMENT',
+    'VIEW_PARCEL_PAYMENT',
+    'COLLECT_PARCEL',
+    'VIEW_IDENTITY_DATA',
+    'PRINT_PARCEL_RECEIPT',
   ];
 
   for (const permissionName of permissions) {
@@ -140,6 +150,7 @@ async function main() {
     'VIEW_PROJECT',
     'UPDATE_PROJECT',
     'DELETE_PROJECT',
+    'CREATE_PROJECT_UPDATE',
     'VIEW_USER',
     'CREATE_USER',
     'UPDATE_USER',
@@ -156,6 +167,16 @@ async function main() {
     'CREATE_DEPARTMENT',
     'UPDATE_DEPARTMENT',
     'DELETE_DEPARTMENT',
+    'CREATE_PARCEL',
+    'VIEW_PARCEL',
+    'UPDATE_PARCEL',
+    'RECEIVE_PARCEL',
+    'CHANGE_PARCEL_STATUS',
+    'VERIFY_PARCEL_PAYMENT',
+    'VIEW_PARCEL_PAYMENT',
+    'COLLECT_PARCEL',
+    'VIEW_IDENTITY_DATA',
+    'PRINT_PARCEL_RECEIPT',
   ];
 
   const constructionPermissionNames = [
@@ -169,36 +190,32 @@ async function main() {
     'VIEW_PROJECT',
     'UPDATE_PROJECT',
     'DELETE_PROJECT',
+    'CREATE_PROJECT_UPDATE',
+    'VIEW_USER',
   ];
 
   const rolePermissions = {
     SUPER_ADMIN: superAdminPermissionNames,
     SERVICE_ADMIN: [
       'CREATE_RESERVATION', 'VIEW_RESERVATION', 'UPDATE_RESERVATION', 'CANCEL_VEHICLE_RESERVATION', 'MANAGE_RESERVATION_PAYMENT',
-      'VIEW_TRIP', 'VIEW_PAYMENT', 'VIEW_OCCUPANCY',
+      'VIEW_TRIP', 'VIEW_PAYMENT', 'VIEW_OCCUPANCY', 'SCAN_TICKET', 'VIEW_TICKET_SCAN',
       'VIEW_VEHICLE', 'CREATE_VEHICLE', 'UPDATE_VEHICLE', 'DELETE_VEHICLE', 'MANAGE_VEHICLE_MEDIA',
       'VIEW_VEHICLE_INQUIRY', 'CREATE_VEHICLE_INQUIRY', 'UPDATE_VEHICLE_INQUIRY', 'ASSIGN_VEHICLE_INQUIRY', 'CLOSE_VEHICLE_INQUIRY', 'MANAGE_VEHICLE_INQUIRY', 'MANAGE_VEHICLE_RESERVATION',
       'CREATE_CUSTOMER_REQUEST', 'VIEW_CUSTOMER_REQUEST', 'UPDATE_CUSTOMER_REQUEST', 'CREATE_QUOTE_REQUEST', 'VIEW_QUOTE_REQUEST', 'UPDATE_QUOTE_REQUEST',
-      'CREATE_PROJECT', 'VIEW_PROJECT', 'UPDATE_PROJECT', 'DELETE_PROJECT',
+      'CREATE_PROJECT', 'VIEW_PROJECT', 'UPDATE_PROJECT', 'DELETE_PROJECT', 'CREATE_PROJECT_UPDATE',
+      'VIEW_USER',
+      'CREATE_PARCEL', 'VIEW_PARCEL', 'UPDATE_PARCEL', 'RECEIVE_PARCEL', 'CHANGE_PARCEL_STATUS', 'VERIFY_PARCEL_PAYMENT', 'VIEW_PARCEL_PAYMENT', 'COLLECT_PARCEL', 'VIEW_IDENTITY_DATA', 'PRINT_PARCEL_RECEIPT',
     ],
     AGENT: [
       'CREATE_RESERVATION', 'VIEW_RESERVATION', 'UPDATE_RESERVATION', 'MANAGE_RESERVATION_PAYMENT',
       'VIEW_TRIP', 'VIEW_PAYMENT', 'SCAN_TICKET', 'VIEW_TICKET_SCAN',
       'VIEW_VEHICLE', 'VIEW_VEHICLE_INQUIRY', 'CREATE_VEHICLE_INQUIRY', 'UPDATE_VEHICLE_INQUIRY',
       'VIEW_CUSTOMER_REQUEST', 'UPDATE_CUSTOMER_REQUEST', 'VIEW_QUOTE_REQUEST',
+      'CREATE_PARCEL', 'VIEW_PARCEL', 'RECEIVE_PARCEL', 'CHANGE_PARCEL_STATUS', 'COLLECT_PARCEL', 'PRINT_PARCEL_RECEIPT',
     ],
     MANAGER: [
-      'VIEW_RESERVATION', 'VIEW_TRIP', 'VIEW_PAYMENT', 'VIEW_OCCUPANCY', 'VIEW_TICKET_SCAN',
-    ],
-    ENGINEER: ['VIEW_PROJECT', 'UPDATE_PROJECT', 'CREATE_PROJECT_UPDATE'],
-    CONSTRUCTION: constructionPermissionNames,
-    SALES_AGENT: [
-      'VIEW_VEHICLE_INQUIRY',
-      'UPDATE_VEHICLE_INQUIRY',
-      'ASSIGN_VEHICLE_INQUIRY',
-      'VIEW_RESERVATION',
-      'MANAGE_VEHICLE_RESERVATION',
-      'CANCEL_VEHICLE_RESERVATION',
+      'VIEW_RESERVATION', 'VIEW_TRIP', 'VIEW_PAYMENT', 'VIEW_OCCUPANCY', 'VIEW_TICKET_SCAN', 'VIEW_USER',
+      'CREATE_PARCEL', 'VIEW_PARCEL', 'UPDATE_PARCEL', 'RECEIVE_PARCEL', 'CHANGE_PARCEL_STATUS', 'VERIFY_PARCEL_PAYMENT', 'VIEW_PARCEL_PAYMENT', 'COLLECT_PARCEL', 'VIEW_IDENTITY_DATA', 'PRINT_PARCEL_RECEIPT',
     ],
   };
 
@@ -220,9 +237,12 @@ async function main() {
 
   // Cleanup domain data so tests run deterministically.
   // Remove child records first to avoid RESTRICT FK errors, then parent domain records.
+  await prisma.parcelPickup.deleteMany();
+  await prisma.parcelStatusHistory.deleteMany();
   await prisma.ticketScan.deleteMany();
   await prisma.ticket.deleteMany();
   await prisma.payment.deleteMany();
+  await prisma.parcel.deleteMany();
   await prisma.reservation.deleteMany();
   await prisma.vehicleReservationCancellation.deleteMany();
   await prisma.vehicleReservation.deleteMany();
@@ -256,7 +276,14 @@ async function main() {
 
   // Cleanup any non-seeded users to keep test runs deterministic.
   // We keep the seeded admin and construction accounts and remove others.
-  const seededEmails = ['admin@vanguard.local', 'construction@vanguard.local', 'engineer.a@vanguard.local', 'engineer.b@vanguard.local'];
+  const seededEmails = [
+    'admin@vanguard.local',
+    'coach.admin@vanguard.local',
+    'coach.manager@vanguard.local',
+    'coach.agent@vanguard.local',
+    'autosales.admin@vanguard.local',
+    'construction@vanguard.local',
+  ];
   await prisma.user.deleteMany({ where: { email: { notIn: seededEmails } } });
 
   const adminEmail = process.env.SUPER_ADMIN_EMAIL || 'admin@vanguard.local';
@@ -265,121 +292,184 @@ async function main() {
     throw new Error('SUPER_ADMIN_PASSWORD must be set in production');
   }
 
-  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
-  if (!existingAdmin) {
+  const superAdminRole = await prisma.role.findUnique({ where: { name: 'SUPER_ADMIN' } });
+  const serviceAdminRole = await prisma.role.findUnique({ where: { name: 'SERVICE_ADMIN' } });
+  const managerRole = await prisma.role.findUnique({ where: { name: 'MANAGER' } });
+  const agentRole = await prisma.role.findUnique({ where: { name: 'AGENT' } });
+  const coachDept = await prisma.department.findUnique({ where: { type: 'VANGUARD_COACH' } });
+  const autoDept = await prisma.department.findUnique({ where: { type: 'AUTO_SALES' } });
+  const constructionDept = await prisma.department.findUnique({ where: { type: 'CONSTRUCTION' } });
+
+  // 1. Super Admin
+  if (coachDept && superAdminRole) {
     const passwordHash = await bcrypt.hash(adminPassword, 10);
-    const department = await prisma.department.findUnique({ where: { type: 'VANGUARD_COACH' } });
-    const role = await prisma.role.findUnique({ where: { name: 'SUPER_ADMIN' } });
-
-    if (department && role) {
-      await prisma.user.create({
-        data: {
-          email: adminEmail,
-          passwordHash,
-          firstName: 'Super',
-          lastName: 'Admin',
-          phone: '+33000000000',
-          roleId: role.id,
-          departmentId: department.id,
-          status: 'ACTIVE',
-        },
-      });
-    }
-  } else {
-    const department = await prisma.department.findUnique({ where: { type: 'VANGUARD_COACH' } });
-    const role = await prisma.role.findUnique({ where: { name: 'SUPER_ADMIN' } });
-
-    if (department && role) {
-      await prisma.user.update({
-        where: { email: adminEmail },
-        data: {
-          roleId: role.id,
-          departmentId: department.id,
-          status: 'ACTIVE',
-        },
-      });
-    }
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: {
+        firstName: 'Super',
+        lastName: 'Admin',
+        roleId: superAdminRole.id,
+        departmentId: coachDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+      create: {
+        email: adminEmail,
+        passwordHash,
+        firstName: 'Super',
+        lastName: 'Admin',
+        phone: '+33000000000',
+        roleId: superAdminRole.id,
+        departmentId: coachDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+    });
   }
 
-  const constructionEmail = 'construction@vanguard.local';
-  const constructionPassword = process.env.CONSTRUCTION_SEED_PASSWORD || 'dev-construction-password';
-  const department = await prisma.department.findUnique({ where: { type: 'CONSTRUCTION' } });
-  const role = await prisma.role.findUnique({ where: { name: 'CONSTRUCTION' } });
-
-  if (department && role) {
-    const existingConstructionUser = await prisma.user.findUnique({ where: { email: constructionEmail } });
-
-    if (!existingConstructionUser) {
-      const passwordHash = await bcrypt.hash(constructionPassword, 10);
-
-      await prisma.user.create({
-        data: {
-          email: constructionEmail,
-          passwordHash,
-          firstName: 'Construction',
-          lastName: 'User',
-          phone: '+33000000001',
-          roleId: role.id,
-          departmentId: department.id,
-          status: 'ACTIVE',
-          firstLogin: false,
-        },
-      });
-    } else if (existingConstructionUser.roleId !== role.id || existingConstructionUser.departmentId !== department.id) {
-      await prisma.user.update({
-        where: { email: constructionEmail },
-        data: {
-          roleId: role.id,
-          departmentId: department.id,
-          status: 'ACTIVE',
-          firstLogin: false,
-        },
-      });
-    }
+  // 2. Coach Admin
+  if (coachDept && serviceAdminRole) {
+    const coachAdminEmail = 'coach.admin@vanguard.local';
+    const coachPassword = process.env.COACH_ADMIN_PASSWORD || 'dev-coach-admin-password';
+    const passwordHash = await bcrypt.hash(coachPassword, 10);
+    await prisma.user.upsert({
+      where: { email: coachAdminEmail },
+      update: {
+        firstName: 'Coach',
+        lastName: 'Admin',
+        roleId: serviceAdminRole.id,
+        departmentId: coachDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+      create: {
+        email: coachAdminEmail,
+        passwordHash,
+        firstName: 'Coach',
+        lastName: 'Admin',
+        phone: '+33000000002',
+        roleId: serviceAdminRole.id,
+        departmentId: coachDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+    });
   }
 
-  const engineerRole = await prisma.role.findUnique({ where: { name: 'ENGINEER' } });
-  if (department && engineerRole) {
-    const engineers = [
-      { email: 'engineer.a@vanguard.local', firstName: 'Engineer', lastName: 'A', password: process.env.ENGINEER_A_SEED_PASSWORD || 'dev-engineer-a-password' },
-      { email: 'engineer.b@vanguard.local', firstName: 'Engineer', lastName: 'B', password: process.env.ENGINEER_B_SEED_PASSWORD || 'dev-engineer-b-password' },
-    ];
+  // 3. Coach Manager
+  if (coachDept && managerRole) {
+    const coachManagerEmail = 'coach.manager@vanguard.local';
+    const coachManagerPassword = process.env.COACH_MANAGER_PASSWORD || 'dev-coach-manager-password';
+    const passwordHash = await bcrypt.hash(coachManagerPassword, 10);
+    await prisma.user.upsert({
+      where: { email: coachManagerEmail },
+      update: {
+        firstName: 'Coach',
+        lastName: 'Manager',
+        roleId: managerRole.id,
+        departmentId: coachDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+      create: {
+        email: coachManagerEmail,
+        passwordHash,
+        firstName: 'Coach',
+        lastName: 'Manager',
+        phone: '+33000000004',
+        roleId: managerRole.id,
+        departmentId: coachDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+    });
+  }
 
-    const savedEngineers = [];
-    for (const engineer of engineers) {
-      const passwordHash = await bcrypt.hash(engineer.password, 10);
-      savedEngineers.push(await prisma.user.upsert({
-        where: { email: engineer.email },
-        update: { firstName: engineer.firstName, lastName: engineer.lastName, passwordHash, roleId: engineerRole.id, departmentId: department.id, status: 'ACTIVE', firstLogin: false },
-        create: { email: engineer.email, firstName: engineer.firstName, lastName: engineer.lastName, passwordHash, roleId: engineerRole.id, departmentId: department.id, status: 'ACTIVE', firstLogin: false },
-      }));
-    }
+  // 4. Coach Agent
+  if (coachDept && agentRole) {
+    const coachAgentEmail = 'coach.agent@vanguard.local';
+    const coachAgentPassword = process.env.COACH_AGENT_PASSWORD || 'dev-coach-agent-password';
+    const passwordHash = await bcrypt.hash(coachAgentPassword, 10);
+    await prisma.user.upsert({
+      where: { email: coachAgentEmail },
+      update: {
+        firstName: 'Coach',
+        lastName: 'Agent',
+        roleId: agentRole.id,
+        departmentId: coachDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+      create: {
+        email: coachAgentEmail,
+        passwordHash,
+        firstName: 'Coach',
+        lastName: 'Agent',
+        phone: '+33000000005',
+        roleId: agentRole.id,
+        departmentId: coachDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+    });
+  }
 
-    const projects = [
-      { title: 'Chantier Engineer A', slug: 'engineer-a-site', location: 'Site A', description: 'Chantier attribué à Engineer A.' },
-      { title: 'Chantier Engineer B', slug: 'engineer-b-site', location: 'Site B', description: 'Chantier attribué à Engineer B.' },
-    ];
+  // 5. Auto Sales Admin
+  if (autoDept && serviceAdminRole) {
+    const autoAdminEmail = 'autosales.admin@vanguard.local';
+    const autoPassword = process.env.AUTOSALES_ADMIN_PASSWORD || 'dev-autosales-admin-password';
+    const passwordHash = await bcrypt.hash(autoPassword, 10);
+    await prisma.user.upsert({
+      where: { email: autoAdminEmail },
+      update: {
+        firstName: 'AutoSales',
+        lastName: 'Admin',
+        roleId: serviceAdminRole.id,
+        departmentId: autoDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+      create: {
+        email: autoAdminEmail,
+        passwordHash,
+        firstName: 'AutoSales',
+        lastName: 'Admin',
+        phone: '+33000000003',
+        roleId: serviceAdminRole.id,
+        departmentId: autoDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+    });
+  }
 
-    for (let index = 0; index < projects.length; index += 1) {
-      const project = await prisma.project.upsert({
-        where: { slug: projects[index].slug },
-        update: { ...projects[index], departmentId: department.id, status: 'PUBLISHED', publicationStatus: 'PUBLISHED' },
-        create: { ...projects[index], departmentId: department.id, status: 'PUBLISHED', publicationStatus: 'PUBLISHED' },
-      });
-      await prisma.projectAssignment.upsert({
-        where: {
-          projectId_userId: {
-            projectId: project.id,
-            userId: savedEngineers[index].id,
-          },
-        },
-        update: {},
-        create: {
-          projectId: project.id,
-          userId: savedEngineers[index].id,
-        },
-      });
-    }
+  // 6. Construction Admin
+  if (constructionDept && serviceAdminRole) {
+    const constructionEmail = 'construction@vanguard.local';
+    const constructionPassword = process.env.CONSTRUCTION_SEED_PASSWORD || 'dev-construction-password';
+    const passwordHash = await bcrypt.hash(constructionPassword, 10);
+    await prisma.user.upsert({
+      where: { email: constructionEmail },
+      update: {
+        firstName: 'Construction',
+        lastName: 'User',
+        roleId: serviceAdminRole.id,
+        departmentId: constructionDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+      create: {
+        email: constructionEmail,
+        passwordHash,
+        firstName: 'Construction',
+        lastName: 'User',
+        phone: '+33000000001',
+        roleId: serviceAdminRole.id,
+        departmentId: constructionDept.id,
+        status: 'ACTIVE',
+        firstLogin: false,
+      },
+    });
   }
 }
 

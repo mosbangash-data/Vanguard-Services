@@ -28,7 +28,7 @@ const listVehicleInquiries = async (query, currentUser) => {
   assertAutoSalesAccess(currentUser);
   if (!currentUser.permissions.includes('VIEW_VEHICLE_INQUIRY')) throw new AppError('Insufficient permissions', 403);
 
-  if (currentUser.role === 'AGENT' || currentUser.role === 'SALES_AGENT') {
+  if (currentUser.role === 'AGENT') {
     const forcedAssignedToUserId = query?.assignedToUserId ? String(query.assignedToUserId) : null;
     if (forcedAssignedToUserId !== currentUser.id) {
       throw new AppError('Access denied', 403);
@@ -40,7 +40,7 @@ const listVehicleInquiries = async (query, currentUser) => {
   const skip = (page - 1) * limit;
 
   const where = {};
-  if (currentUser.role === 'AGENT' || currentUser.role === 'SALES_AGENT') {
+  if (currentUser.role === 'AGENT') {
     where.assignedToUserId = currentUser.id;
     where.vehicle = { department: { type: 'AUTO_SALES' } };
   } else if (currentUser.role !== 'SUPER_ADMIN') {
@@ -75,7 +75,7 @@ const getVehicleInquiryById = async (id, currentUser) => {
   const inquiry = await vehicleInquiryRepository.getVehicleInquiryById(id);
   if (!inquiry) throw new AppError('Vehicle inquiry not found', 404);
   await assertDepartmentIdForUser(currentUser, inquiry.vehicle.departmentId, 'AUTO_SALES');
-  if ((currentUser.role === 'AGENT' || currentUser.role === 'SALES_AGENT')
+  if ((currentUser.role === 'AGENT')
     && inquiry.assignedToUserId !== null
     && inquiry.assignedToUserId !== currentUser.id) {
     throw new AppError('Access denied', 403);
@@ -145,9 +145,9 @@ const updateVehicleInquiry = async (id, data, currentUser) => {
   if (!inquiry) throw new AppError('Vehicle inquiry not found', 404);
   await assertDepartmentIdForUser(currentUser, inquiry.vehicle.departmentId, 'AUTO_SALES');
 
-  const isAgentAssignedToInquiry = (currentUser.role === 'AGENT' || currentUser.role === 'SALES_AGENT')
+  const isAgentAssignedToInquiry = (currentUser.role === 'AGENT')
     && (inquiry.assignedToUserId === null || inquiry.assignedToUserId === currentUser.id);
-  if ((currentUser.role === 'AGENT' || currentUser.role === 'SALES_AGENT') && !isAgentAssignedToInquiry) {
+  if ((currentUser.role === 'AGENT') && !isAgentAssignedToInquiry) {
     throw new AppError('Access denied', 403);
   }
 
@@ -189,8 +189,8 @@ const updateVehicleInquiry = async (id, data, currentUser) => {
 
     if (!isSelfAssignment) {
       if (user.department?.type !== 'AUTO_SALES') throw new AppError('Assigned user must belong to AUTO_SALES', 403);
-      if (!['AGENT', 'SALES_AGENT'].includes(user.role?.name)) throw new AppError('Assigned user must be an AutoSales agent', 403);
-      if ((currentUser.role === 'AGENT' || currentUser.role === 'SALES_AGENT') && user.id !== currentUser.id) throw new AppError('Access denied', 403);
+      if (!['AGENT'].includes(user.role?.name)) throw new AppError('Assigned user must be an AutoSales agent', 403);
+      if ((currentUser.role === 'AGENT') && user.id !== currentUser.id) throw new AppError('Access denied', 403);
     }
 
     await auditService.log('assign_vehicle_inquiry', currentUser.id, { targetVehicleInquiryId: id, assignedToUserId: updatePayload.assignedToUserId });
@@ -228,7 +228,7 @@ const assignVehicleInquiry = async (id, assignedToUserId, currentUser) => {
   const isEscalatedManager = ['SUPER_ADMIN', 'SERVICE_ADMIN'].includes(currentUser.role);
   const isSelfAssignment = assignee && assignee.id === currentUser.id && isEscalatedManager;
 
-  const allowedAssigneeRoles = ['AGENT', 'SALES_AGENT'];
+  const allowedAssigneeRoles = ['AGENT'];
   if (!assignee || (assignee.department?.type !== 'AUTO_SALES' && !isSelfAssignment) || (!allowedAssigneeRoles.includes(assignee.role?.name) && !isSelfAssignment)) {
     throw new AppError('Assigned user must be an AutoSales agent', 400);
   }

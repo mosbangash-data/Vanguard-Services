@@ -18,7 +18,6 @@ export const clearSession = () => localStorage.removeItem(SESSION_KEY)
 
 export const getDestination = (user) => {
   if (user?.role === 'SUPER_ADMIN') return '/admin'
-  if (user?.role === 'ENGINEER') return '/construction/engineer'
   switch (user?.department?.type) {
     case 'VANGUARD_COACH': return '/transport'
     case 'CONSTRUCTION': return '/construction'

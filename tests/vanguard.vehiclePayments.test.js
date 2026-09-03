@@ -232,7 +232,7 @@ test('payment authorization, invalid reservation and duplicate validation handli
     password: autoSalesNoPermissionPassword,
     firstName: 'NoPerm',
     lastName: 'AutoSales',
-    roleName: 'SALES_AGENT',
+    roleName: 'SERVICE_ADMIN',
     departmentType: 'AUTO_SALES',
   });
   const autoSalesNoPermToken = await loginTestUser(autoSalesNoPermissionEmail, autoSalesNoPermissionPassword);

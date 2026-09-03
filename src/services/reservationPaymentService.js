@@ -127,9 +127,16 @@ const createReservationPayment = async (data, currentUser) => {
     throw new AppError('Amount cannot exceed remaining reservation balance', 400);
   }
 
+  const channel = data.channel ? String(data.channel).trim().toUpperCase() : 'AGENCY';
+  const provider = data.provider || (channel === 'ONLINE' ? 'MBIYOPAY' : 'AGENCY');
+  const currency = reservation.currency || 'USD';
+
   const paymentData = {
     reservationId: reservation.id,
     amount: formatMoneyFromCents(amountCents),
+    currency,
+    channel: channel === 'ONLINE' ? 'ONLINE' : 'AGENCY',
+    provider,
     method,
     status: 'PENDING',
     reference: data.reference ? String(data.reference).trim() : null,

@@ -20,9 +20,6 @@ const ROLE_DESCRIPTIONS = {
   AGENT: 'Agent opérationnel d\u2019un service. Il accède uniquement aux fonctionnalités et opérations autorisées par les permissions de son rôle.',
   CLIENT: 'Utilisateur client de Vanguard Services. Il utilise les services disponibles dans l\u2019espace public/client et n\u2019accède pas aux espaces administratifs.',
   MANAGER: 'Responsable opérationnel d\u2019un service. Il supervise les activités qui lui sont attribuées selon ses permissions et son périmètre de service.',
-  ENGINEER: 'Ingénieur / responsable technique. Intervient dans le suivi technique des projets et chantiers Construction selon les permissions qui lui sont attribuées.',
-  SALES_AGENT: 'Agent commercial Automobile. Gère les activités commerciales liées aux véhicules, notamment les demandes, réservations et relations avec les clients selon ses permissions.',
-  CONSTRUCTION: 'Agent du service Construction. Intervient dans la gestion opérationnelle des projets, chantiers et demandes de devis du service Construction selon ses permissions.',
 }
 
 const getRoleDescription = (roleName) => ROLE_DESCRIPTIONS[roleName] || ''
@@ -537,11 +534,9 @@ export function RolesPage() {
                     onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
                   >
                     <option value="AGENT">AGENT</option>
+                    <option value="MANAGER">MANAGER</option>
                     <option value="SERVICE_ADMIN">SERVICE_ADMIN</option>
                     <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-                    <option value="ENGINEER">ENGINEER</option>
-                    <option value="CONSTRUCTION">CONSTRUCTION</option>
-                    <option value="SALES_AGENT">SALES_AGENT</option>
                   </select>
                 </div>
                 <div className="form-group">

@@ -81,15 +81,6 @@ const listProjects = async (req, res, next) => {
   }
 };
 
-const listEngineerProjects = async (req, res, next) => {
-  try {
-    const result = await constructionService.listEngineerProjects(req.query, req.user);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-};
-
 const getProject = async (req, res, next) => {
   try {
     const result = await constructionService.getProject(req.params.id, req.user);
@@ -241,7 +232,6 @@ module.exports = {
   createQuoteRequest,
   updateQuoteRequest,
   listProjects,
-  listEngineerProjects,
   getProject,
   createProject,
   updateProject,

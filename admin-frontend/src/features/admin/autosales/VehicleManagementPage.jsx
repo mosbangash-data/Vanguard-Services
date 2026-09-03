@@ -1,26 +1,50 @@
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  CarFront,
+  Plus,
+  Eye,
+  Edit2,
+  Trash2,
+  RefreshCw,
+  Layers,
+  ArrowLeft,
+  Calendar,
+  Fuel,
+  Gauge,
+  Palette,
+  FileSpreadsheet,
+  Ticket,
+} from 'lucide-react'
 import { api } from '../../../services/api'
 import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
 import { useLanguage } from '../../../i18n/useLanguage'
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  FilterBar,
+  SearchBar,
+  Button,
+  StatusBadge,
+  ActionMenu,
+  Modal,
+  ConfirmDialog,
+  FormField,
+  Input,
+  Select,
+  Textarea,
+  LoadingState,
+  ErrorState,
+  EmptyState,
+} from '../../../components/ui'
 
 const STATUS_OPTIONS = ['AVAILABLE', 'RESERVED', 'SOLD', 'IN_MAINTENANCE']
 const CURRENCY_OPTIONS = ['USD', 'CDF']
-const SORT_OPTIONS = [
-  { value: 'newest', labelKey: 'autosales.vehiclesPage.sortLabels.newest' },
-  { value: 'oldest', labelKey: 'autosales.vehiclesPage.sortLabels.oldest' },
-  { value: 'priceAsc', labelKey: 'autosales.vehiclesPage.sortLabels.priceAsc' },
-  { value: 'priceDesc', labelKey: 'autosales.vehiclesPage.sortLabels.priceDesc' },
-]
-
-const STATUS_TRANSITIONS = {
-  AVAILABLE: ['RESERVED', 'IN_MAINTENANCE'],
-  RESERVED: ['AVAILABLE', 'SOLD', 'IN_MAINTENANCE'],
-  IN_MAINTENANCE: ['AVAILABLE'],
-  SOLD: [],
-}
 
 const EMPTY_FORM = {
   brand: '',
@@ -29,8 +53,8 @@ const EMPTY_FORM = {
   price: '',
   currency: 'USD',
   mileage: '',
-  fuelType: '',
-  transmission: '',
+  fuelType: 'Essence',
+  transmission: 'Automatique',
   color: '',
   description: '',
 }
@@ -43,16 +67,22 @@ const toList = (payload) => {
   return []
 }
 
-const money = (value, currency, locale) => {
-  const normalizedCurrency = CURRENCY_OPTIONS.includes(String(currency || '').toUpperCase()) ? String(currency).toUpperCase() : 'USD'
-  return new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'fr-FR', {
-    style: 'currency',
-    currency: normalizedCurrency,
+const formatMoney = (value, currency = 'USD', locale = 'fr') => {
+  const num = Number(value || 0)
+  if (!Number.isFinite(num)) return '0'
+  const normalized = currency === 'CDF' ? 'CDF' : 'USD'
+  if (normalized === 'CDF') {
+    return `${new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'fr-FR', {
+      maximumFractionDigits: 0,
+    }).format(num)} CDF`
+  }
+  return `$ ${new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'fr-FR', {
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(Number(value || 0))
+  }).format(num)}`
 }
 
-const formatDate = (value, locale) => {
+const formatDate = (value, locale = 'fr') => {
   if (!value) return '—'
   try {
     return new Date(value).toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR')
@@ -61,158 +91,27 @@ const formatDate = (value, locale) => {
   }
 }
 
-const statusLabel = (status, t) => t(`status.${String(status).toLowerCase()}`) || status
-
-const getPrimaryMediaUrl = (vehicle, mediaMap = {}) => {
-  const vehicleMedia = mediaMap[vehicle?.id] || []
-  const primary = vehicleMedia.find((media) => media.isPrimary)?.media || vehicleMedia[0]?.media
-  return primary?.url || null
-}
-
-const validateVehicleForm = (values) => {
-  const errors = {}
-  if (!String(values.brand || '').trim()) errors.brand = 'brand required'
-  if (!String(values.model || '').trim()) errors.model = 'model required'
-  if (!Number.isInteger(Number(values.year)) || Number(values.year) < 1886 || Number(values.year) > new Date().getFullYear() + 1) {
-    errors.year = 'invalid year'
-  }
-  if (!values.price || Number(values.price) <= 0) {
-    errors.price = 'invalid price'
-  }
-  if (values.mileage !== '' && values.mileage !== null && (!Number.isInteger(Number(values.mileage)) || Number(values.mileage) < 0)) {
-    errors.mileage = 'invalid mileage'
-  }
-  if (!CURRENCY_OPTIONS.includes(String(values.currency || '').toUpperCase())) {
-    errors.currency = 'invalid currency'
-  }
-  return errors
-}
-
-function VehicleForm({ initialValues = EMPTY_FORM, mode = 'create', onCancel, onSubmit, submitLabel, t }) {
-  const [values, setValues] = useState(initialValues)
-  const [errors, setErrors] = useState({})
-
-  const updateField = (field, value) => {
-    setValues((current) => ({ ...current, [field]: value }))
-    setErrors((current) => ({ ...current, [field]: undefined }))
-  }
-
-  const handleSubmit = (event) => {
-    event.preventDefault()
-    const validation = validateVehicleForm(values)
-    setErrors(validation)
-    if (Object.keys(validation).length > 0) return
-
-    const payload = {
-      brand: String(values.brand || '').trim(),
-      model: String(values.model || '').trim(),
-      year: Number(values.year),
-      price: String(values.price).trim(),
-      currency: String(values.currency || '').toUpperCase(),
-      mileage: values.mileage === '' || values.mileage === null ? null : Number(values.mileage),
-      fuelType: String(values.fuelType || '').trim() || null,
-      transmission: String(values.transmission || '').trim() || null,
-      color: String(values.color || '').trim() || null,
-      description: String(values.description || '').trim() || null,
-    }
-    onSubmit(payload)
-  }
-
-  return (
-    <form className="card vehicle-form" onSubmit={handleSubmit}>
-      <div className="page-head compact">
-        <div>
-          <h2>{mode === 'create' ? t('autosales.vehiclesPage.addVehicle') : t('autosales.vehiclesPage.editVehicle')}</h2>
-        </div>
-      </div>
-
-      <div className="vehicle-form-grid">
-        <label>
-          <span>{t('autosales.vehiclesPage.brand')}</span>
-          <input value={values.brand} onChange={(event) => updateField('brand', event.target.value)} />
-          {errors.brand && <small className="field-error">{t('autosales.vehiclesPage.errors.requiredBrand')}</small>}
-        </label>
-
-        <label>
-          <span>{t('autosales.vehiclesPage.model')}</span>
-          <input value={values.model} onChange={(event) => updateField('model', event.target.value)} />
-          {errors.model && <small className="field-error">{t('autosales.vehiclesPage.errors.requiredModel')}</small>}
-        </label>
-
-        <label>
-          <span>{t('autosales.vehiclesPage.year')}</span>
-          <input type="number" value={values.year} onChange={(event) => updateField('year', event.target.value)} />
-          {errors.year && <small className="field-error">{t('autosales.vehiclesPage.errors.invalidYear')}</small>}
-        </label>
-
-        <label>
-          <span>{t('autosales.vehiclesPage.price')}</span>
-          <input type="number" min="0" step="0.01" value={values.price} onChange={(event) => updateField('price', event.target.value)} />
-          {errors.price && <small className="field-error">{t('autosales.vehiclesPage.errors.invalidPrice')}</small>}
-        </label>
-
-        <label>
-          <span>{t('autosales.vehiclesPage.currency')}</span>
-          <select value={values.currency} onChange={(event) => updateField('currency', event.target.value)}>
-            {CURRENCY_OPTIONS.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-          </select>
-          {errors.currency && <small className="field-error">{t('autosales.vehiclesPage.errors.invalidCurrency')}</small>}
-        </label>
-
-        <label>
-          <span>{t('autosales.vehiclesPage.mileage')}</span>
-          <input type="number" min="0" step="1" value={values.mileage} onChange={(event) => updateField('mileage', event.target.value)} />
-          {errors.mileage && <small className="field-error">{t('autosales.vehiclesPage.errors.invalidMileage')}</small>}
-        </label>
-
-        <label>
-          <span>{t('autosales.vehiclesPage.fuelType')}</span>
-          <input value={values.fuelType} onChange={(event) => updateField('fuelType', event.target.value)} />
-        </label>
-
-        <label>
-          <span>{t('autosales.vehiclesPage.transmission')}</span>
-          <input value={values.transmission} onChange={(event) => updateField('transmission', event.target.value)} />
-        </label>
-
-        <label>
-          <span>{t('autosales.vehiclesPage.color')}</span>
-          <input value={values.color} onChange={(event) => updateField('color', event.target.value)} />
-        </label>
-
-        <label className="full-width">
-          <span>{t('autosales.vehiclesPage.description')}</span>
-          <textarea rows="4" value={values.description} onChange={(event) => updateField('description', event.target.value)} />
-        </label>
-      </div>
-
-      <div className="form-actions">
-        <button type="submit" className="button">{submitLabel}</button>
-        <button type="button" className="button secondary" onClick={onCancel}>{t('autosales.vehiclesPage.cancel')}</button>
-      </div>
-    </form>
-  )
-}
-
 export function VehicleManagementPage() {
   const { user } = useAuth()
   const { lang, t } = useLanguage()
-  const qc = useQueryClient()
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
+
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [currencyFilter, setCurrencyFilter] = useState('ALL')
-  const [sortBy, setSortBy] = useState('newest')
-  const [formState, setFormState] = useState(null)
+
+  const [formState, setFormState] = useState(null) // null | { mode: 'create' | 'edit', values, id }
   const [serverError, setServerError] = useState('')
+  const [deletingVehicle, setDeletingVehicle] = useState(null)
+  const [statusChangingVehicle, setStatusChangingVehicle] = useState(null)
 
   const canView = hasPermission(user, 'VIEW_VEHICLE') || user?.role === 'SUPER_ADMIN'
   const canCreate = hasPermission(user, 'CREATE_VEHICLE') || user?.role === 'SUPER_ADMIN'
   const canUpdate = hasPermission(user, 'UPDATE_VEHICLE') || user?.role === 'SUPER_ADMIN'
   const canDelete = hasPermission(user, 'DELETE_VEHICLE') || user?.role === 'SUPER_ADMIN'
-  const canManageMedia = hasPermission(user, 'MANAGE_VEHICLE_MEDIA') || user?.role === 'SUPER_ADMIN'
 
-  const query = useQuery({
+  const vehiclesQuery = useQuery({
     queryKey: ['autosales-vehicles', search, statusFilter],
     queryFn: async () => {
       const params = { page: 1, limit: 100 }
@@ -224,60 +123,59 @@ export function VehicleManagementPage() {
     enabled: canView,
   })
 
-  const vehicles = query.data || []
-
-  const mediaQuery = useQuery({
-    queryKey: ['autosales-vehicle-media', vehicles.map((vehicle) => vehicle.id).join('|')],
-    queryFn: async () => {
-      if (!canManageMedia || vehicles.length === 0) return {}
-
-      const result = {}
-      await Promise.all(
-        vehicles.map(async (vehicle) => {
-          try {
-            const response = await api.get(`/api/vehicle-media/vehicle/${vehicle.id}`)
-            result[vehicle.id] = response.data?.data?.items || []
-          } catch {
-            result[vehicle.id] = []
-          }
-        }),
-      )
-      return result
-    },
-    enabled: canManageMedia && canView && vehicles.length > 0,
-  })
-
-  const mediaByVehicle = mediaQuery.data || {}
+  const vehicles = vehiclesQuery.data || []
 
   const filteredVehicles = useMemo(() => {
     let list = [...vehicles]
-
     if (currencyFilter !== 'ALL') {
-      list = list.filter((vehicle) => String(vehicle.currency || 'USD').toUpperCase() === currencyFilter)
+      list = list.filter((v) => String(v.currency || 'USD').toUpperCase() === currencyFilter)
     }
-
-    if (search.trim()) {
-      const normalized = search.trim().toLowerCase()
-      list = list.filter((vehicle) => {
-        const searchFields = [vehicle.brand, vehicle.model, vehicle.color, vehicle.description, vehicle.status]
-        return searchFields.some((field) => String(field || '').toLowerCase().includes(normalized))
-      })
-    }
-
-    switch (sortBy) {
-      case 'oldest':
-        list.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); break
-      case 'priceAsc':
-        list.sort((a, b) => Number(a.price) - Number(b.price)); break
-      case 'priceDesc':
-        list.sort((a, b) => Number(b.price) - Number(a.price)); break
-      case 'newest':
-      default:
-        list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); break
-    }
-
     return list
-  }, [currencyFilter, search, sortBy, vehicles])
+  }, [vehicles, currencyFilter])
+
+  // Save Mutation
+  const saveMutation = useMutation({
+    mutationFn: async (payload) => {
+      if (formState.mode === 'create') {
+        return api.post('/api/vehicles', payload)
+      }
+      return api.patch(`/api/vehicles/${formState.id}`, payload)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'] })
+      queryClient.invalidateQueries({ queryKey: ['autosales-dashboard-vehicles'] })
+      setFormState(null)
+    },
+    onError: (err) => {
+      setServerError(err?.response?.data?.message || 'Erreur lors de l’enregistrement du véhicule.')
+    },
+  })
+
+  // Delete Mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => api.delete(`/api/vehicles/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'] })
+      queryClient.invalidateQueries({ queryKey: ['autosales-dashboard-vehicles'] })
+      setDeletingVehicle(null)
+    },
+    onError: (err) => {
+      setServerError(err?.response?.data?.message || 'Impossible de supprimer ce véhicule.')
+    },
+  })
+
+  // Status Mutation
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }) => api.patch(`/api/vehicles/${id}`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'] })
+      queryClient.invalidateQueries({ queryKey: ['autosales-dashboard-vehicles'] })
+      setStatusChangingVehicle(null)
+    },
+    onError: (err) => {
+      setServerError(err?.response?.data?.message || 'Impossible de changer le statut.')
+    },
+  })
 
   const openCreateForm = () => {
     setServerError('')
@@ -296,174 +194,422 @@ export function VehicleManagementPage() {
         price: vehicle.price ?? '',
         currency: String(vehicle.currency || 'USD').toUpperCase(),
         mileage: vehicle.mileage ?? '',
-        fuelType: vehicle.fuelType || '',
-        transmission: vehicle.transmission || '',
+        fuelType: vehicle.fuelType || 'Essence',
+        transmission: vehicle.transmission || 'Automatique',
         color: vehicle.color || '',
         description: vehicle.description || '',
       },
     })
   }
 
-  const saveVehicle = async (payload) => {
-    try {
-      setServerError('')
-      if (formState.mode === 'create') {
-        await api.post('/api/vehicles', payload)
-      } else {
-        await api.patch(`/api/vehicles/${formState.id}`, payload)
-      }
-      qc.invalidateQueries({ queryKey: ['autosales-vehicles'] })
-      qc.invalidateQueries({ queryKey: ['autosales-dashboard-vehicles'] })
-      setFormState(null)
-    } catch (error) {
-      setServerError(error?.response?.data?.message || t('autosales.vehiclesPage.errors.generic'))
+  const handleFormSubmit = (e) => {
+    e.preventDefault()
+    if (!formState.values.brand || !formState.values.model || !formState.values.price) {
+      setServerError('La marque, le modèle et le prix sont obligatoires.')
+      return
     }
-  }
 
-  const changeStatus = async (vehicle, nextStatus) => {
-    try {
-      setServerError('')
-      await api.patch(`/api/vehicles/${vehicle.id}`, { status: nextStatus })
-      qc.invalidateQueries({ queryKey: ['autosales-vehicles'] })
-      qc.invalidateQueries({ queryKey: ['autosales-dashboard-vehicles'] })
-    } catch (error) {
-      setServerError(error?.response?.data?.message || t('autosales.vehiclesPage.errors.generic'))
+    const payload = {
+      brand: String(formState.values.brand || '').trim(),
+      model: String(formState.values.model || '').trim(),
+      year: Number(formState.values.year),
+      price: String(formState.values.price).trim(),
+      currency: String(formState.values.currency || 'USD').toUpperCase(),
+      mileage: formState.values.mileage ? Number(formState.values.mileage) : null,
+      fuelType: formState.values.fuelType || null,
+      transmission: formState.values.transmission || null,
+      color: formState.values.color || null,
+      description: formState.values.description || null,
     }
-  }
 
-  const deleteVehicle = async (vehicle) => {
-    if (!window.confirm(`${t('autosales.vehiclesPage.confirmDelete')} ${vehicle.brand} ${vehicle.model}?`)) return
-    try {
-      setServerError('')
-      await api.delete(`/api/vehicles/${vehicle.id}`)
-      qc.invalidateQueries({ queryKey: ['autosales-vehicles'] })
-      qc.invalidateQueries({ queryKey: ['autosales-dashboard-vehicles'] })
-    } catch (error) {
-      setServerError(error?.response?.data?.message || t('autosales.vehiclesPage.errors.deleteFailed'))
-    }
+    saveMutation.mutate(payload)
   }
 
   if (!canView) {
-    return <section className="page"><div className="card"><h1>{t('autosales.vehiclesPage.title')}</h1><p className="empty">{t('autosales.vehiclesPage.noAccess')}</p></div></section>
+    return (
+      <div className="page vanguard-vehicles-page">
+        <EmptyState
+          title="Accès non autorisé"
+          description="Vous ne possédez pas les autorisations requises pour consulter le catalogue automobile."
+        />
+      </div>
+    )
   }
 
   return (
-    <section className="page autosales-vehicles-page">
-      <div className="page-head">
-        <div>
-          <p className="autosales-eyebrow">VANGUARD SERVICES · AUTOSALES</p>
-          <h1>{t('autosales.vehiclesPage.title')}</h1>
+    <div className="page vanguard-vehicles-page">
+      <PageHeader
+        eyebrow="VANGUARD SERVICES · AUTOMOBILE"
+        title="Gestion des Véhicules"
+        subtitle="Catalogue complet des véhicules en stock, réservés et vendus."
+        actions={
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Layers}
+              onClick={() => navigate('/automobile/templates')}
+            >
+              Templates
+            </Button>
+            {canCreate && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Plus}
+                onClick={openCreateForm}
+              >
+                Ajouter un véhicule
+              </Button>
+            )}
+          </div>
+        }
+      />
+
+      <FilterBar onRefresh={() => vehiclesQuery.refetch()} isRefreshing={vehiclesQuery.isFetching}>
+        <SearchBar
+          value={search}
+          onChange={(val) => setSearch(val)}
+          placeholder="Rechercher par marque, modèle, couleur..."
+        />
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{ width: 'auto', minWidth: '160px' }}
+        >
+          <option value="ALL">Tous les statuts</option>
+          {STATUS_OPTIONS.map((st) => (
+            <option key={st} value={st}>
+              {st === 'AVAILABLE' ? 'Disponible' : st === 'RESERVED' ? 'Réservé' : st === 'SOLD' ? 'Vendu' : 'En maintenance'}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={currencyFilter}
+          onChange={(e) => setCurrencyFilter(e.target.value)}
+          style={{ width: 'auto', minWidth: '140px' }}
+        >
+          <option value="ALL">Toutes devises</option>
+          <option value="USD">USD ($)</option>
+          <option value="CDF">CDF</option>
+        </Select>
+      </FilterBar>
+
+      {serverError && (
+        <div style={{
+          backgroundColor: '#FEF2F2',
+          border: '1px solid #FECACA',
+          color: '#B91C1C',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          fontSize: '0.84rem'
+        }}>
+          {serverError}
         </div>
-        {canCreate && <button className="button" type="button" onClick={openCreateForm}>{t('autosales.vehiclesPage.addVehicle')}</button>}
-      </div>
+      )}
 
-      <div className="card vehicle-toolbar">
-        <div className="toolbar-grid">
-          <label>
-            <span>{t('autosales.vehiclesPage.search')}</span>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('autosales.vehiclesPage.searchPlaceholder')} />
-          </label>
+      {vehiclesQuery.isPending ? (
+        <LoadingState message="Chargement des véhicules..." />
+      ) : vehiclesQuery.isError ? (
+        <ErrorState
+          title="Erreur de chargement du catalogue"
+          message={vehiclesQuery.error?.response?.data?.message || 'Impossible de récupérer les véhicules.'}
+          onRetry={() => vehiclesQuery.refetch()}
+        />
+      ) : filteredVehicles.length === 0 ? (
+        <EmptyState
+          title="Aucun véhicule trouvé"
+          description="Aucun véhicule ne correspond à vos critères de recherche."
+          icon={CarFront}
+          actionLabel={canCreate ? "Ajouter un véhicule" : undefined}
+          onAction={openCreateForm}
+          actionIcon={Plus}
+        />
+      ) : (
+        <Card>
+          <div className="table-responsive" style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Véhicule</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Année</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Prix</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Transmission / Carburant</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Statut</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredVehicles.map((vehicle) => {
+                  const primaryMedia = vehicle.media?.find((m) => m.isPrimary)?.media?.url
 
-          <label>
-            <span>{t('autosales.vehiclesPage.status')}</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="ALL">{t('autosales.vehiclesPage.allStatuses')}</option>
-              {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{statusLabel(status, t)}</option>)}
-            </select>
-          </label>
+                  return (
+                    <tr
+                      key={vehicle.id}
+                      style={{ borderBottom: '1px solid #E2E8F0', cursor: 'pointer' }}
+                      onClick={() => navigate(`/automobile/vehicles/${vehicle.id}`)}
+                    >
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '8px',
+                            backgroundColor: '#F1F5F9',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
+                            flexShrink: 0
+                          }}>
+                            {primaryMedia ? (
+                              <img src={primaryMedia} alt={vehicle.brand} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <CarFront size={20} color="#64748B" />
+                            )}
+                          </div>
+                          <div>
+                            <strong style={{ fontSize: '0.9rem', color: '#0F172A' }}>
+                              {vehicle.brand} {vehicle.model}
+                            </strong>
+                            <div style={{ fontSize: '0.78rem', color: '#64748B' }}>
+                              {vehicle.color ? `${vehicle.color} · ` : ''}{vehicle.mileage ? `${vehicle.mileage.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} km` : '0 km'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
 
-          <label>
-            <span>{t('autosales.vehiclesPage.currency')}</span>
-            <select value={currencyFilter} onChange={(event) => setCurrencyFilter(event.target.value)}>
-              <option value="ALL">{t('autosales.vehiclesPage.allCurrencies')}</option>
-              {CURRENCY_OPTIONS.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-            </select>
-          </label>
+                      <td style={{ padding: '12px 16px', fontSize: '0.84rem', color: '#334155' }}>
+                        {vehicle.year || '—'}
+                      </td>
 
-          <label>
-            <span>{t('autosales.vehiclesPage.sort')}</span>
-            <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-              {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{t(option.labelKey)}</option>)}
-            </select>
-          </label>
-        </div>
-      </div>
+                      <td style={{ padding: '12px 16px', fontWeight: 700, fontSize: '0.92rem', color: '#0F172A' }}>
+                        {formatMoney(vehicle.price, vehicle.currency, lang)}
+                      </td>
 
-      {serverError && <p className="error-box">{serverError}</p>}
+                      <td style={{ padding: '12px 16px', fontSize: '0.8125rem', color: '#64748B' }}>
+                        {vehicle.transmission || 'Auto'} / {vehicle.fuelType || 'Essence'}
+                      </td>
 
+                      <td style={{ padding: '12px 16px' }}>
+                        <StatusBadge status={vehicle.status} />
+                      </td>
+
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                        <ActionMenu
+                          items={[
+                            {
+                              label: 'Voir la fiche complète',
+                              icon: Eye,
+                              onClick: () => navigate(`/automobile/vehicles/${vehicle.id}`),
+                            },
+                            ...(canUpdate
+                              ? [
+                                  {
+                                    label: 'Modifier les informations',
+                                    icon: Edit2,
+                                    onClick: () => openEditForm(vehicle),
+                                  },
+                                  {
+                                    label: 'Changer de statut',
+                                    icon: RefreshCw,
+                                    onClick: () => setStatusChangingVehicle(vehicle),
+                                  },
+                                ]
+                              : []),
+                            ...(canDelete
+                              ? [
+                                  { divider: true },
+                                  {
+                                    label: 'Supprimer ce véhicule',
+                                    icon: Trash2,
+                                    variant: 'danger',
+                                    onClick: () => setDeletingVehicle(vehicle),
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Modal Form for Create / Edit */}
       {formState && (
-        <VehicleForm
-          initialValues={formState.values}
-          mode={formState.mode}
-          submitLabel={formState.mode === 'create' ? t('autosales.vehiclesPage.create') : t('autosales.vehiclesPage.save')}
-          onCancel={() => setFormState(null)}
-          onSubmit={saveVehicle}
-          t={t}
+        <Modal
+          isOpen={Boolean(formState)}
+          onClose={() => setFormState(null)}
+          title={formState.mode === 'create' ? 'Ajouter un véhicule' : 'Modifier le véhicule'}
+          subtitle="Renseignez les détails techniques, tarifs et options du véhicule."
+          size="lg"
+        >
+          <form onSubmit={handleFormSubmit}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <FormField label="Marque" required>
+                <Input
+                  value={formState.values.brand}
+                  onChange={(e) => setFormState({ ...formState, values: { ...formState.values, brand: e.target.value } })}
+                  placeholder="Ex: Toyota"
+                  required
+                />
+              </FormField>
+
+              <FormField label="Modèle" required>
+                <Input
+                  value={formState.values.model}
+                  onChange={(e) => setFormState({ ...formState, values: { ...formState.values, model: e.target.value } })}
+                  placeholder="Ex: Land Cruiser Prado"
+                  required
+                />
+              </FormField>
+
+              <FormField label="Année">
+                <Input
+                  type="number"
+                  value={formState.values.year}
+                  onChange={(e) => setFormState({ ...formState, values: { ...formState.values, year: e.target.value } })}
+                  min="1990"
+                  max={new Date().getFullYear() + 2}
+                />
+              </FormField>
+
+              <FormField label="Prix" required>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formState.values.price}
+                  onChange={(e) => setFormState({ ...formState, values: { ...formState.values, price: e.target.value } })}
+                  placeholder="Ex: 45000"
+                  required
+                />
+              </FormField>
+
+              <FormField label="Devise">
+                <Select
+                  value={formState.values.currency}
+                  onChange={(e) => setFormState({ ...formState, values: { ...formState.values, currency: e.target.value } })}
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="CDF">CDF (Francs Congolais)</option>
+                </Select>
+              </FormField>
+
+              <FormField label="Kilométrage (km)">
+                <Input
+                  type="number"
+                  value={formState.values.mileage}
+                  onChange={(e) => setFormState({ ...formState, values: { ...formState.values, mileage: e.target.value } })}
+                  placeholder="Ex: 25000"
+                />
+              </FormField>
+
+              <FormField label="Transmission">
+                <Select
+                  value={formState.values.transmission}
+                  onChange={(e) => setFormState({ ...formState, values: { ...formState.values, transmission: e.target.value } })}
+                >
+                  <option value="Automatique">Automatique</option>
+                  <option value="Manuelle">Manuelle</option>
+                </Select>
+              </FormField>
+
+              <FormField label="Carburant">
+                <Select
+                  value={formState.values.fuelType}
+                  onChange={(e) => setFormState({ ...formState, values: { ...formState.values, fuelType: e.target.value } })}
+                >
+                  <option value="Essence">Essence</option>
+                  <option value="Diesel">Diesel</option>
+                  <option value="Hybride">Hybride</option>
+                  <option value="Électrique">Électrique</option>
+                </Select>
+              </FormField>
+
+              <FormField label="Couleur">
+                <Input
+                  value={formState.values.color}
+                  onChange={(e) => setFormState({ ...formState, values: { ...formState.values, color: e.target.value } })}
+                  placeholder="Ex: Noir Métallisé"
+                />
+              </FormField>
+
+              <div style={{ gridColumn: 'span 2' }}>
+                <FormField label="Description">
+                  <Textarea
+                    rows={3}
+                    value={formState.values.description}
+                    onChange={(e) => setFormState({ ...formState, values: { ...formState.values, description: e.target.value } })}
+                    placeholder="Historique, état général, équipements supplémentaires..."
+                  />
+                </FormField>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
+              <Button variant="secondary" onClick={() => setFormState(null)} disabled={saveMutation.isPending}>
+                Annuler
+              </Button>
+              <Button type="submit" variant="primary" loading={saveMutation.isPending}>
+                {formState.mode === 'create' ? 'Ajouter au catalogue' : 'Enregistrer les modifications'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Change Status Modal */}
+      {statusChangingVehicle && (
+        <Modal
+          isOpen={Boolean(statusChangingVehicle)}
+          onClose={() => setStatusChangingVehicle(null)}
+          title="Modifier le statut du véhicule"
+          subtitle={`${statusChangingVehicle.brand} ${statusChangingVehicle.model}`}
+          size="sm"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <FormField label="Nouveau statut">
+              <Select
+                defaultValue={statusChangingVehicle.status}
+                onChange={(e) => statusMutation.mutate({ id: statusChangingVehicle.id, status: e.target.value })}
+              >
+                {STATUS_OPTIONS.map((st) => (
+                  <option key={st} value={st}>
+                    {st === 'AVAILABLE' ? 'Disponible' : st === 'RESERVED' ? 'Réservé' : st === 'SOLD' ? 'Vendu' : 'En maintenance'}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
+              <Button variant="secondary" onClick={() => setStatusChangingVehicle(null)}>
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Confirmation */}
+      {deletingVehicle && (
+        <ConfirmDialog
+          isOpen={Boolean(deletingVehicle)}
+          onClose={() => setDeletingVehicle(null)}
+          onConfirm={() => deleteMutation.mutate(deletingVehicle.id)}
+          title="Supprimer ce véhicule ?"
+          message={`Êtes-vous sûr de vouloir supprimer ${deletingVehicle.brand} ${deletingVehicle.model} du stock ?`}
+          confirmText="Supprimer définitivement"
+          loading={deleteMutation.isPending}
+          variant="danger"
         />
       )}
-
-      {query.isPending && <p className="empty">{t('dashboard.loading')}</p>}
-      {query.isError && <p className="error-box">{t('dashboard.errorState')}</p>}
-
-      {!query.isPending && !query.isError && (
-        <div className="vehicle-grid-wrap">
-          {filteredVehicles.length === 0 ? (
-            <div className="card empty-card"><p className="empty">{t('autosales.vehiclesPage.empty')}</p></div>
-          ) : (
-            <div className="vehicle-grid">
-              {filteredVehicles.map((vehicle) => {
-                const imageUrl = getPrimaryMediaUrl(vehicle, mediaByVehicle)
-                const allowedTransitions = STATUS_TRANSITIONS[vehicle.status] || []
-
-                return (
-                  <article className="card vehicle-card" key={vehicle.id}>
-                    <div className="vehicle-image-box">
-                      {imageUrl ? <img src={imageUrl} alt={`${vehicle.brand} ${vehicle.model}`} /> : <div className="vehicle-image-fallback">{t('autosales.noImage')}</div>}
-                    </div>
-
-                    <div className="vehicle-card-body">
-                      <div className="vehicle-card-topline">
-                        <div>
-                          <h3>{vehicle.brand} {vehicle.model}</h3>
-                          <p>{vehicle.year}</p>
-                        </div>
-                        <span className={`status-pill status-${String(vehicle.status).toLowerCase()}`}>{statusLabel(vehicle.status, t)}</span>
-                      </div>
-
-                      <ul className="vehicle-meta-list">
-                        <li><strong>{t('autosales.vehiclesPage.price')}:</strong> {money(vehicle.price, vehicle.currency, lang)}</li>
-                        <li><strong>{t('autosales.vehiclesPage.currency')}:</strong> {vehicle.currency || 'USD'}</li>
-                        <li><strong>{t('autosales.vehiclesPage.color')}:</strong> {vehicle.color || '—'}</li>
-                        <li><strong>{t('autosales.vehiclesPage.mileage')}:</strong> {vehicle.mileage != null ? `${vehicle.mileage.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} km` : '—'}</li>
-                        <li><strong>{t('autosales.vehiclesPage.createdAt')}:</strong> {formatDate(vehicle.createdAt, lang)}</li>
-                      </ul>
-
-                      <div className="vehicle-actions">
-                        <Link className="button secondary sm" to={`/automobile/vehicles/${vehicle.id}`}>{t('autosales.vehiclesPage.details')}</Link>
-                        {canUpdate && <button type="button" className="button secondary sm" onClick={() => openEditForm(vehicle)}>{t('autosales.vehiclesPage.edit')}</button>}
-                        {canUpdate && allowedTransitions.length > 0 && (
-                          <select
-                            className="status-select"
-                            value={vehicle.status}
-                            onChange={(event) => changeStatus(vehicle, event.target.value)}
-                            aria-label={t('autosales.vehiclesPage.status')}
-                          >
-                            {STATUS_OPTIONS.filter((status) => status === vehicle.status || allowedTransitions.includes(status)).map((status) => (
-                              <option key={status} value={status}>{statusLabel(status, t)}</option>
-                            ))}
-                          </select>
-                        )}
-                        {canDelete && <button type="button" className="button danger sm" onClick={() => deleteVehicle(vehicle)}>{t('autosales.vehiclesPage.delete')}</button>}
-                      </div>
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </section>
+    </div>
   )
 }
 
@@ -472,115 +618,134 @@ export function VehicleDetailPage() {
   const { user } = useAuth()
   const { lang, t } = useLanguage()
   const navigate = useNavigate()
-  const canView = hasPermission(user, 'VIEW_VEHICLE') || user?.role === 'SUPER_ADMIN'
-  const canManageMedia = hasPermission(user, 'MANAGE_VEHICLE_MEDIA') || user?.role === 'SUPER_ADMIN'
 
-  const vehicleQuery = useQuery({
+  const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['autosales-vehicle-detail', id],
     queryFn: async () => {
       const response = await api.get(`/api/vehicles/${id}`)
-      return response.data?.data?.vehicle || response.data?.vehicle || response.data
+      return response.data?.data?.vehicle || response.data?.data || response.data
     },
-    enabled: canView && !!id,
   })
 
-  const mediaQuery = useQuery({
-    queryKey: ['autosales-vehicle-detail-media', id],
-    queryFn: async () => {
-      if (!canManageMedia) return []
-      const response = await api.get(`/api/vehicle-media/vehicle/${id}`)
-      return response.data?.data?.items || []
-    },
-    enabled: canView && canManageMedia && !!id,
-  })
-
-  const vehicle = vehicleQuery.data
-  const media = mediaQuery.data || []
-  const gallery = media.length > 0 ? media.map((item) => item.media?.url).filter(Boolean) : []
-  const primaryImage = gallery[0] || null
-
-  if (!canView) {
-    return <section className="page"><div className="card"><h1>{t('autosales.vehiclesPage.title')}</h1><p className="empty">{t('autosales.vehiclesPage.noAccess')}</p></div></section>
+  if (isPending) {
+    return (
+      <div className="page vanguard-vehicle-detail-page">
+        <LoadingState message="Chargement des détails du véhicule..." />
+      </div>
+    )
   }
 
-  if (vehicleQuery.isPending) return <section className="page"><div className="card"><p>{t('dashboard.loading')}</p></div></section>
-  if (vehicleQuery.isError) return <section className="page"><div className="card"><p className="error-box">{t('dashboard.errorState')}</p></div></section>
-  if (!vehicle) return <section className="page"><div className="card"><p className="empty">{t('autosales.vehiclesPage.notFound')}</p></div></section>
+  if (isError || !data) {
+    return (
+      <div className="page vanguard-vehicle-detail-page">
+        <ErrorState
+          title="Véhicule introuvable"
+          message={error?.response?.data?.message || 'Impossible de charger la fiche du véhicule.'}
+          onRetry={() => refetch()}
+        />
+      </div>
+    )
+  }
+
+  const vehicle = data
+  const primaryMedia = vehicle.media?.find((m) => m.isPrimary)?.media?.url || vehicle.imageUrl
 
   return (
-    <section className="page vehicle-detail-page">
-      <div className="page-head">
-        <div>
-          <h1>{vehicle.brand} {vehicle.model}</h1>
-          <p>{vehicle.year} · {money(vehicle.price, vehicle.currency, lang)}</p>
-        </div>
-        <div className="button-row">
-          <button type="button" className="button secondary" onClick={() => navigate('/automobile/vehicles')}>{t('autosales.vehiclesPage.back')}</button>
-        </div>
+    <div className="page vanguard-vehicle-detail-page">
+      <div style={{ marginBottom: '16px' }}>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={ArrowLeft}
+          onClick={() => navigate('/automobile/vehicles')}
+        >
+          Retour au catalogue
+        </Button>
       </div>
 
-      <div className="vehicle-detail-grid">
-        <div className="card vehicle-gallery">
-          {gallery.length > 0 ? (
-            <div className="gallery-grid">
-              {gallery.map((url, index) => <img key={`${url}-${index}`} src={url} alt={`${vehicle.brand} ${vehicle.model}`} />)}
+      <PageHeader
+        eyebrow="VANGUARD SERVICES · FICHE VÉHICULE"
+        title={`${vehicle.brand} ${vehicle.model}`}
+        subtitle={`Réf: ${vehicle.id}`}
+        badge={<StatusBadge status={vehicle.status} />}
+      />
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+        {/* Gallery / Image Preview */}
+        <Card>
+          <div style={{
+            height: '240px',
+            backgroundColor: '#0F172A',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden'
+          }}>
+            {primaryMedia ? (
+              <img src={primaryMedia} alt={vehicle.brand} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{ color: '#94A3B8', textAlign: 'center' }}>
+                <CarFront size={48} />
+                <p style={{ margin: '8px 0 0', fontSize: '0.84rem' }}>Aucune photo principale</p>
+              </div>
+            )}
+          </div>
+          <CardContent>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 600 }}>Prix de vente</span>
+              <strong style={{ fontSize: '1.4rem', color: '#0F172A', fontWeight: 800 }}>
+                {formatMoney(vehicle.price, vehicle.currency, lang)}
+              </strong>
             </div>
-          ) : (
-            <div className="vehicle-image-fallback large">{t('autosales.noImage')}</div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="card vehicle-summary">
-          <div className="summary-row">
-            <span>{t('autosales.vehiclesPage.status')}</span>
-            <strong>{statusLabel(vehicle.status, t)}</strong>
-          </div>
-          <div className="summary-row">
-            <span>{t('autosales.vehiclesPage.price')}</span>
-            <strong>{money(vehicle.price, vehicle.currency, lang)}</strong>
-          </div>
-          <div className="summary-row">
-            <span>{t('autosales.vehiclesPage.currency')}</span>
-            <strong>{vehicle.currency || 'USD'}</strong>
-          </div>
-          <div className="summary-row">
-            <span>{t('autosales.vehiclesPage.mileage')}</span>
-            <strong>{vehicle.mileage != null ? `${Number(vehicle.mileage).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} km` : '—'}</strong>
-          </div>
-          <div className="summary-row">
-            <span>{t('autosales.vehiclesPage.color')}</span>
-            <strong>{vehicle.color || '—'}</strong>
-          </div>
-          <div className="summary-row">
-            <span>{t('autosales.vehiclesPage.fuelType')}</span>
-            <strong>{vehicle.fuelType || '—'}</strong>
-          </div>
-          <div className="summary-row">
-            <span>{t('autosales.vehiclesPage.transmission')}</span>
-            <strong>{vehicle.transmission || '—'}</strong>
-          </div>
-          <div className="summary-row">
-            <span>{t('autosales.vehiclesPage.createdAt')}</span>
-            <strong>{formatDate(vehicle.createdAt, lang)}</strong>
-          </div>
-          <div className="summary-row">
-            <span>{t('autosales.vehiclesPage.updatedAt')}</span>
-            <strong>{formatDate(vehicle.updatedAt, lang)}</strong>
-          </div>
-        </div>
+        {/* Technical Specs */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Caractéristiques Techniques</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Année</span>
+                <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>{vehicle.year || '—'}</div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Kilométrage</span>
+                <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
+                  {vehicle.mileage != null ? `${vehicle.mileage.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} km` : '—'}
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Transmission</span>
+                <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>{vehicle.transmission || '—'}</div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Carburant</span>
+                <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>{vehicle.fuelType || '—'}</div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Couleur</span>
+                <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>{vehicle.color || '—'}</div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Enregistré le</span>
+                <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>{formatDate(vehicle.createdAt, lang)}</div>
+              </div>
+            </div>
+
+            {vehicle.description && (
+              <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Description</span>
+                <p style={{ margin: '6px 0 0', fontSize: '0.875rem', color: '#334155', lineHeight: 1.5 }}>
+                  {vehicle.description}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-
-      <div className="card vehicle-description">
-        <h2>{t('autosales.vehiclesPage.description')}</h2>
-        <p>{vehicle.description || '—'}</p>
-      </div>
-
-      {primaryImage && (
-        <div className="card vehicle-featured-image">
-          <h2>{t('autosales.vehiclesPage.primaryImage')}</h2>
-          <img src={primaryImage} alt={`${vehicle.brand} ${vehicle.model}`} />
-        </div>
-      )}
-    </section>
+    </div>
   )
 }

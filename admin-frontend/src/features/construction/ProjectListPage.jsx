@@ -1,11 +1,36 @@
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import {
+  HardHat,
+  Plus,
+  Eye,
+  Edit2,
+  Trash2,
+  RefreshCw,
+  Layers,
+  MapPin,
+  Calendar,
+  Building2,
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { useLanguage } from '../../i18n/useLanguage'
+import {
+  PageHeader,
+  Card,
+  FilterBar,
+  SearchBar,
+  Button,
+  StatusBadge,
+  ActionMenu,
+  ConfirmDialog,
+  Select,
+  LoadingState,
+  ErrorState,
+  EmptyState,
+} from '../../components/ui'
 
 const PROJECT_STATUS_OPTIONS = ['DRAFT', 'PUBLISHED', 'ARCHIVED']
 
@@ -17,17 +42,15 @@ const toList = (payload) => {
   return []
 }
 
-const money = (value, locale = 'fr') => {
+const formatMoney = (value, locale = 'fr') => {
   const numeric = Number(value || 0)
   if (!Number.isFinite(numeric)) return '—'
-  return new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'fr-FR', {
-    style: 'currency',
-    currency: 'USD',
+  return `$ ${new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'fr-FR', {
     maximumFractionDigits: 2,
-  }).format(numeric)
+  }).format(numeric)}`
 }
 
-const formatDate = (value, locale) => {
+const formatDate = (value, locale = 'fr') => {
   if (!value) return '—'
   try {
     return new Date(value).toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR')
@@ -36,22 +59,15 @@ const formatDate = (value, locale) => {
   }
 }
 
-const statusLabel = (status, t) => {
-  const labels = {
-    DRAFT: t('status.draft') || 'Brouillon',
-    PUBLISHED: t('status.published') || 'Publié',
-    ARCHIVED: t('status.archived') || 'Archivé',
-  }
-  return labels[status] || status || '—'
-}
-
 export function ProjectListPage() {
   const { user } = useAuth()
   const { lang, t } = useLanguage()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [deletingProject, setDeletingProject] = useState(null)
 
   const canView = hasPermission(user, 'VIEW_PROJECT') || user?.role === 'SUPER_ADMIN'
   const canCreate = hasPermission(user, 'CREATE_PROJECT') || user?.role === 'SUPER_ADMIN'
@@ -65,8 +81,7 @@ export function ProjectListPage() {
       if (search.trim()) params.search = search.trim()
       if (statusFilter !== 'ALL') params.status = statusFilter
       const response = await api.get('/api/construction/projects', { params })
-      const items = toList(response.data?.data || response.data)
-      return items
+      return toList(response.data?.data || response.data)
     },
     enabled: canView,
   })
@@ -75,6 +90,8 @@ export function ProjectListPage() {
     mutationFn: async (projectId) => api.delete(`/api/construction/projects/${projectId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['construction-projects'] })
+      queryClient.invalidateQueries({ queryKey: ['construction-dashboard-overview'] })
+      setDeletingProject(null)
     },
   })
 
@@ -84,7 +101,11 @@ export function ProjectListPage() {
     if (!search.trim() && statusFilter === 'ALL') return projects
     const query = search.trim().toLowerCase()
     return projects.filter((project) => {
-      const matchesSearch = !query || [project.title, project.location, project.description].some((value) => String(value || '').toLowerCase().includes(query))
+      const matchesSearch =
+        !query ||
+        [project.title, project.location, project.description].some((val) =>
+          String(val || '').toLowerCase().includes(query)
+        )
       const matchesStatus = statusFilter === 'ALL' || project.status === statusFilter
       return matchesSearch && matchesStatus
     })
@@ -92,123 +113,200 @@ export function ProjectListPage() {
 
   if (!canView) {
     return (
-      <section className="page">
-        <div className="state-container">
-          <AlertTriangle size={30} />
-          <p>{t('construction.accessDenied')}</p>
-        </div>
-      </section>
+      <div className="page vanguard-projects-page">
+        <EmptyState
+          title="Accès non autorisé"
+          description="Vous ne possédez pas les permissions nécessaires pour consulter la liste des projets de construction."
+        />
+      </div>
     )
   }
 
   return (
-    <section className="page">
-      <div className="page-head">
-        <div>
-          <h1>{t('construction.projects.title')}</h1>
-          <p>{t('construction.projects.subtitle')}</p>
-        </div>
-        {canCreate && (
-          <button type="button" className="button" onClick={() => navigate('/construction/projects/new')}>
-            <Plus size={16} />
-            <span>{t('construction.projects.new')}</span>
-          </button>
-        )}
-      </div>
-
-      <div className="toolbar">
-        <div className="toolbar-filters" style={{ flex: 1 }}>
-          <div className="search-input-wrap">
-            <Search size={16} />
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('construction.projects.searchPlaceholder')}
-            />
+    <div className="page vanguard-projects-page">
+      <PageHeader
+        eyebrow="VANGUARD SERVICES · CONSTRUCTION"
+        title="Projets & Chantiers"
+        subtitle="Suivi de l’ensemble des projets de construction, rénovation et aménagements."
+        actions={
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Layers}
+              onClick={() => navigate('/construction/templates')}
+            >
+              Templates
+            </Button>
+            {canCreate && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Plus}
+                onClick={() => navigate('/construction/projects/new')}
+              >
+                Nouveau projet
+              </Button>
+            )}
           </div>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="select-filter">
-            <option value="ALL">{t('construction.projects.allStatuses')}</option>
-            {PROJECT_STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>{statusLabel(status, t)}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+        }
+      />
+
+      <FilterBar onRefresh={() => projectsQuery.refetch()} isRefreshing={projectsQuery.isFetching}>
+        <SearchBar
+          value={search}
+          onChange={(val) => setSearch(val)}
+          placeholder="Rechercher par titre, localisation..."
+        />
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{ width: 'auto', minWidth: '160px' }}
+        >
+          <option value="ALL">Tous les statuts</option>
+          <option value="DRAFT">Brouillon</option>
+          <option value="PUBLISHED">Publié</option>
+          <option value="ARCHIVED">Archivé</option>
+        </Select>
+      </FilterBar>
 
       {projectsQuery.isPending ? (
-        <div className="state-container">{t('construction.projects.loading')}</div>
+        <LoadingState message="Chargement des projets de construction..." />
       ) : projectsQuery.isError ? (
-        <div className="state-container">
-          <AlertTriangle size={30} />
-          <p>{t('construction.projects.loadError')}</p>
-          <button type="button" className="button secondary sm" onClick={() => projectsQuery.refetch()}>{t('dashboard.retry')}</button>
-        </div>
+        <ErrorState
+          title="Erreur de chargement des projets"
+          message={projectsQuery.error?.response?.data?.message || 'Impossible de récupérer la liste des projets.'}
+          onRetry={() => projectsQuery.refetch()}
+        />
       ) : filteredProjects.length === 0 ? (
-        <div className="state-container">
-          <p>{t('construction.projects.empty')}</p>
-          {canCreate && (
-            <button type="button" className="button" onClick={() => navigate('/construction/projects/new')}>
-              <Plus size={16} />
-              <span>{t('construction.projects.new')}</span>
-            </button>
-          )}
-        </div>
+        <EmptyState
+          title="Aucun projet trouvé"
+          description="Aucun chantier ou projet ne correspond à vos critères de recherche."
+          icon={HardHat}
+          actionLabel={canCreate ? "Créer un projet" : undefined}
+          onAction={() => navigate('/construction/projects/new')}
+          actionIcon={Plus}
+        />
       ) : (
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{t('construction.projects.name')}</th>
-                <th>{t('construction.projects.location')}</th>
-                <th>{t('construction.projects.status')}</th>
-                <th>{t('construction.projects.publicationStatus')}</th>
-                <th>{t('construction.projects.budget')}</th>
-                <th>{t('construction.projects.createdAt')}</th>
-                <th style={{ textAlign: 'right' }}>{t('construction.projects.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProjects.map((project) => (
-                <tr key={project.id}>
-                  <td><strong>{project.title || '—'}</strong></td>
-                  <td>{project.location || '—'}</td>
-                  <td><span className="badge info">{statusLabel(project.status, t)}</span></td>
-                  <td>{statusLabel(project.publicationStatus, t)}</td>
-                  <td>{money(project.budget, lang)}</td>
-                  <td>{formatDate(project.createdAt, lang)}</td>
-                  <td>
-                    <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
-                      <button type="button" className="action-btn" title={t('construction.projects.view')} onClick={() => navigate(`/construction/projects/${project.id}`)}>
-                        <Eye size={14} />
-                      </button>
-                      {canUpdate && (
-                        <button type="button" className="action-btn" title={t('construction.projects.edit')} onClick={() => navigate(`/construction/projects/${project.id}/edit`)}>
-                          <Pencil size={14} />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          type="button"
-                          className="action-btn danger"
-                          title={t('construction.projects.delete')}
-                          onClick={() => {
-                            if (window.confirm(t('construction.projects.confirmDelete'))) {
-                              deleteMutation.mutate(project.id)
-                            }
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+        <Card>
+          <div className="table-responsive" style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Projet</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Localisation</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Statut</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Budget</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Date de création</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredProjects.map((project) => (
+                  <tr
+                    key={project.id}
+                    style={{ borderBottom: '1px solid #E2E8F0', cursor: 'pointer' }}
+                    onClick={() => navigate(`/construction/projects/${project.id}`)}
+                  >
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          backgroundColor: '#FFF7ED',
+                          color: '#EA580C',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <HardHat size={18} />
+                        </div>
+                        <div>
+                          <strong style={{ fontSize: '0.9rem', color: '#0F172A' }}>
+                            {project.title || 'Projet sans titre'}
+                          </strong>
+                          {project.isTemplate && (
+                            <span style={{ marginLeft: '6px', fontSize: '0.7rem', backgroundColor: '#EFF6FF', color: '#2563EB', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
+                              Template
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    <td style={{ padding: '12px 16px', fontSize: '0.84rem', color: '#475569' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={13} color="#64748B" />
+                        <span>{project.location || '—'}</span>
+                      </div>
+                    </td>
+
+                    <td style={{ padding: '12px 16px' }}>
+                      <StatusBadge status={project.status} />
+                    </td>
+
+                    <td style={{ padding: '12px 16px', fontWeight: 700, fontSize: '0.9rem', color: '#0F172A' }}>
+                      {formatMoney(project.budget, lang)}
+                    </td>
+
+                    <td style={{ padding: '12px 16px', fontSize: '0.8125rem', color: '#64748B' }}>
+                      {formatDate(project.createdAt, lang)}
+                    </td>
+
+                    <td style={{ padding: '12px 16px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                      <ActionMenu
+                        items={[
+                          {
+                            label: 'Consulter le projet',
+                            icon: Eye,
+                            onClick: () => navigate(`/construction/projects/${project.id}`),
+                          },
+                          ...(canUpdate
+                            ? [
+                                {
+                                  label: 'Modifier',
+                                  icon: Edit2,
+                                  onClick: () => navigate(`/construction/projects/${project.id}/edit`),
+                                },
+                              ]
+                            : []),
+                          ...(canDelete
+                            ? [
+                                { divider: true },
+                                {
+                                  label: 'Supprimer',
+                                  icon: Trash2,
+                                  variant: 'danger',
+                                  onClick: () => setDeletingProject(project),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
-    </section>
+
+      {/* Delete Confirmation Dialog */}
+      {deletingProject && (
+        <ConfirmDialog
+          isOpen={Boolean(deletingProject)}
+          onClose={() => setDeletingProject(null)}
+          onConfirm={() => deleteMutation.mutate(deletingProject.id)}
+          title="Supprimer ce projet ?"
+          message={`Êtes-vous sûr de vouloir supprimer définitivement le projet "${deletingProject.title}" ?`}
+          confirmText="Supprimer"
+          loading={deleteMutation.isPending}
+          variant="danger"
+        />
+      )}
+    </div>
   )
 }

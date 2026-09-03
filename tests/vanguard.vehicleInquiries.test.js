@@ -180,15 +180,15 @@ test('vehicle inquiry endpoints enforce permission boundaries for auto sales sta
 
   const rolesRes = await request('GET', '/api/roles', null, adminToken);
   assert.equal(rolesRes.status, 200);
-  const salesAgentRole = rolesRes.data.data.items.find((item) => item.name === 'SALES_AGENT');
-  assert.ok(salesAgentRole, 'SALES_AGENT role must exist');
+  const autoServiceAdminRole = rolesRes.data.data.items.find((item) => item.name === 'SERVICE_ADMIN');
+  assert.ok(autoServiceAdminRole, 'SERVICE_ADMIN role must exist');
 
   const createUserRes = await request('POST', '/api/users', {
     firstName: 'Auto',
     lastName: 'Sales',
     email: `auto.sales.${Date.now()}@example.com`,
     phone: '+33123456790',
-    roleId: salesAgentRole.id,
+    roleId: autoServiceAdminRole.id,
     departmentId: autoSales.id,
   }, adminToken);
 

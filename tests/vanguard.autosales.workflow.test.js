@@ -84,18 +84,18 @@ test('auto sales commercial workflow: inquiry reservation payment and final sale
 
   const rolesRes = await request('GET', '/api/roles', null, adminToken);
   assert.equal(rolesRes.status, 200);
-  const salesAgentRole = rolesRes.data.data.items.find((item) => item.name === 'SALES_AGENT');
-  assert.ok(salesAgentRole, 'SALES_AGENT role must exist');
+  const autoServiceAdminRole = rolesRes.data.data.items.find((item) => item.name === 'SERVICE_ADMIN');
+  assert.ok(autoServiceAdminRole, 'SERVICE_ADMIN role must exist');
 
   const salesAgentRes = await request('POST', '/api/users', {
     firstName: 'Sales',
     lastName: 'Agent',
     email: `workflow.${Date.now()}@example.com`,
     phone: '+33123456789',
-    roleId: salesAgentRole.id,
+    roleId: autoServiceAdminRole.id,
     departmentId: autoSalesDept.id,
   }, adminToken);
-  assert.equal(salesAgentRes.status, 201, 'Sales agent user should be creatable');
+  assert.equal(salesAgentRes.status, 201, 'Auto service admin user should be creatable');
   const salesAgent = salesAgentRes.data.data.user;
   const tempPassword = salesAgentRes.data.data.user.temporaryPassword;
   assert.ok(tempPassword, 'Temporary password should be issued');
