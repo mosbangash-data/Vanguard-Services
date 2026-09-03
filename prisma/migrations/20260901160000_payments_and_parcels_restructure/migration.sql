@@ -1,4 +1,4 @@
-﻿-- CreateEnum
+-- CreateEnum
 CREATE TYPE "PaymentChannel" AS ENUM ('ONLINE', 'AGENCY');
 
 -- AlterEnum
