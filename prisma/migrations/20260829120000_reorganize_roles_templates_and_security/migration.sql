@@ -1,4 +1,4 @@
-﻿-- AlterTable Agency
+-- AlterTable Agency
 ALTER TABLE "Agency" ADD COLUMN "city" TEXT,
 ADD COLUMN "managerName" TEXT,
 ADD COLUMN "openingHours" TEXT,
