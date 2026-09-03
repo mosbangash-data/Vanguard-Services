@@ -153,7 +153,7 @@ function LoginPageContent() {
           <div className="login-footer">
             <p>© {new Date().getFullYear()} Vanguard Services. {t('footerCopyright')}</p>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   )
