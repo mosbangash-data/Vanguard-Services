@@ -340,6 +340,8 @@ const resetPasswordWithToken = async (data) => {
   return { success: true, message: 'Password has been reset successfully' };
 };
 
+const resetPassword = resetPasswordWithToken;
+
 module.exports = {
   login,
   getUserForAuth,
