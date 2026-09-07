@@ -5,6 +5,7 @@ import { useReveal } from '../hooks/useReveal'
 import SectionHeader from '../components/SectionHeader'
 import { api } from '../api/client'
 import { LoadingState } from '../components/StateView'
+import { SITE_CONTACT } from '../config/contact'
 
 export default function Contact() {
   const { t } = useLanguage()
@@ -39,13 +40,11 @@ export default function Contact() {
     }
   }, [])
 
-  const contactItems = settings
-    ? [
-        ...(settings.phone ? [{ icon: Phone, label: t('contact.phone'), value: settings.phone }] : []),
-        ...(settings.email ? [{ icon: Mail, label: t('contact.email'), value: settings.email }] : []),
-        ...(settings.address ? [{ icon: MapPin, label: t('contact.address'), value: settings.address }] : []),
-      ]
-    : []
+  const contactItems = [
+    { icon: Phone, label: t('contact.phone'), value: SITE_CONTACT.phone, href: `tel:${SITE_CONTACT.phone}` },
+    { icon: Mail, label: t('contact.email'), value: SITE_CONTACT.email, href: `mailto:${SITE_CONTACT.email}` },
+    { icon: MapPin, label: t('contact.address'), value: SITE_CONTACT.address },
+  ]
 
   return (
     <div ref={revealRef}>
@@ -106,7 +105,7 @@ export default function Contact() {
                         </div>
                         <div>
                           <h4>{item.label}</h4>
-                          <p>{item.value}</p>
+                          {item.href ? <a href={item.href}>{item.value}</a> : <p>{item.value}</p>}
                         </div>
                       </div>
                     )

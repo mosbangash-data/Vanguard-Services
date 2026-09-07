@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, ArrowRight, Calendar, Fuel, Cog } from 'lucide-react'
+import { Search, ArrowRight, Calendar, Fuel, Cog, MessageCircle } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageProvider'
 import { useReveal } from '../hooks/useReveal'
 import SectionHeader from '../components/SectionHeader'
@@ -8,6 +8,7 @@ import { api } from '../api/client'
 import { useFetch } from '../hooks/useFetch'
 import { LoadingState, ErrorState, EmptyState } from '../components/StateView'
 import { translateError } from '../utils/errors'
+import { AUTOMOBILE_WHATSAPP } from '../config/contact'
 
 const STATUS_LABELS = {
   AVAILABLE: 'available',
@@ -64,6 +65,21 @@ export default function Automobile() {
   const getVehicleImage = (vehicle) => {
     const primary = vehicle.media?.find((m) => m.isPrimary) || vehicle.media?.[0]
     return primary?.media?.url || '/assets/automobile/automobile-card.jpg'
+  }
+
+  const getWhatsAppUrl = (vehicle) => {
+    const details = [
+      'Bonjour Vanguard Automobile, je suis intéressé par ce véhicule :',
+      '',
+      vehicle.brand && `Marque : ${vehicle.brand}`,
+      vehicle.model && `Modèle : ${vehicle.model}`,
+      vehicle.year != null && `Année : ${vehicle.year}`,
+      vehicle.price != null && `Prix : ${formatPrice(vehicle.price)} ${vehicle.currency || t('common.currency')}`,
+      vehicle.id && `Référence : ${vehicle.id}`,
+      '',
+      "Je souhaiterais avoir plus d'informations sur ce véhicule.",
+    ].filter(Boolean).join('\n')
+    return `https://wa.me/${AUTOMOBILE_WHATSAPP}?text=${encodeURIComponent(details)}`
   }
 
   return (
@@ -146,56 +162,47 @@ export default function Automobile() {
           {!loading && !error && filtered.length > 0 && (
             <div className="grid grid-3 vehicle-grid">
               {filtered.map((vehicle, index) => (
-                <Link
-                  to={`/automobile/vehicles/${vehicle.id}`}
+                <div
                   key={vehicle.id}
                   className={`vehicle-card card reveal reveal-delay-${(index % 3) + 1}`}
                 >
-                  <div className="vehicle-card-image">
-                    <img
-                      src={getVehicleImage(vehicle)}
-                      alt={`${vehicle.brand} ${vehicle.model}`}
-                      loading="lazy"
-                      width="800"
-                      height="500"
-                    />
-                    <span className={`badge ${getStatusClass(vehicle.status)} vehicle-card-status`}>
-                      {getStatusLabel(vehicle.status)}
-                    </span>
-                  </div>
-                  <div className="vehicle-card-body">
-                    <h3 className="vehicle-card-title">
-                      {vehicle.brand} {vehicle.model}
-                    </h3>
-                    <div className="vehicle-card-specs">
-                      <span>
-                        <Calendar size={14} aria-hidden="true" />
-                        {vehicle.year}
-                      </span>
-                      {vehicle.mileage != null && (
-                        <span>
-                          <Cog size={14} aria-hidden="true" />
-                          {new Intl.NumberFormat('fr-FR').format(vehicle.mileage)} km
-                        </span>
-                      )}
-                      {vehicle.fuelType && (
-                        <span>
-                          <Fuel size={14} aria-hidden="true" />
-                          {vehicle.fuelType}
-                        </span>
-                      )}
-                    </div>
-                    <div className="vehicle-card-footer">
-                      <span className="vehicle-card-price">
-                        {formatPrice(vehicle.price)} {vehicle.currency || t('common.currency')}
-                      </span>
-                      <span className="vehicle-card-cta">
-                        {t('automobilePage.viewDetails')}
-                        <ArrowRight size={16} aria-hidden="true" />
+                  <Link to={`/automobile/vehicles/${vehicle.id}`}>
+                    <div className="vehicle-card-image">
+                      <img
+                        src={getVehicleImage(vehicle)}
+                        alt={`${vehicle.brand} ${vehicle.model}`}
+                        loading="lazy"
+                        width="800"
+                        height="500"
+                      />
+                      <span className={`badge ${getStatusClass(vehicle.status)} vehicle-card-status`}>
+                        {getStatusLabel(vehicle.status)}
                       </span>
                     </div>
-                  </div>
-                </Link>
+                    <div className="vehicle-card-body">
+                      <h3 className="vehicle-card-title">{vehicle.brand} {vehicle.model}</h3>
+                      <div className="vehicle-card-specs">
+                        {vehicle.year != null && <span><Calendar size={14} aria-hidden="true" />{vehicle.year}</span>}
+                        {vehicle.mileage != null && <span><Cog size={14} aria-hidden="true" />{new Intl.NumberFormat('fr-FR').format(vehicle.mileage)} km</span>}
+                        {vehicle.fuelType && <span><Fuel size={14} aria-hidden="true" />{vehicle.fuelType}</span>}
+                      </div>
+                      <div className="vehicle-card-footer">
+                        <span className="vehicle-card-price">{formatPrice(vehicle.price)} {vehicle.currency || t('common.currency')}</span>
+                        <span className="vehicle-card-cta">{t('automobilePage.viewDetails')}<ArrowRight size={16} aria-hidden="true" /></span>
+                      </div>
+                    </div>
+                  </Link>
+                  <a
+                    className="vehicle-whatsapp"
+                    href={getWhatsAppUrl(vehicle)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <MessageCircle size={16} aria-hidden="true" />
+                    {t('automobilePage.whatsapp')}
+                  </a>
+                </div>
               ))}
             </div>
           )}

@@ -18,6 +18,7 @@ import {
 import { useLanguage } from '../i18n/LanguageProvider'
 import { useReveal } from '../hooks/useReveal'
 import { api } from '../api/client'
+import { SITE_CONTACT } from '../config/contact'
 
 export default function Home() {
   const { t } = useLanguage()
@@ -358,7 +359,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h4>{t('contact.phone')}</h4>
-                  <p>{settings?.phone || '+243 97 000 0000'}</p>
+                  <p>{SITE_CONTACT.phone}</p>
                 </div>
               </div>
 
@@ -368,7 +369,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h4>{t('contact.email')}</h4>
-                  <p>{settings?.email || 'contact@vanguard-services.com'}</p>
+                  <p>{SITE_CONTACT.email}</p>
                 </div>
               </div>
 
@@ -378,7 +379,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h4>{t('contact.address')}</h4>
-                  <p>{settings?.address || 'Avenue de la Paix, Goma, RDC'}</p>
+                  <p>{SITE_CONTACT.address}</p>
                 </div>
               </div>
 

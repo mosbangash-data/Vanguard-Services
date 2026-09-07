@@ -7,6 +7,8 @@ import ProjectDetail from './pages/ProjectDetail'
 import Automobile from './pages/Automobile'
 import VehicleDetail from './pages/VehicleDetail'
 import Contact from './pages/Contact'
+import ConstructionAbout from './pages/ConstructionAbout'
+import CoachAbout from './pages/CoachAbout'
 import Agent from './pages/Agent'
 import Ticket from './pages/Ticket'
 import NotFound from './pages/NotFound'
@@ -17,7 +19,9 @@ export default function App() {
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/transport" element={<Transport />} />
+        <Route path="/transport/about" element={<CoachAbout />} />
         <Route path="/construction" element={<Construction />} />
+        <Route path="/construction/about" element={<ConstructionAbout />} />
         <Route path="/construction/projects/:id" element={<ProjectDetail />} />
         <Route path="/automobile" element={<Automobile />} />
         <Route path="/automobile/vehicles/:id" element={<VehicleDetail />} />

@@ -51,6 +51,58 @@ export function AuditLogsPage() {
     }
   }
 
+  const ACTION_LABELS = {
+    login: 'Connexion',
+    logout: 'Déconnexion',
+    create_user: 'Création d’un utilisateur',
+    update_user: 'Modification d’un utilisateur',
+    delete_user: 'Suppression d’un utilisateur',
+    create_project: 'Création d’un projet',
+    update_project: 'Modification d’un projet',
+    delete_project: 'Suppression d’un projet',
+    create_agency: 'Création d’une agence',
+    update_agency: 'Modification d’une agence',
+    delete_agency: 'Suppression d’une agence',
+    create_vehicle: 'Ajout d’un véhicule',
+    update_vehicle: 'Modification d’un véhicule',
+    delete_vehicle: 'Suppression d’un véhicule',
+    create_customer_request: 'Création d’une demande client',
+    update_customer_request: 'Modification d’une demande client',
+    create_quote_request: 'Création d’une demande de devis',
+    update_quote_request: 'Modification d’une demande de devis',
+    create_reservation: 'Création d’une réservation',
+    update_reservation: 'Modification d’une réservation',
+    create_vehicle_inquiry: 'Création d’une demande véhicule',
+    update_vehicle_inquiry: 'Modification d’une demande véhicule',
+    assign_vehicle_inquiry: 'Attribution d’une demande véhicule',
+    create_vehicle_reservation: 'Création d’une réservation véhicule',
+    create_vehicle_payment: 'Création d’un paiement véhicule',
+    update_role_permissions: 'Mise à jour des accès',
+    forgot_password_requested: 'Demande de réinitialisation du mot de passe',
+    reset_password_completed: 'Réinitialisation du mot de passe',
+  }
+
+  const getActionLabel = (action) => {
+    const normalized = String(action || '').toLowerCase()
+    if (ACTION_LABELS[normalized]) return ACTION_LABELS[normalized]
+    if (normalized.startsWith('create_')) return 'Création d’une opération'
+    if (normalized.startsWith('update_')) return 'Modification d’une opération'
+    if (normalized.startsWith('delete_')) return 'Suppression d’une opération'
+    if (normalized.includes('login') || normalized.includes('auth')) return 'Événement de connexion'
+    return 'Action système'
+  }
+
+  const ROLE_LABELS = {
+    SUPER_ADMIN: 'Administrateur système',
+    ADMIN: 'Administrateur',
+    SERVICE_ADMIN: 'Administrateur de service',
+    MANAGER: 'Responsable',
+    ENGINEER: 'Ingénieur',
+    AGENT: 'Agent',
+  }
+
+  const getRoleLabel = (role) => ROLE_LABELS[String(role || '').toUpperCase()] || 'Rôle système'
+
   const getActionBadgeVariant = (action) => {
     const act = String(action || '').toLowerCase()
     if (act.includes('delete') || act.includes('remove') || act.includes('suspend')) return 'danger'
@@ -60,13 +112,27 @@ export function AuditLogsPage() {
     return 'neutral'
   }
 
-  const formatDetailLabel = (key) => key.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase())
+  const DETAIL_LABELS = {
+    role: 'Rôle',
+    department: 'Service',
+    departmentType: 'Service',
+    status: 'Résultat',
+    resultStatus: 'Résultat',
+    description: 'Description',
+    email: 'E-mail',
+    firstName: 'Prénom',
+    lastName: 'Nom',
+    amount: 'Montant',
+    currency: 'Devise',
+  }
+  const HIDDEN_DETAIL_KEYS = new Set(['userid', 'targetuserid', 'roleid', 'departmentid', 'permissionids', 'permissions', 'ipaddress', 'providertransactionid', 'providerreference'])
+  const formatDetailLabel = (key) => DETAIL_LABELS[key] || 'Information'
   const getReadableDetails = (details) => {
     if (!details || typeof details !== 'object') return []
     return Object.entries(details)
-      .filter(([, value]) => value !== null && value !== undefined && typeof value !== 'object')
+      .filter(([key, value]) => !HIDDEN_DETAIL_KEYS.has(String(key).toLowerCase()) && value !== null && value !== undefined && typeof value !== 'object')
       .slice(0, 4)
-      .map(([key, value]) => `${formatDetailLabel(key)} : ${String(value)}`)
+      .map(([key, value]) => `${formatDetailLabel(key)} : ${key.toLowerCase() === 'role' ? getRoleLabel(value) : String(value)}`)
   }
 
   return (
@@ -163,7 +229,7 @@ export function AuditLogsPage() {
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         <StatusBadge
-                          label={log.action}
+                          label={getActionLabel(log.action)}
                           variant={getActionBadgeVariant(log.action)}
                           dot={false}
                         />
@@ -171,9 +237,7 @@ export function AuditLogsPage() {
                       <td style={{ padding: '12px 16px', fontSize: '0.84rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <User size={13} color="#64748B" />
-                          <code style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px', fontSize: '0.78rem' }}>
-                            {log.actorId ? (log.actorId.length > 10 ? log.actorId.substring(0, 10) + '…' : log.actorId) : 'Système'}
-                          </code>
+                          <span>{log.actorId ? 'Utilisateur de la plateforme' : 'Système'}</span>
                         </div>
                       </td>
                       <td style={{
@@ -248,7 +312,7 @@ export function AuditLogsPage() {
           isOpen={Boolean(viewingLog)}
           onClose={() => setViewingLog(null)}
           title="Détails de l’événement d’audit"
-          subtitle={`Enregistrement #${viewingLog.id}`}
+          subtitle="Événement enregistré dans le journal de sécurité"
           size="lg"
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -256,7 +320,7 @@ export function AuditLogsPage() {
               <div>
                 <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Action</span>
                 <div style={{ marginTop: '4px' }}>
-                  <StatusBadge label={viewingLog.action} variant={getActionBadgeVariant(viewingLog.action)} />
+                  <StatusBadge label={getActionLabel(viewingLog.action)} variant={getActionBadgeVariant(viewingLog.action)} />
                 </div>
               </div>
 
@@ -268,20 +332,11 @@ export function AuditLogsPage() {
               </div>
 
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>ID Acteur</span>
-                <div style={{ marginTop: '4px', fontFamily: 'monospace', fontSize: '0.84rem' }}>
-                  {viewingLog.actorId || 'Système (automatique)'}
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Utilisateur</span>
+                <div style={{ marginTop: '4px', fontWeight: 600, color: '#0F172A', fontSize: '0.88rem' }}>
+                  {viewingLog.actorId ? 'Utilisateur de la plateforme' : 'Système (automatique)'}
                 </div>
               </div>
-
-              {viewingLog.ipAddress && (
-                <div>
-                  <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Adresse IP</span>
-                  <div style={{ marginTop: '4px', fontFamily: 'monospace', fontSize: '0.84rem' }}>
-                    {viewingLog.ipAddress}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div>

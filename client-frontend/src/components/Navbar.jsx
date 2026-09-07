@@ -65,7 +65,8 @@ export default function Navbar() {
             aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
             aria-expanded={mobileOpen}
           >
-            {mobileOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
+            {mobileOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
+            <span>{t('nav.menu')}</span>
           </button>
         </div>
       </div>
@@ -73,6 +74,13 @@ export default function Navbar() {
       {/* Menu mobile */}
       <div className={`navbar-mobile${mobileOpen ? ' navbar-mobile-open' : ''}`}>
         <nav className="navbar-mobile-nav" aria-label="Navigation mobile">
+          <Link to="/" className="navbar-mobile-link">{t('nav.home')}</Link>
+          <Link to="/transport" className="navbar-mobile-link">{t('nav.transport')}</Link>
+          <Link to="/transport/about" className="navbar-mobile-link">{t('nav.coachAbout')}</Link>
+          <Link to="/construction" className="navbar-mobile-link">{t('nav.construction')}</Link>
+          <Link to="/construction/about" className="navbar-mobile-link">{t('nav.constructionAbout')}</Link>
+          <Link to="/automobile" className="navbar-mobile-link">{t('nav.automobile')}</Link>
+          <Link to="/contact" className="navbar-mobile-link">{t('nav.contact')}</Link>
           <a
             href={ADMIN_URL}
             className="btn btn-primary navbar-mobile-agent"
