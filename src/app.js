@@ -148,6 +148,7 @@ app.use('/api/webhooks', webhookRoutes);
 
 const clientSpaPredicate = (req) => {
   const pathname = decodeURIComponent(req.path || '/');
+  if (pathname.startsWith('/assets/') || pathname.startsWith('/admin/')) return false;
   return pathname === '/'
     || pathname === '/agent'
     || pathname.startsWith('/transport')
@@ -161,6 +162,7 @@ const clientSpaPredicate = (req) => {
 
 const adminSpaPredicate = (req) => {
   const pathname = decodeURIComponent((req.originalUrl || req.path || '/').split('?')[0]);
+  if (pathname.startsWith('/admin/assets/')) return false;
   return pathname === '/admin'
     || pathname.startsWith('/admin/')
     || pathname === '/login';
