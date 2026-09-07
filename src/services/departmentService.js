@@ -29,15 +29,19 @@ const listDepartments = async (query = {}, currentUser) => {
   const search = typeof query.search === 'string' ? query.search.trim() : '';
   const skip = (page - 1) * limit;
 
+  const scope = currentUser.role === 'SERVICE_ADMIN' && currentUser.department?.type
+    ? { type: currentUser.department.type }
+    : {};
   const where = search
     ? {
+        ...scope,
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
           { type: { contains: search, mode: 'insensitive' } },
         ],
       }
-    : {};
+    : scope;
 
   const [allItems, total] = await Promise.all([
     prisma.department.findMany({ where, skip, take: limit }),
@@ -65,6 +69,9 @@ const getDepartmentById = async (departmentId, currentUser) => {
   const department = await prisma.department.findUnique({ where: { id: departmentId } });
   if (!department) {
     throw new AppError('Department not found', 404);
+  }
+  if (currentUser.role === 'SERVICE_ADMIN' && department.type !== currentUser.department?.type) {
+    throw new AppError('Access to this department is not allowed', 403);
   }
 
   return { department };

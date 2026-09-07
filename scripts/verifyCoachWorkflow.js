@@ -59,7 +59,7 @@ const main = async () => {
   const adminToken = adminLogin.data.data.token;
   const agentLogin = expect(await request(baseUrl, 'POST', '/api/auth/login', { identifier: agentEmail, password: `Workflow-${marker}!` }), 200, 'agent login');
   const agentToken = agentLogin.data.data.token;
-  const constructionLogin = expect(await request(baseUrl, 'POST', '/api/auth/login', { identifier: 'construction@vanguard.local', password: 'Construction123!' }), 200, 'non-scanner login');
+  const constructionLogin = expect(await request(baseUrl, 'POST', '/api/auth/login', { identifier: 'construction@vanguard.local', password: process.env.CONSTRUCTION_SEED_PASSWORD || 'dev-construction-password' }), 200, 'non-scanner login');
 
   const route = expect(await request(baseUrl, 'POST', '/api/destinations', {
     departmentId: coach.id, code: `${marker}-RT`, departureCity: 'Kinshasa', arrivalCity: 'Lubumbashi',

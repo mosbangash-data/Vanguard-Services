@@ -68,7 +68,9 @@ const envOrigins = (process.env.CORS_ORIGIN || '')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? envOrigins
+  : Array.from(new Set([...defaultOrigins, ...envOrigins]));
 
 app.use(cors({
   origin(origin, callback) {
@@ -158,7 +160,7 @@ const clientSpaPredicate = (req) => {
 };
 
 const adminSpaPredicate = (req) => {
-  const pathname = decodeURIComponent(req.path || '/');
+  const pathname = decodeURIComponent((req.originalUrl || req.path || '/').split('?')[0]);
   return pathname === '/admin'
     || pathname.startsWith('/admin/')
     || pathname === '/login';

@@ -142,7 +142,7 @@ test('ticket scan rejects cancelled tickets and invalid QR values', async () => 
 test('ticket scan is blocked for unauthorized users and wrong department', async () => {
   const { ticket } = await createCoachTicketFixture();
 
-  const loginRes = await request('POST', '/api/auth/login', { identifier: 'construction@vanguard.local', password: 'Construction123!' });
+  const loginRes = await request('POST', '/api/auth/login', { identifier: 'construction@vanguard.local', password: process.env.CONSTRUCTION_SEED_PASSWORD || 'dev-construction-password' });
   assert.equal(loginRes.status, 200);
   const constructionToken = loginRes.data.data.token;
 

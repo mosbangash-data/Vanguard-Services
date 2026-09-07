@@ -42,7 +42,7 @@ test.before(async () => {
 
   const constructionLoginRes = await request('POST', '/api/auth/login', {
     identifier: 'construction@vanguard.local',
-    password: 'Construction123!',
+    password: process.env.CONSTRUCTION_SEED_PASSWORD || 'dev-construction-password',
   });
   assert.equal(constructionLoginRes.status, 200);
   constructionToken = constructionLoginRes.data.data.token;

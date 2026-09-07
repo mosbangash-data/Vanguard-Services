@@ -53,6 +53,7 @@ const buildUserFromToken = async (token) => {
     role: user.role?.name || null,
     department: user.department
       ? {
+          id: user.department.id,
           type: user.department.type,
           name: user.department.name,
         }

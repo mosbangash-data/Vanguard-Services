@@ -16,6 +16,9 @@ const notFoundHandler = (req, res, next) => {
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || err.status || 500;
   const message = err.message || 'Une erreur inattendue est survenue.';
+  const publicMessage = err.isOperational
+    ? message
+    : 'Une erreur interne est survenue. Veuillez réessayer.';
 
   if (process.env.NODE_ENV !== 'production') {
     console.error(err);
@@ -24,13 +27,13 @@ const errorHandler = (err, req, res, next) => {
   if (isApiRequest(req)) {
     return res.status(statusCode).json({
       success: false,
-      message,
+      message: publicMessage,
     });
   }
 
   return res.status(statusCode).render('pages/error', {
     title: 'Erreur',
-    message,
+    message: publicMessage,
     statusCode,
   });
 };

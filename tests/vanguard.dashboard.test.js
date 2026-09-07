@@ -82,7 +82,7 @@ test('construction department user can access department overview using real bac
     },
   });
 
-  const constructionToken = await login('construction@vanguard.local', 'Construction123!');
+  const constructionToken = await login('construction@vanguard.local', process.env.CONSTRUCTION_SEED_PASSWORD || 'dev-construction-password');
   const response = await request('GET', '/api/dashboard/overview', null, constructionToken);
   assert.equal(response.status, 200, 'Construction user should access dashboard overview');
   assert.ok(response.data?.data?.construction?.projects, 'Construction dashboard payload should include project stats');

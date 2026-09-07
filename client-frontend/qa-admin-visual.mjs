@@ -22,7 +22,7 @@ async function sessionFor(identifier, password) {
 
 const accounts = {
   admin: await sessionFor('admin@vanguard.local', 'Admin123!'),
-  construction: await sessionFor('construction@vanguard.local', 'Construction123!'),
+  construction: await sessionFor('construction@vanguard.local', process.env.CONSTRUCTION_SEED_PASSWORD || 'dev-construction-password'),
   engineer: await sessionFor('engineer.a@vanguard.local', 'EngineerA123!'),
 }
 const routes = [

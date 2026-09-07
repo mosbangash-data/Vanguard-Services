@@ -61,6 +61,7 @@ const buildUserResponse = async (user) => {
     firstLogin: user.firstLogin ?? false,
     department: user.department
       ? {
+          id: user.department.id,
           type: user.department.type,
           name: user.department.name,
         }

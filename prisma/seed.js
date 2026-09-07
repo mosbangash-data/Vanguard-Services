@@ -4,6 +4,10 @@ const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 
+if (process.env.NODE_ENV === 'production') {
+  throw new Error('prisma:seed is disabled in production; run it only in a non-production environment');
+}
+
 const connectionString = (process.env.DATABASE_URL || '').replace(/^['"]|['"]$/g, '');
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });

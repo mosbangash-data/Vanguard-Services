@@ -41,7 +41,8 @@ export function ResourcePage({ resource }) {
   const [search, setSearch] = useState('')
   const [form, setForm] = useState(null)
   const [notice, setNotice] = useState('')
-  const enabled = !resource.unavailable && (!resource.permission || hasPermission(user, resource.permission) || user?.role === 'SUPER_ADMIN')
+  const hasRequiredRole = !resource.roles || resource.roles.includes(user?.role)
+  const enabled = !resource.unavailable && hasRequiredRole && (!resource.permission || hasPermission(user, resource.permission) || user?.role === 'SUPER_ADMIN')
   const query = useQuery({ queryKey: ['resource', resource.endpoint, search], queryFn: () => listResource(resource.endpoint, search ? { search, page: 1, limit: 50 } : { page: 1, limit: 50 }), enabled })
   const refresh = () => client.invalidateQueries({ queryKey: ['resource', resource.endpoint] })
   const mutation = useMutation({
@@ -49,7 +50,7 @@ export function ResourcePage({ resource }) {
     onSuccess: () => { setForm(null); setNotice('Opération effectuée.'); refresh() },
   })
   const items = useMemo(() => toList(query.data), [query.data])
-  const can = (permission) => !permission ? !resource.readOnly : hasPermission(user, permission) || user?.role === 'SUPER_ADMIN'
+  const can = (permission) => hasRequiredRole && (!permission ? !resource.readOnly : hasPermission(user, permission) || user?.role === 'SUPER_ADMIN')
   if (resource.unavailable) return <section className="page"><h1>{resource.label}</h1><p className="empty">{resource.unavailable}</p></section>
   if (!enabled) return <section className="page"><h1>{resource.label}</h1><p className="empty">Cette fonctionnalité requiert une permission non accordée.</p></section>
   const columns = items.length ? Object.keys(items[0]).slice(0, 7) : []
