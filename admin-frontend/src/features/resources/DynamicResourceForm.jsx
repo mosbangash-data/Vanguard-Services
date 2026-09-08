@@ -13,11 +13,9 @@ const toOptionsList = (payload) => {
   return []
 }
 
-// Field wrapper to handle dynamic options fetching for relational selects
-function DynamicField({ field, value, onChange, error, disabled }) {
-  const inputId = useId()
-
-  const { data: remoteOptions = [], isLoading: isLoadingOptions } = useQuery({
+// Relational select field that loads options asynchronously only when optionsUrl is provided
+function RelationalSelectField({ field, value, onChange, disabled, hasError, inputId }) {
+  const { data: remoteOptions = [], isLoading } = useQuery({
     queryKey: ['resource-options', field.optionsUrl],
     queryFn: async () => {
       const response = await api.get(field.optionsUrl, { params: { limit: 100 } })
@@ -31,10 +29,36 @@ function DynamicField({ field, value, onChange, error, disabled }) {
       }))
     },
     enabled: Boolean(field.optionsUrl),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   })
 
-  const availableOptions = field.optionsUrl ? remoteOptions : (field.options || [])
+  return (
+    <Select
+      id={inputId}
+      value={value === undefined || value === null ? '' : String(value)}
+      onChange={(e) => {
+        let val = e.target.value
+        if (field.type === 'number') val = val === '' ? '' : Number(val)
+        if (val === 'true') val = true
+        if (val === 'false') val = false
+        onChange(field.name, val)
+      }}
+      disabled={disabled || isLoading}
+      hasError={hasError}
+    >
+      <option value="">{isLoading ? 'Chargement des options…' : (field.placeholder || 'Sélectionner…')}</option>
+      {remoteOptions.map((opt) => (
+        <option key={String(opt.value)} value={String(opt.value)}>
+          {opt.label}
+        </option>
+      ))}
+    </Select>
+  )
+}
+
+// Field wrapper to handle dynamic form inputs cleanly
+function DynamicField({ field, value, onChange, error, disabled }) {
+  const inputId = useId()
 
   const handleChange = (e) => {
     let val = e.target.value
@@ -56,6 +80,9 @@ function DynamicField({ field, value, onChange, error, disabled }) {
     onChange(field.name, updated)
   }
 
+  const isRelationalSelect = field.type === 'select' && Boolean(field.optionsUrl)
+  const staticOptions = field.options || []
+
   return (
     <FormField
       id={inputId}
@@ -65,7 +92,16 @@ function DynamicField({ field, value, onChange, error, disabled }) {
       error={error}
       className={field.fullWidth ? 'field-full-width' : ''}
     >
-      {field.type === 'select' ? (
+      {isRelationalSelect ? (
+        <RelationalSelectField
+          field={field}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          hasError={Boolean(error)}
+          inputId={inputId}
+        />
+      ) : field.type === 'select' ? (
         <Select
           id={inputId}
           value={value === undefined || value === null ? '' : String(value)}
@@ -76,11 +112,11 @@ function DynamicField({ field, value, onChange, error, disabled }) {
             if (val === 'false') val = false
             onChange(field.name, val)
           }}
-          disabled={disabled || isLoadingOptions}
+          disabled={disabled}
           hasError={Boolean(error)}
         >
-          <option value="">{isLoadingOptions ? 'Chargement des options…' : (field.placeholder || 'Sélectionner…')}</option>
-          {availableOptions.map((opt) => (
+          <option value="">{field.placeholder || 'Sélectionner…'}</option>
+          {staticOptions.map((opt) => (
             <option key={String(opt.value)} value={String(opt.value)}>
               {opt.label}
             </option>
@@ -165,7 +201,7 @@ export function DynamicResourceForm({
       return toOptionsList(response.data?.data ?? response.data)
     },
     enabled: isOpen && isSuperAdmin,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
   })
 
   // Determine current department type from resource path

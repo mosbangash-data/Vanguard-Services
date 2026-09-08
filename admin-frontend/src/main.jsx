@@ -8,7 +8,23 @@ import { LanguageProvider } from './i18n/LanguageProvider'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+  defaultOptions: {
+    queries: {
+      // Smart retry: NEVER retry on 429 (Too Many Requests), 401, 403, or 404
+      retry: (failureCount, error) => {
+        const status = error?.response?.status
+        if (status && (status === 429 || status === 401 || status === 403 || status === 404)) {
+          return false
+        }
+        return failureCount < 1
+      },
+      refetchOnWindowFocus: false,
+      staleTime: 30 * 1000, // 30s cache validity to avoid redundant query storms
+    },
+    mutations: {
+      retry: false,
+    },
+  },
 })
 
 createRoot(document.getElementById('root')).render(

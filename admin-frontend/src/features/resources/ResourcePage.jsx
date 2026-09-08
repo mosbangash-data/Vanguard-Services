@@ -107,9 +107,8 @@ export function ResourcePage({ resource }) {
   })
 
   const refresh = () => {
-    client.invalidateQueries({ queryKey: ['resource', resource.endpoint] })
-    setNotice('')
     setServerError('')
+    query.refetch()
   }
 
   // Mutations
@@ -134,7 +133,9 @@ export function ResourcePage({ resource }) {
         ? 'Élément supprimé.'
         : 'Modifications enregistrées avec succès.'
       setNotice(msg)
-      refresh()
+
+      // Single targeted refetch of the active resource list (exactly 1 GET)
+      query.refetch()
 
       setTimeout(() => setNotice(''), 4000)
     },
