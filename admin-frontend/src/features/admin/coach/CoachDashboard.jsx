@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { useAuth } from '../auth/authContext'
-import { useLanguage } from '../../i18n'
-import { hasPermission } from '../auth/permissions'
-import { api } from '../../services/api'
+import { useAuth } from '../../auth/authContext'
+import { useLanguage } from '../../../i18n'
+import { hasPermission } from '../../auth/permissions'
+import { api } from '../../../services/api'
 
 export function CoachDashboard() {
   const { user } = useAuth()

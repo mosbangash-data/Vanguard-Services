@@ -1,58 +1,567 @@
+import React, { useState, useMemo, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { Plus, RefreshCw, Search, X, Edit2, Trash2, KeyRound, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { hasPermission } from '../auth/permissions'
 import { useAuth } from '../auth/authContext'
 import { createResource, deleteResource, listResource, patchResource, updateResource } from './resourceApi'
+import { DynamicResourceForm } from './DynamicResourceForm'
+import {
+  Button,
+  StatusBadge,
+  PageHeader,
+  EmptyState,
+  LoadingState,
+  ErrorState,
+  ConfirmDialog,
+  Modal,
+  FormField,
+  Input,
+} from '../../components/ui'
 
-const errorMessage = (error) => error?.response?.data?.message || 'L’opération a échoué. Vérifiez les données saisies.'
+const errorMessage = (error) =>
+  error?.response?.data?.message ||
+  error?.message ||
+  'L’opération a échoué. Vérifiez les données saisies.'
+
 const toList = (data) => {
+  if (!data) return []
   if (Array.isArray(data)) return data
   if (Array.isArray(data?.items)) return data.items
   if (Array.isArray(data?.data)) return data.data
-  return Object.values(data || {}).find(Array.isArray) || []
+  if (Array.isArray(data?.data?.items)) return data.data.items
+  const found = Object.values(data).find(Array.isArray)
+  return Array.isArray(found) ? found : []
 }
+
 const getId = (item) => item.id || item._id || item.code || item.ticketCode
-const SENSITIVE_RESOURCE_KEYS = new Set(['password', 'passwordhash', 'token', 'resettoken', 'accesstoken', 'refreshtoken', 'secret', 'apikey', 'databaseurl', 'database_url', 'sessionsecret', 'session_secret', 'jwtsecret', 'jwt_secret', 'stack', 'rawdata', 'raw_data'])
-const formatResourceValue = (value, key = '') => {
-  if (SENSITIVE_RESOURCE_KEYS.has(String(key).toLowerCase())) return 'Non disponible'
+
+const SENSITIVE_RESOURCE_KEYS = new Set([
+  'password', 'passwordhash', 'token', 'resettoken', 'accesstoken',
+  'refreshtoken', 'secret', 'apikey', 'databaseurl', 'database_url',
+  'sessionsecret', 'session_secret', 'jwtsecret', 'jwt_secret', 'stack', 'rawdata', 'raw_data'
+])
+
+const formatCellValue = (value, colKey = '') => {
+  if (SENSITIVE_RESOURCE_KEYS.has(String(colKey).toLowerCase())) return '—'
   if (value === null || value === undefined || value === '') return '—'
   if (typeof value === 'boolean') return value ? 'Oui' : 'Non'
-  if (Array.isArray(value)) return value.length ? value.map((entry) => formatResourceValue(entry, key)).join(', ') : 'Aucune donnée'
+  if (Array.isArray(value)) return value.length ? value.join(', ') : '—'
   if (typeof value === 'object') {
-    const label = value.name || value.title || value.label || value.code || value.type || value.status
-    return label ? formatResourceValue(label, key) : 'Données disponibles'
+    const label = value.name || value.title || value.label || value.code || value.type || value.plateNumber
+    return label ? String(label) : '—'
   }
   return String(value)
 }
 
-function JsonForm({ initial, onSubmit, submitLabel, onCancel }) {
-  const [value, setValue] = useState(JSON.stringify(initial || {}, null, 2))
-  const [error, setError] = useState('')
-  const submit = (event) => {
-    event.preventDefault()
-    try { onSubmit(JSON.parse(value)) } catch { setError('Le contenu doit être un JSON valide.') }
+const formatDate = (val, includeTime = false) => {
+  if (!val) return '—'
+  try {
+    const d = new Date(val)
+    if (isNaN(d.getTime())) return String(val)
+    return d.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      ...(includeTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+    })
+  } catch {
+    return String(val)
   }
-  return <form className="json-form" onSubmit={submit}><label>Données JSON correspondant au contrat backend<textarea value={value} onChange={(event) => setValue(event.target.value)} rows="12" /></label>{error && <p className="error">{error}</p>}<div><button className="button" type="submit">{submitLabel}</button>{onCancel && <button className="button secondary" type="button" onClick={onCancel}>Annuler</button>}</div></form>
 }
 
 export function ResourcePage({ resource }) {
   const { user } = useAuth()
   const client = useQueryClient()
+
   const [search, setSearch] = useState('')
-  const [form, setForm] = useState(null)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [formState, setFormState] = useState(null) // { mode: 'create' | 'edit', item: {...} }
+  const [deleteDialog, setDeleteDialog] = useState(null) // item to delete
+  const [passwordModal, setPasswordModal] = useState(null) // item to reset password
+  const [newPassword, setNewPassword] = useState('')
   const [notice, setNotice] = useState('')
+  const [serverError, setServerError] = useState('')
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim())
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
   const hasRequiredRole = !resource.roles || resource.roles.includes(user?.role)
-  const enabled = !resource.unavailable && hasRequiredRole && (!resource.permission || hasPermission(user, resource.permission) || user?.role === 'SUPER_ADMIN')
-  const query = useQuery({ queryKey: ['resource', resource.endpoint, search], queryFn: () => listResource(resource.endpoint, search ? { search, page: 1, limit: 50 } : { page: 1, limit: 50 }), enabled })
-  const refresh = () => client.invalidateQueries({ queryKey: ['resource', resource.endpoint] })
-  const mutation = useMutation({
-    mutationFn: async ({ action, id, data }) => action === 'create' ? createResource(resource.endpoint, data) : action === 'update' ? updateResource(resource.endpoint, id, data) : action === 'status' ? patchResource(resource.endpoint, id, '/status', data) : action === 'reset' ? patchResource(resource.endpoint, id, '/password-reset', data) : deleteResource(resource.endpoint, id),
-    onSuccess: () => { setForm(null); setNotice('Opération effectuée.'); refresh() },
+  const enabled =
+    !resource.unavailable &&
+    hasRequiredRole &&
+    (!resource.permission || hasPermission(user, resource.permission) || user?.role === 'SUPER_ADMIN')
+
+  const query = useQuery({
+    queryKey: ['resource', resource.endpoint, debouncedSearch],
+    queryFn: () =>
+      listResource(
+        resource.endpoint,
+        debouncedSearch ? { search: debouncedSearch, page: 1, limit: 100 } : { page: 1, limit: 100 }
+      ),
+    enabled,
   })
-  const items = useMemo(() => toList(query.data), [query.data])
-  const can = (permission) => hasRequiredRole && (!permission ? !resource.readOnly : hasPermission(user, permission) || user?.role === 'SUPER_ADMIN')
-  if (resource.unavailable) return <section className="page"><h1>{resource.label}</h1><p className="empty">{resource.unavailable}</p></section>
-  if (!enabled) return <section className="page"><h1>{resource.label}</h1><p className="empty">Cette fonctionnalité requiert une permission non accordée.</p></section>
-  const columns = items.length ? Object.keys(items[0]).slice(0, 7) : []
-  return <section className="page"><div className="page-head"><div><h1>{resource.label}</h1><p>Les données affichées proviennent de l’API.</p></div>{can(resource.createPermission) && <button className="button" onClick={() => setForm({ action: 'create', initial: {} })}>Créer</button>}</div><div className="toolbar"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher…" /><button className="button secondary" onClick={() => query.refetch()}>Actualiser</button></div>{notice && <p className="success">{notice}</p>}{mutation.isError && <p className="error">{errorMessage(mutation.error)}</p>}{form && <JsonForm initial={form.initial} submitLabel={form.action === 'create' ? 'Créer' : 'Enregistrer'} onCancel={() => setForm(null)} onSubmit={(data) => mutation.mutate({ action: form.action, id: form.id, data })} />}{query.isPending ? <p>Chargement…</p> : query.isError ? <p className="error">Impossible de charger les données.</p> : items.length === 0 ? <p className="empty">Aucune donnée disponible.</p> : <div className="table-wrap"><table><thead><tr>{columns.map((key) => <th key={key}>{key}</th>)}<th>Actions</th></tr></thead><tbody>{items.map((item, index) => { const id = getId(item); return <tr key={id || index}>{columns.map((key) => <td key={key}>{formatResourceValue(item[key], key)}</td>)}<td className="actions">{id && can(resource.updatePermission) && <button onClick={() => setForm({ action: 'update', id, initial: item })}>Modifier</button>}{id && resource.status && <button onClick={() => setForm({ action: 'status', id, initial: { status: item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' } })}>Statut</button>}{id && resource.passwordReset && <button onClick={() => setForm({ action: 'reset', id, initial: { newPassword: '' } })}>Mot de passe</button>}{id && can(resource.deletePermission) && <button className="danger" onClick={() => window.confirm('Supprimer ?') && mutation.mutate({ action: 'delete', id })}>Supprimer</button>}</td></tr>})}</tbody></table></div>}</section>
+
+  const refresh = () => {
+    client.invalidateQueries({ queryKey: ['resource', resource.endpoint] })
+    setNotice('')
+    setServerError('')
+  }
+
+  // Mutations
+  const mutation = useMutation({
+    mutationFn: async ({ action, id, data }) => {
+      if (action === 'create') return createResource(resource.endpoint, data)
+      if (action === 'update') return updateResource(resource.endpoint, id, data)
+      if (action === 'status') return patchResource(resource.endpoint, id, '/status', data)
+      if (action === 'reset') return patchResource(resource.endpoint, id, '/password-reset', data)
+      return deleteResource(resource.endpoint, id)
+    },
+    onSuccess: (_, variables) => {
+      setFormState(null)
+      setDeleteDialog(null)
+      setPasswordModal(null)
+      setNewPassword('')
+      setServerError('')
+
+      const msg = variables.action === 'create'
+        ? 'Élément créé avec succès.'
+        : variables.action === 'delete'
+        ? 'Élément supprimé.'
+        : 'Modifications enregistrées avec succès.'
+      setNotice(msg)
+      refresh()
+
+      setTimeout(() => setNotice(''), 4000)
+    },
+    onError: (err) => {
+      setServerError(errorMessage(err))
+    },
+  })
+
+  // Extract raw list
+  const rawItems = useMemo(() => toList(query.data), [query.data])
+
+  // Client-side fallback filter for search
+  const items = useMemo(() => {
+    if (!debouncedSearch) return rawItems
+    const s = debouncedSearch.toLowerCase()
+    return rawItems.filter((item) => {
+      return Object.entries(item).some(([k, v]) => {
+        if (v === null || v === undefined) return false
+        if (SENSITIVE_RESOURCE_KEYS.has(k.toLowerCase())) return false
+        if (typeof v === 'string' || typeof v === 'number') {
+          return String(v).toLowerCase().includes(s)
+        }
+        if (typeof v === 'object' && v.name) {
+          return String(v.name).toLowerCase().includes(s)
+        }
+        return false
+      })
+    })
+  }, [rawItems, debouncedSearch])
+
+  // Permissions checks
+  const can = (permission) =>
+    hasRequiredRole &&
+    (!permission ? !resource.readOnly : hasPermission(user, permission) || user?.role === 'SUPER_ADMIN')
+
+  const canCreate = can(resource.createPermission) && !resource.readOnly
+  const canUpdate = can(resource.updatePermission) && !resource.readOnly
+  const canDelete = can(resource.deletePermission) && !resource.readOnly
+
+  if (resource.unavailable) {
+    return (
+      <section className="vanguard-page-container">
+        <PageHeader title={resource.label} subtitle="Module indisponible" />
+        <EmptyState title="Ressource non disponible" description={resource.unavailable} />
+      </section>
+    )
+  }
+
+  if (!enabled) {
+    return (
+      <section className="vanguard-page-container">
+        <PageHeader title={resource.label} subtitle="Accès restreint" />
+        <EmptyState
+          title="Accès non autorisé"
+          description="Vous ne disposez pas des permissions nécessaires pour consulter cette ressource administrative."
+        />
+      </section>
+    )
+  }
+
+  // Derive columns: prefer explicit resource.columns, else generate from first item
+  const columns = resource.columns || (
+    items.length
+      ? Object.keys(items[0])
+          .filter((k) => !SENSITIVE_RESOURCE_KEYS.has(k.toLowerCase()) && k !== 'id' && k !== '_id' && k !== 'departmentId')
+          .slice(0, 6)
+          .map((key) => ({ key, label: key.charAt(0).toUpperCase() + key.slice(1) }))
+      : []
+  )
+
+  const renderCell = (item, col) => {
+    if (typeof col.render === 'function') {
+      return col.render(item)
+    }
+
+    const val = item[col.key]
+
+    if (col.badge) {
+      if (col.badgeMap && col.badgeMap[val] !== undefined) {
+        const b = col.badgeMap[val]
+        return <StatusBadge status={b.label} variant={b.variant} />
+      }
+      return <StatusBadge status={String(val)} />
+    }
+
+    if (col.type === 'date') {
+      return formatDate(val, false)
+    }
+
+    if (col.type === 'datetime') {
+      return formatDate(val, true)
+    }
+
+    return formatCellValue(val, col.key)
+  }
+
+  return (
+    <section className="vanguard-page-container">
+      {/* Page Header */}
+      <PageHeader
+        title={resource.label}
+        subtitle={resource.description || `Gestion et suivi des ${resource.label.toLowerCase()}.`}
+        actions={
+          canCreate && (
+            <Button
+              variant="primary"
+              onClick={() => {
+                setServerError('')
+                setFormState({ mode: 'create', initialData: {} })
+              }}
+            >
+              <Plus size={16} />
+              <span>Nouveau {resource.singularLabel || 'élément'}</span>
+            </Button>
+          )
+        }
+      />
+
+      {/* Toolbar: Search + Refresh */}
+      <div className="resource-toolbar">
+        <div className="resource-search-wrap">
+          <Search size={16} className="search-icon" aria-hidden="true" />
+          <input
+            type="text"
+            className="resource-search-input"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`Rechercher parmi les ${resource.label.toLowerCase()}…`}
+          />
+          {search && (
+            <button
+              type="button"
+              className="clear-search-btn"
+              onClick={() => setSearch('')}
+              aria-label="Effacer la recherche"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="resource-toolbar-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={refresh}
+            disabled={query.isFetching}
+            className="refresh-btn"
+          >
+            <RefreshCw size={14} className={query.isFetching ? 'spin-icon' : ''} />
+            <span>Actualiser</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Feedback Alerts */}
+      {notice && (
+        <div className="vanguard-alert vanguard-alert--success" role="status">
+          <CheckCircle2 size={16} />
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {mutation.isError && !formState && (
+        <div className="vanguard-alert vanguard-alert--danger" role="alert">
+          <AlertTriangle size={16} />
+          <span>{errorMessage(mutation.error)}</span>
+        </div>
+      )}
+
+      {/* Main Content Area: Loading / Error / Empty / Data */}
+      {query.isPending ? (
+        <LoadingState message={`Chargement des ${resource.label.toLowerCase()}…`} />
+      ) : query.isError ? (
+        <ErrorState
+          title="Impossible de charger les données"
+          message={errorMessage(query.error)}
+          onRetry={refresh}
+        />
+      ) : items.length === 0 ? (
+        <EmptyState
+          title={search ? 'Aucun résultat trouvé' : 'Aucune donnée disponible'}
+          description={
+            search
+              ? `Aucun élément ne correspond à votre recherche "${search}".`
+              : `Aucun enregistrement n’a encore été créé dans ${resource.label}.`
+          }
+          actionLabel={canCreate && !search ? `Créer ${resource.singularLabel || 'un élément'}` : undefined}
+          onAction={canCreate && !search ? () => setFormState({ mode: 'create', initialData: {} }) : undefined}
+        />
+      ) : (
+        <div className="resource-content-wrapper">
+          {/* Desktop Table View */}
+          <div className="resource-table-container">
+            <div className="table-responsive">
+              <table className="data-table vanguard-table">
+                <thead>
+                  <tr>
+                    {columns.map((col) => (
+                      <th key={col.key}>{col.label}</th>
+                    ))}
+                    <th className="th-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => {
+                    const id = getId(item)
+                    return (
+                      <tr key={id || index}>
+                        {columns.map((col) => (
+                          <td key={col.key}>{renderCell(item, col)}</td>
+                        ))}
+                        <td className="actions-cell">
+                          <div className="action-buttons-wrap">
+                            {id && canUpdate && (
+                              <button
+                                type="button"
+                                className="table-action-btn edit-btn"
+                                onClick={() => {
+                                  setServerError('')
+                                  setFormState({ mode: 'edit', initialData: item })
+                                }}
+                                title="Modifier"
+                                aria-label="Modifier"
+                              >
+                                <Edit2 size={14} />
+                                <span className="btn-label-desktop">Modifier</span>
+                              </button>
+                            )}
+
+                            {id && resource.status && (
+                              <button
+                                type="button"
+                                className="table-action-btn status-btn"
+                                onClick={() =>
+                                  mutation.mutate({
+                                    action: 'status',
+                                    id,
+                                    data: { status: item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' },
+                                  })
+                                }
+                                title="Changer le statut"
+                              >
+                                <span>{item.status === 'ACTIVE' ? 'Désactiver' : 'Activer'}</span>
+                              </button>
+                            )}
+
+                            {id && resource.passwordReset && (
+                              <button
+                                type="button"
+                                className="table-action-btn reset-btn"
+                                onClick={() => setPasswordModal({ id, item })}
+                                title="Réinitialiser le mot de passe"
+                              >
+                                <KeyRound size={14} />
+                              </button>
+                            )}
+
+                            {id && canDelete && (
+                              <button
+                                type="button"
+                                className="table-action-btn delete-btn"
+                                onClick={() => setDeleteDialog({ id, item })}
+                                title="Supprimer"
+                                aria-label="Supprimer"
+                              >
+                                <Trash2 size={14} />
+                                <span className="btn-label-desktop">Supprimer</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile Cards View */}
+          <div className="resource-mobile-cards">
+            {items.map((item, index) => {
+              const id = getId(item)
+              return (
+                <div key={id || index} className="resource-mobile-card">
+                  <div className="resource-mobile-card-body">
+                    {columns.map((col) => (
+                      <div key={col.key} className="resource-card-field-row">
+                        <span className="card-field-label">{col.label} :</span>
+                        <span className="card-field-value">{renderCell(item, col)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="resource-mobile-card-actions">
+                    {id && canUpdate && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setServerError('')
+                          setFormState({ mode: 'edit', initialData: item })
+                        }}
+                      >
+                        <Edit2 size={14} />
+                        <span>Modifier</span>
+                      </Button>
+                    )}
+
+                    {id && canDelete && (
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => setDeleteDialog({ id, item })}
+                      >
+                        <Trash2 size={14} />
+                        <span>Supprimer</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Creation / Modification Modal */}
+      {formState && (
+        <DynamicResourceForm
+          resource={resource}
+          isOpen={Boolean(formState)}
+          mode={formState.mode}
+          initialData={formState.initialData}
+          isSubmitting={mutation.isPending}
+          serverError={serverError}
+          onClose={() => {
+            setFormState(null)
+            setServerError('')
+          }}
+          onSubmit={(data) => {
+            mutation.mutate({
+              action: formState.mode,
+              id: formState.mode === 'edit' ? formState.initialData.id : undefined,
+              data,
+            })
+          }}
+        />
+      )}
+
+      {/* Confirm Delete Dialog */}
+      {deleteDialog && (
+        <ConfirmDialog
+          isOpen={Boolean(deleteDialog)}
+          onClose={() => setDeleteDialog(null)}
+          onConfirm={() => {
+            mutation.mutate({ action: 'delete', id: deleteDialog.id })
+          }}
+          title={`Supprimer ce ${resource.singularLabel?.toLowerCase() || 'élément'} ?`}
+          message="Cette action est irréversible. Toutes les données associées seront supprimées du système."
+          confirmText="Supprimer définitivement"
+          cancelText="Annuler"
+          variant="danger"
+          loading={mutation.isPending}
+        />
+      )}
+
+      {/* Password Reset Modal for User management */}
+      {passwordModal && (
+        <Modal
+          isOpen={Boolean(passwordModal)}
+          onClose={() => {
+            setPasswordModal(null)
+            setNewPassword('')
+          }}
+          title="Réinitialiser le mot de passe"
+          subtitle={`Pour : ${passwordModal.item?.email || passwordModal.item?.firstName || 'l’utilisateur'}`}
+          size="sm"
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!newPassword || newPassword.length < 6) return
+              mutation.mutate({
+                action: 'reset',
+                id: passwordModal.id,
+                data: { newPassword },
+              })
+            }}
+            className="password-reset-form"
+          >
+            <FormField
+              label="Nouveau mot de passe"
+              required
+              helper="Minimum 6 caractères"
+              id="new-password-input"
+            >
+              <Input
+                id="new-password-input"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                minLength={6}
+              />
+            </FormField>
+
+            <div className="resource-form-footer">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setPasswordModal(null)
+                  setNewPassword('')
+                }}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" variant="primary" disabled={newPassword.length < 6}>
+                Enregistrer
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </section>
+  )
 }
