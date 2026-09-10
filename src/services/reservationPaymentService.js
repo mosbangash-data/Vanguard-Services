@@ -256,12 +256,14 @@ const updateReservationPayment = async (paymentId, data, currentUser) => {
 };
 
 const maybeConfirmReservation = async (tx, reservation, paymentCents = 0) => {
-  if (reservation.status !== 'PENDING') return;
+  if (reservation.status !== 'PENDING') return false;
   const totalAmountCents = parseMoneyToCents(reservation.totalAmount);
   const totalPaidCents = sumValidatedPayments(reservation.payments) + paymentCents;
-  if (totalPaidCents > 0) {
+  if (totalPaidCents >= totalAmountCents) {
     await tx.reservation.update({ where: { id: reservation.id }, data: { status: 'CONFIRMED' } });
+    return true;
   }
+  return false;
 };
 
 const formatPayment = (payment) => {

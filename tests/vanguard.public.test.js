@@ -163,6 +163,38 @@ test('POST /api/public/reservations/:id/payments — paiement déclaré reste PE
   assert.equal(payRes.data.data.payment.status, 'PENDING');
 });
 
+test('POST /api/public/reservations/:id/payments — autorise uniquement CASH ou MOBILE_MONEY', async () => {
+  const tripsRes = await request('GET', '/api/public/trips');
+  const trips = tripsRes.data.data.items;
+  if (trips.length === 0) return;
+
+  const trip = trips[0];
+  const createRes = await request('POST', '/api/public/reservations', {
+    tripId: trip.id,
+    customerName: 'Payment Restriction Client',
+    customerPhone: '+243222222223',
+    seatNumber: '4',
+  });
+  assert.equal(createRes.status, 201);
+  const reservationId = createRes.data.data.reservation.id;
+
+  const invalidMethodRes = await request('POST', `/api/public/reservations/${reservationId}/payments`, {
+    amount: '10.00',
+    method: 'CARD',
+  });
+  assert.equal(invalidMethodRes.status, 400);
+  assert.match(String(invalidMethodRes.data.message || invalidMethodRes.data.error || ''), /CASH|MOBILE_MONEY/i);
+
+  const statusHijackRes = await request('POST', `/api/public/reservations/${reservationId}/payments`, {
+    amount: '10.00',
+    method: 'MOBILE_MONEY',
+    status: 'VERIFIED',
+    validatedById: 'fake-user-id',
+  });
+  assert.equal(statusHijackRes.status, 201);
+  assert.equal(statusHijackRes.data.data.payment.status, 'PENDING');
+});
+
 // ===== CONSTRUCTION PUBLIC =====
 
 test('GET /api/public/construction/projects — liste publique sans JWT', async () => {

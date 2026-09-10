@@ -204,6 +204,44 @@ test('double payment and duplicate validation are rejected correctly', async () 
   assert.equal(reservationAfterRes.data.data.reservation.status, 'CONFIRMED');
 });
 
+test('partial validated payment does not confirm reservation before full coverage is met', async () => {
+  const { reservation } = await setupCoachReservation(adminToken);
+
+  const partialPaymentRes = await request('POST', '/api/reservation-payments', {
+    reservationId: reservation.id,
+    amount: '10.00',
+    method: 'CASH',
+    reference: 'REF-PARTIAL-01',
+  }, adminToken);
+  assert.equal(partialPaymentRes.status, 201);
+  const partialPayment = partialPaymentRes.data.data.payment;
+
+  const validatePartialRes = await request('POST', `/api/reservation-payments/${partialPayment.id}/validate`, null, adminToken);
+  assert.equal(validatePartialRes.status, 200);
+  assert.equal(validatePartialRes.data.data.payment.status, 'VERIFIED');
+
+  const reservationAfterPartialRes = await request('GET', `/api/reservations/${reservation.id}`, null, adminToken);
+  assert.equal(reservationAfterPartialRes.status, 200);
+  assert.equal(reservationAfterPartialRes.data.data.reservation.status, 'PENDING');
+
+  const fullPaymentRes = await request('POST', '/api/reservation-payments', {
+    reservationId: reservation.id,
+    amount: '5.00',
+    method: 'CASH',
+    reference: 'REF-PARTIAL-02',
+  }, adminToken);
+  assert.equal(fullPaymentRes.status, 201);
+  const fullPayment = fullPaymentRes.data.data.payment;
+
+  const validateFullRes = await request('POST', `/api/reservation-payments/${fullPayment.id}/validate`, null, adminToken);
+  assert.equal(validateFullRes.status, 200);
+  assert.equal(validateFullRes.data.data.payment.status, 'VERIFIED');
+
+  const reservationAfterFullRes = await request('GET', `/api/reservations/${reservation.id}`, null, adminToken);
+  assert.equal(reservationAfterFullRes.status, 200);
+  assert.equal(reservationAfterFullRes.data.data.reservation.status, 'CONFIRMED');
+});
+
 test('permissions enforce coach department and manage reservation payment rights', async () => {
   const salesperson = await createTestUser({
     email: `coach-${Date.now()}@example.com`,

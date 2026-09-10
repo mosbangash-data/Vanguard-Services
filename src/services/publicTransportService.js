@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
+const { mbiyoPayProvider } = require('./payment');
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -337,14 +338,45 @@ const createPublicReservationPayment = async (reservationId, data) => {
     throw new AppError('amount must be a positive number', 400);
   }
 
-  // Le client ne peut jamais passer le paiement à VERIFIED
+  const normalizedMethod = normalizeString(method).toUpperCase();
+  const allowedMethods = new Set(['CASH', 'MOBILE_MONEY']);
+  if (!allowedMethods.has(normalizedMethod)) {
+    throw new AppError('Only CASH and MOBILE_MONEY are supported for public reservations.', 400);
+  }
+
+  const channel = normalizedMethod === 'MOBILE_MONEY' ? 'ONLINE' : 'AGENCY';
+  const provider = normalizedMethod === 'MOBILE_MONEY' ? 'MBIYOPAY' : 'AGENCY';
+  const currency = 'USD';
+
+  const paymentReference = reference ? normalizeString(reference) : reservation.reservationCode || reservation.id;
+  const providerInit = normalizedMethod === 'MOBILE_MONEY'
+    ? await mbiyoPayProvider.initiatePayment({
+        amount: amountNum,
+        currency,
+        reference: paymentReference,
+        orderId: reservation.reservationCode,
+        description: `Coach reservation ${reservation.reservationCode}`,
+        customerPhone: reservation.customerPhone,
+        metadata: {
+          network: 'MTN',
+          phone_number: reservation.customerPhone,
+          country_code: 'CD',
+        },
+      })
+    : { providerTransactionId: null, providerReference: null, status: 'VERIFIED' };
+
   const payment = await prisma.payment.create({
     data: {
       reservationId: reservation.id,
       amount: amountNum.toFixed(2),
-      method: normalizeString(method).toUpperCase(),
+      currency,
+      channel,
+      provider,
+      method: normalizedMethod,
       status: 'PENDING',
-      reference: reference ? normalizeString(reference) : null,
+      reference: paymentReference,
+      providerTransactionId: providerInit?.providerTransactionId || null,
+      providerReference: providerInit?.providerReference || null,
       comment: comment ? normalizeString(comment) : null,
     },
   });
@@ -353,12 +385,17 @@ const createPublicReservationPayment = async (reservationId, data) => {
     payment: {
       id: payment.id,
       amount: payment.amount,
+      currency: payment.currency,
       method: payment.method,
+      channel: payment.channel,
+      provider: payment.provider,
       status: payment.status,
       reference: payment.reference,
       createdAt: payment.createdAt,
     },
-    message: 'Payment declared. It will be verified by our team.',
+    message: normalizedMethod === 'MOBILE_MONEY'
+      ? 'Paiement en cours. La confirmation réelle est réservée au webhook MbiyoPay vérifié.'
+      : 'Paiement en attente de validation par notre agence.',
   };
 };
 

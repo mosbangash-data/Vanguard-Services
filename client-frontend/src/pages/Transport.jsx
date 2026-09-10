@@ -22,7 +22,7 @@ import { translateError } from '../utils/errors'
 
 const STEPS = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6']
 
-const PAYMENT_METHODS = ['CASH', 'MOBILE_MONEY', 'BANK_TRANSFER', 'CARD', 'OTHER']
+const PAYMENT_METHODS = ['CASH', 'MOBILE_MONEY']
 
 const formatDate = (date) => {
   if (!date) return '—'
@@ -603,10 +603,18 @@ export default function Transport() {
                       <div className="confirmation-icon">
                         <CheckCircle2 size={40} aria-hidden="true" />
                       </div>
-                      <h4>{t('transportPage.paymentDeclared')}</h4>
+                      <h4>
+                        {paymentResult.payment.method === 'MOBILE_MONEY'
+                          ? t('transportPage.paymentInProgress')
+                          : t('transportPage.paymentDeclared')}
+                      </h4>
                       <div className="notice notice-info">
                         <Info size={18} aria-hidden="true" />
-                        <span>{t('transportPage.paymentPendingNote')}</span>
+                        <span>
+                          {paymentResult.payment.method === 'MOBILE_MONEY'
+                            ? t('transportPage.paymentMobileInProgress')
+                            : t('transportPage.paymentPendingNote')}
+                        </span>
                       </div>
                     </div>
                   ) : (
@@ -679,7 +687,11 @@ export default function Transport() {
                       </button>
                       <div className="notice notice-info mt-4">
                         <Info size={18} aria-hidden="true" />
-                        <span>{t('transportPage.paymentAlreadyNote')}</span>
+                        <span>
+                          {payment.method === 'MOBILE_MONEY'
+                            ? t('transportPage.paymentMobileInProgress')
+                            : t('transportPage.paymentAgencyNotice')}
+                        </span>
                       </div>
                     </form>
                   )}

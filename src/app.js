@@ -116,6 +116,7 @@ const apiLimiter = rateLimit({
 });
 
 app.use('/api', apiLimiter);
+app.use('/api/webhooks/mbiyopay', express.raw({ type: 'application/json', limit: '1mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 

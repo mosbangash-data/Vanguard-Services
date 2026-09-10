@@ -1,5 +1,6 @@
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ALLOWED_PUBLIC_PAYMENT_METHODS = ['CASH', 'MOBILE_MONEY'];
 
 const validatePublicReservationCreate = (req, res, next) => {
   const body = req.body;
@@ -39,7 +40,7 @@ const validatePublicReservationPaymentCreate = (req, res, next) => {
   }
 
   const amount = body.amount;
-  const method = normalizeString(body.method);
+  const method = normalizeString(body.method).toUpperCase();
 
   if (amount === undefined || amount === null || amount === '') {
     return res.status(400).json({ success: false, message: 'amount is required' });
@@ -50,6 +51,27 @@ const validatePublicReservationPaymentCreate = (req, res, next) => {
   }
   if (!method) {
     return res.status(400).json({ success: false, message: 'method is required' });
+  }
+  if (!ALLOWED_PUBLIC_PAYMENT_METHODS.includes(method)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Only CASH and MOBILE_MONEY are supported for public reservations.',
+    });
+  }
+  if (
+    body.status !== undefined ||
+    body.validatedById !== undefined ||
+    body.validatedAt !== undefined ||
+    body.providerTransactionId !== undefined ||
+    body.providerReference !== undefined ||
+    body.channel !== undefined ||
+    body.currency !== undefined ||
+    body.provider !== undefined
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Payment status and validation fields are managed server-side only.',
+    });
   }
 
   return next();
