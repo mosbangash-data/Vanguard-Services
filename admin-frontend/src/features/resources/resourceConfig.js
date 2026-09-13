@@ -122,6 +122,10 @@ export const resourceGroups = {
       singularLabel: 'Bus',
       roles: ['SUPER_ADMIN', 'SERVICE_ADMIN'],
       columns: [
+        { key: 'photo', label: 'Photo', render: (b) => {
+          const primary = b.media?.find((m) => m.isPrimary)?.media?.url || b.media?.[0]?.media?.url;
+          return primary ? <img src={primary} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} /> : '—';
+        }},
         { key: 'plateNumber', label: 'Immatriculation' },
         { key: 'brand', label: 'Marque' },
         { key: 'model', label: 'Modèle' },

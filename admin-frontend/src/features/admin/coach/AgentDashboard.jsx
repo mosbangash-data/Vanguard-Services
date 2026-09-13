@@ -12,7 +12,7 @@ export function AgentDashboard() {
   const [showScanner, setShowScanner] = useState(false)
 
   // Données trips pour l'agent
-  const { data: tripsData, isPending: tripsPending } = useQuery({
+  const { data: tripsData, isPending: tripsPending, isError: tripsError } = useQuery({
     queryKey: ['agent-trips'],
     queryFn: async () => {
       const res = await api.get('/api/trips', { params: { department: 'VANGUARD_COACH' } })
@@ -23,7 +23,7 @@ export function AgentDashboard() {
   })
 
   // Données reservations pour l'agent
-  const { data: reservationsData, isPending: reservationsPending } = useQuery({
+  const { data: reservationsData, isPending: reservationsPending, isError: reservationsError } = useQuery({
     queryKey: ['agent-reservations'],
     queryFn: async () => {
       const res = await api.get('/api/reservations', { params: { department: 'VANGUARD_COACH' } })
@@ -35,20 +35,28 @@ export function AgentDashboard() {
 
   // Données paiements si permission VIEW_PAYMENT
   const hasViewPayment = hasPermission(user, 'VIEW_PAYMENT')
-  const { data: paymentsData, isPending: paymentsPending } = useQuery({
+  const { data: paymentsData, isPending: paymentsPending, isError: paymentsError } = useQuery({
     queryKey: ['agent-payments'],
     queryFn: async () => {
-      if (!hasViewPayment) return { data: [] }
-      const res = await api.get('/api/reservation-payments', { params: { department: 'VANGUARD_COACH' } })
+      if (!hasViewPayment) return { payments: [] }
+      const res = await api.get('/api/reservation-payments', { params: { department: 'VANGUARD_COACH', status: 'PENDING' } })
       if (!res.data?.success) throw new Error('Erreur paiements')
-      return res.data.data || []
+      return res.data.data || { payments: [] }
     },
     enabled: !!user && hasViewPayment,
   })
 
+  // Normalisation des listes
+  const tripsList = Array.isArray(tripsData) ? tripsData : (tripsData?.items || [])
+  const reservationsList = Array.isArray(reservationsData) ? reservationsData : (reservationsData?.items || [])
+  const paymentsList = paymentsData?.payments || (Array.isArray(paymentsData) ? paymentsData : [])
+
   // États
   const emptyState = t('dashboard.emptyState') || 'Aucune donnée disponible'
   const errorState = t('dashboard.errorState') || 'Impossible de charger les données'
+
+  const isPending = tripsPending || reservationsPending || (hasViewPayment && paymentsPending)
+  const isError = tripsError || reservationsError || (hasViewPayment && paymentsError)
 
   if (isPending) return <section className="page"><p>{t('dashboard.loading')}…</p></section>
   if (isError) return <section className="page"><p className="error">{errorState}</p></section>
@@ -85,26 +93,26 @@ export function AgentDashboard() {
   )
 
   // Statistiques Agent - simples et utiles
-  const indicatorsSection = tripsData ? (
+  const indicatorsSection = tripsList ? (
     <div className="agent-indicators">
       <div className="indicator-card">
         <div className="indicator-icon">{t('icons.trips')}</div>
         <div>
           <strong>{t('agent.todayTrips')}</strong>
-          <span>{tripsData?.length || 0}</span>
+          <span>{tripsList.length}</span>
         </div>
       </div>
       <div className="indicator-card">
         <div className="indicator-icon">{t('icons.reservations')}</div>
         <div>
           <strong>{t('agent.todayReservations')}</strong>
-          <span>{reservationsData?.length || 0}</span>
+          <span>{reservationsList.length}</span>
         </div>
       </div>
       <div className="indicator-card">
         <div className="indicator-icon">{t('icons.passengers')}</div>
         <div>
-          <span>{tripsData?.totalPassengers || 0}</span>
+          <span>{reservationsList.length}</span>
         </div>
       </div>
       {hasViewPayment && (
@@ -112,7 +120,7 @@ export function AgentDashboard() {
           <div className="indicator-icon">{t('icons.payment')}</div>
           <div>
             <span>{t('agent.paymentsPending')}</span>
-            <span>{paymentsData?.length || 0}</span>
+            <span>{paymentsList.length}</span>
           </div>
         </div>
       )}
@@ -125,7 +133,7 @@ export function AgentDashboard() {
   const tripsSection = hasViewTrip ? (
     tripsPending ? (
       <p>{t('dashboard.loading')}…</p>
-    ) : tripsData?.length === 0 ? (
+    ) : tripsList.length === 0 ? (
       <p>{emptyState}</p>
     ) : (
       <div className="table-responsive">
@@ -136,25 +144,21 @@ export function AgentDashboard() {
               <th>{t('departure')}</th>
               <th>{t('destination')}</th>
               <th>{t('bus')}</th>
-              <th>{t('driver')}</th>
               <th>{t('seats')}</th>
-              <th>{t('occupied')}</th>
               <th>{t('statusLabel')}</th>
             </tr>
           </thead>
           <tbody>
-            {tripsData.map((trip) => (
+            {tripsList.map((trip) => (
               <tr key={trip.id}>
                 <td>{new Date(trip.departureAt).toLocaleTimeString(lang === 'en' ? 'en-US' : 'fr-FR')}</td>
-                <td>{trip.schedule?.departureTime || '—'}</td>
-                <td>{trip.schedule?.destination || '—'}</td>
+                <td>{trip.schedule?.route?.departureCity || trip.schedule?.departureTime || '—'}</td>
+                <td>{trip.schedule?.route?.arrivalCity || '—'}</td>
                 <td>{trip.schedule?.bus?.plateNumber || '—'}</td>
-                <td>{trip.schedule?.driver?.name || '—'}</td>
-                <td>{trip.seatsTotal || '—'}</td>
-                <td>{trip.reservedSeats || 0}</td>
+                <td>{trip.schedule?.bus?.seats || '—'}</td>
                 <td>
-                  <span className={`status-${trip.status.toLowerCase()}`}>
-                    {formatStatus(trip.status)}
+                  <span className={`status-${(trip.status || '').toLowerCase()}`}>
+                    {formatStatus(trip.status || 'SCHEDULED')}
                   </span>
                 </td>
               </tr>
@@ -171,19 +175,19 @@ export function AgentDashboard() {
   const reservationsSection = hasViewReservation ? (
     reservationsPending ? (
       <p>{t('dashboard.loading')}…</p>
-    ) : reservationsData?.length === 0 ? (
+    ) : reservationsList.length === 0 ? (
       <p>{emptyState}</p>
     ) : (
       <div className="recent-reservations">
-        {reservationsData.map((res) => (
+        {reservationsList.map((res) => (
           <div key={res.id} className="reservation-item">
-            <span>{res.code || res.id}</span>
-            <span>{t('passenger')}: {res.passengerName || '—'}</span>
+            <span>{res.reservationCode || res.code || res.id}</span>
+            <span>{t('passenger')}: {res.customerName || res.passengerName || '—'}</span>
             <span>{t('trip')}: {res.tripId || '—'}</span>
             <span>{t('date')}: {res.createdAt ? new Date(res.createdAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR') : '—'}</span>
             <span>{t('seat')}: {res.seatNumber || '—'}</span>
-            <span className={`status-${res.status.toLowerCase()}`}>
-              {formatStatus(res.status)}
+            <span className={`status-${(res.status || '').toLowerCase()}`}>
+              {formatStatus(res.status || 'PENDING')}
             </span>
           </div>
         ))}
@@ -197,19 +201,19 @@ export function AgentDashboard() {
   const paymentsSection = hasViewPayment ? (
     paymentsPending ? (
       <p>{t('dashboard.loading')}…</p>
-    ) : paymentsData?.length === 0 ? (
+    ) : paymentsList.length === 0 ? (
       <p>{emptyState}</p>
     ) : (
       <div className="payments-section">
         <h2>{t('agent.paymentsTitle')}</h2>
-        {paymentsData?.length > 0 ? (
-          paymentsData.map((pay) => (
+        {paymentsList.length > 0 ? (
+          paymentsList.map((pay) => (
             <div key={pay.id} className="payment-item">
-              <span>{t('amount')}: {pay.amount || '—'}</span>
-              <span>{t('reservation')}: {pay.reservationId || '—'}</span>
-              <span>{t('passenger')}: {pay.passengerName || '—'}</span>
-              <span className={`status-${pay.status.toLowerCase()}`}>
-                {formatStatus(pay.status)}
+              <span>{t('amount')}: {pay.amount || '—'} {pay.currency || 'USD'}</span>
+              <span>{t('reservation')}: {pay.reservation?.reservationCode || pay.reservationId || '—'}</span>
+              <span>{t('passenger')}: {pay.reservation?.customerName || pay.passengerName || '—'}</span>
+              <span className={`status-${(pay.status || '').toLowerCase()}`}>
+                {formatStatus(pay.status || 'PENDING')}
               </span>
             </div>
           ))

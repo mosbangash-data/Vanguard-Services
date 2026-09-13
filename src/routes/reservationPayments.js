@@ -11,6 +11,7 @@ router.get('/', requirePermission('VIEW_PAYMENT'), reservationPaymentController.
 router.post('/', requirePermission('MANAGE_RESERVATION_PAYMENT'), validateReservationPaymentCreate, reservationPaymentController.createReservationPayment);
 router.get('/reservation/:reservationId', requirePermission('VIEW_RESERVATION'), reservationPaymentController.listReservationPayments);
 router.get('/:id', requirePermission('VIEW_RESERVATION'), reservationPaymentController.getReservationPayment);
+router.get('/:id/receipt', requirePermission('VIEW_PAYMENT'), reservationPaymentController.getReservationPaymentReceipt);
 router.put('/:id', requirePermission('MANAGE_RESERVATION_PAYMENT'), validateReservationPaymentUpdate, reservationPaymentController.updateReservationPayment);
 router.post('/:id/validate', requirePermission('MANAGE_RESERVATION_PAYMENT'), reservationPaymentController.validateReservationPayment);
 router.post('/:id/reject', requirePermission('MANAGE_RESERVATION_PAYMENT'), reservationPaymentController.rejectReservationPayment);

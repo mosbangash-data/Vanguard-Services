@@ -66,9 +66,13 @@ enum NotificationChannel {
 
 enum PaymentStatus {
   PENDING
+  PROCESSING
   VERIFIED
-  REJECTED
   COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+  REJECTED
 }
 
 enum PaymentChannel {
@@ -288,6 +292,7 @@ model Agency {
   department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   originParcels      Parcel[]   @relation("OriginAgency")
   destinationParcels Parcel[]   @relation("DestinationAgency")
+  payments           Payment[]
 }
 
 model Driver {
@@ -421,6 +426,7 @@ model Media {
   uploadedBy     User             @relation("UploadedMedia", fields: [uploadedById], references: [id], onDelete: Restrict)
   vehicleMedia   VehicleMedia[]
   projectGallery ProjectGallery[]
+  busMedia       BusMedia[]
 }
 
 model CustomerRequest {
@@ -519,6 +525,7 @@ model Bus {
 
   department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   schedules  Schedule[]
+  media      BusMedia[]
 }
 
 model Route {
@@ -645,6 +652,8 @@ model Payment {
   reservationId        String?
   vehicleReservationId String?
   parcelId             String?
+  agencyId             String?
+  idempotencyKey       String?        @unique
   amount               Decimal        @db.Decimal(10, 2)
   currency             String         @default("USD")
   channel              PaymentChannel @default(AGENCY)
@@ -663,6 +672,7 @@ model Payment {
   reservation        Reservation?        @relation(fields: [reservationId], references: [id], onDelete: SetNull)
   vehicleReservation VehicleReservation? @relation(fields: [vehicleReservationId], references: [id], onDelete: SetNull)
   parcel             Parcel?             @relation(fields: [parcelId], references: [id], onDelete: SetNull)
+  agency             Agency?             @relation(fields: [agencyId], references: [id], onDelete: SetNull)
   validatedBy        User?               @relation("ValidatedPayments", fields: [validatedById], references: [id], onDelete: SetNull)
 
   @@index([reference])
@@ -671,6 +681,8 @@ model Payment {
   @@index([providerReference])
   @@index([vehicleReservationId])
   @@index([parcelId])
+  @@index([agencyId])
+  @@index([idempotencyKey])
 }
 
 model Ticket {
@@ -952,6 +964,21 @@ model VehicleMedia {
   media   Media   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 
   @@index([vehicleId])
+}
+
+model BusMedia {
+  id        String   @id @default(cuid())
+  busId     String
+  mediaId   String
+  caption   String?
+  order     Int      @default(0)
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  bus   Bus   @relation(fields: [busId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@index([busId])
 }
 
 model VehicleReservationPolicy {

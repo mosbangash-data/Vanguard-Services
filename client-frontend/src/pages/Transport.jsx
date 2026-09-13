@@ -24,6 +24,24 @@ const STEPS = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6']
 
 const PAYMENT_METHODS = ['CASH', 'MOBILE_MONEY']
 
+const MOBILE_NETWORKS = [
+  { id: 'VODACOM', label: 'Vodacom M-Pesa' },
+  { id: 'AIRTEL', label: 'Airtel Money' },
+  { id: 'ORANGE', label: 'Orange Money' },
+  { id: 'AFRICELL', label: 'Africell Money' },
+]
+
+const MOBILE_COUNTRIES = [
+  { code: 'CD', label: 'RD Congo (+243)' },
+  { code: 'RW', label: 'Rwanda (+250)' },
+  { code: 'UG', label: 'Ouganda (+256)' },
+  { code: 'TZ', label: 'Tanzanie (+255)' },
+  { code: 'ZM', label: 'Zambie (+260)' },
+  { code: 'CM', label: 'Cameroun (+237)' },
+  { code: 'GA', label: 'Gabon (+241)' },
+  { code: 'BJ', label: 'Bénin (+229)' },
+]
+
 const formatDate = (date) => {
   if (!date) return '—'
   const d = new Date(date)
@@ -62,7 +80,15 @@ export default function Transport() {
   const [lookupError, setLookupError] = useState(null)
 
   // Paiement
-  const [payment, setPayment] = useState({ amount: '', method: 'CASH', reference: '', comment: '' })
+  const [payment, setPayment] = useState({
+    amount: '',
+    method: 'CASH',
+    network: 'VODACOM',
+    countryCode: 'CD',
+    phoneNumber: '',
+    reference: '',
+    comment: '',
+  })
   const [paymentResult, setPaymentResult] = useState(null)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentError, setPaymentError] = useState(null)
@@ -128,7 +154,15 @@ export default function Transport() {
         customerPhone: passenger.phone,
         customerEmail: passenger.email || null,
       })
-      setBooking(result?.reservation || null)
+      const resData = result?.reservation || null
+      setBooking(resData)
+      if (resData) {
+        setPayment((prev) => ({
+          ...prev,
+          amount: resData.totalAmount || (selectedTrip?.schedule?.price != null ? selectedTrip.schedule.price : selectedTrip?.price) || '',
+          phoneNumber: passenger.phone || prev.phoneNumber,
+        }))
+      }
       setStep(5)
     } catch (err) {
       setBookingError(translateError(err, t))
@@ -144,7 +178,15 @@ export default function Transport() {
     setLookupResult(null)
     try {
       const result = await api.getReservationByCode(lookupCode.trim())
-      setLookupResult(result?.reservation || null)
+      const resData = result?.reservation || null
+      setLookupResult(resData)
+      if (resData) {
+        setPayment((prev) => ({
+          ...prev,
+          amount: resData.totalAmount || '',
+          phoneNumber: resData.customerPhone || prev.phoneNumber,
+        }))
+      }
     } catch (err) {
       setLookupError(translateError(err, t))
     } finally {
@@ -160,12 +202,19 @@ export default function Transport() {
     setPaymentError(null)
     setPaymentResult(null)
     try {
-      const result = await api.createReservationPayment(reservationId, {
-        amount: payment.amount,
+      const payload = {
+        amount: Number(payment.amount),
         method: payment.method,
-        reference: payment.reference || null,
-        comment: payment.comment || null,
-      })
+        reference: payment.reference?.trim() || null,
+        comment: payment.comment?.trim() || null,
+        idempotencyKey: `pay-${reservationId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      }
+      if (payment.method === 'MOBILE_MONEY') {
+        payload.network = payment.network
+        payload.phoneNumber = payment.phoneNumber?.trim()
+        payload.countryCode = payment.countryCode
+      }
+      const result = await api.createReservationPayment(reservationId, payload)
       setPaymentResult(result)
     } catch (err) {
       setPaymentError(translateError(err, t))
@@ -654,6 +703,62 @@ export default function Transport() {
                           </select>
                         </div>
                       </div>
+
+                      {payment.method === 'MOBILE_MONEY' && (
+                        <div className="form-row">
+                          <div className="form-group">
+                            <label className="form-label" htmlFor="payNetwork">
+                              {t('transportPage.paymentNetwork')} <span className="required">*</span>
+                            </label>
+                            <select
+                              id="payNetwork"
+                              className="form-select"
+                              value={payment.network}
+                              onChange={(e) => setPayment({ ...payment, network: e.target.value })}
+                              required
+                            >
+                              {MOBILE_NETWORKS.map((net) => (
+                                <option key={net.id} value={net.id}>
+                                  {net.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" htmlFor="payCountry">
+                              {t('transportPage.paymentCountry')} <span className="required">*</span>
+                            </label>
+                            <select
+                              id="payCountry"
+                              className="form-select"
+                              value={payment.countryCode}
+                              onChange={(e) => setPayment({ ...payment, countryCode: e.target.value })}
+                              required
+                            >
+                              {MOBILE_COUNTRIES.map((c) => (
+                                <option key={c.code} value={c.code}>
+                                  {c.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                            <label className="form-label" htmlFor="payPhone">
+                              {t('transportPage.paymentPhone')} <span className="required">*</span>
+                            </label>
+                            <input
+                              id="payPhone"
+                              type="tel"
+                              className="form-input"
+                              placeholder="+243..."
+                              value={payment.phoneNumber}
+                              onChange={(e) => setPayment({ ...payment, phoneNumber: e.target.value })}
+                              required
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       <div className="form-group">
                         <label className="form-label" htmlFor="payRef">
                           {t('transportPage.paymentReference')}

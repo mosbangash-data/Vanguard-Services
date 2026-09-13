@@ -27,7 +27,20 @@ const listTrips = async (query = {}, currentUser) => {
   if (query.status) where.status = query.status;
 
   const [items, total] = await Promise.all([
-    prisma.trip.findMany({ where, skip, take: limit, orderBy: { departureAt: 'desc' } }),
+    prisma.trip.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { departureAt: 'desc' },
+      include: {
+        schedule: {
+          include: {
+            route: true,
+            bus: true,
+          },
+        },
+      },
+    }),
     prisma.trip.count({ where }),
   ]);
 

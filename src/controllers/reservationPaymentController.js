@@ -72,6 +72,15 @@ const cancelReservationPayment = async (req, res, next) => {
   }
 };
 
+const getReservationPaymentReceipt = async (req, res, next) => {
+  try {
+    const result = await reservationPaymentService.getReservationPaymentReceipt(req.params.id, req.user);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   listPendingReservationPayments,
   createReservationPayment,
@@ -81,4 +90,5 @@ module.exports = {
   validateReservationPayment,
   rejectReservationPayment,
   cancelReservationPayment,
+  getReservationPaymentReceipt,
 };

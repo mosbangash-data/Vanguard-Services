@@ -618,6 +618,10 @@ export function VehicleDetailPage() {
   const { user } = useAuth()
   const { lang, t } = useLanguage()
   const navigate = useNavigate()
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
+  const canManageMedia = hasPermission(user, 'MANAGE_VEHICLE_MEDIA') || user?.role === 'SUPER_ADMIN'
 
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['autosales-vehicle-detail', id],
@@ -626,6 +630,61 @@ export function VehicleDetailPage() {
       return response.data?.data?.vehicle || response.data?.data || response.data
     },
   })
+
+  const uploadImage = async (file) => {
+    if (!file) return
+    setUploading(true)
+    setUploadError('')
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('entityType', 'vehicle')
+      formData.append('entityId', id)
+
+      const uploadRes = await api.post('/api/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const uploadedFile = uploadRes.data?.data?.file
+
+      await api.post('/api/vehicle-media', {
+        vehicleId: id,
+        fileName: uploadedFile.fileName,
+        originalName: uploadedFile.originalName,
+        mimeType: uploadedFile.mimeType,
+        size: uploadedFile.size,
+        url: uploadedFile.url,
+        isPrimary: !(data?.media && data.media.length > 0),
+      })
+
+      queryClient.invalidateQueries({ queryKey: ['autosales-vehicle-detail', id] })
+      refetch()
+    } catch (err) {
+      setUploadError(err.response?.data?.message || 'Erreur lors de l’envoi de la photo.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const setPrimary = async (mediaId) => {
+    try {
+      await api.put(`/api/vehicle-media/${mediaId}`, { isPrimary: true })
+      queryClient.invalidateQueries({ queryKey: ['autosales-vehicle-detail', id] })
+      refetch()
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erreur lors de la mise à jour')
+    }
+  }
+
+  const deletePhoto = async (mediaId) => {
+    if (!window.confirm('Voulez-vous supprimer cette photo ?')) return
+    try {
+      await api.delete(`/api/vehicle-media/${mediaId}`)
+      queryClient.invalidateQueries({ queryKey: ['autosales-vehicle-detail', id] })
+      refetch()
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erreur lors de la suppression')
+    }
+  }
 
   if (isPending) {
     return (
@@ -741,6 +800,91 @@ export function VehicleDetailPage() {
                 <p style={{ margin: '6px 0 0', fontSize: '0.875rem', color: '#334155', lineHeight: 1.5 }}>
                   {vehicle.description}
                 </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Photos & Gallery Management */}
+        <Card style={{ gridColumn: '1 / -1' }}>
+          <CardHeader>
+            <CardTitle>Galerie & Photos ({vehicle.media?.length || 0})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {canManageMedia && (
+              <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label className="btn btn-outline" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#F8FAFC' }}>
+                  <span>{uploading ? 'Envoi en cours...' : '+ Ajouter une photo à la galerie'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    disabled={uploading}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        uploadImage(e.target.files[0])
+                        e.target.value = ''
+                      }
+                    }}
+                  />
+                </label>
+                {uploadError && <span style={{ color: '#EF4444', fontSize: '0.85rem' }}>{uploadError}</span>}
+              </div>
+            )}
+
+            {(!vehicle.media || vehicle.media.length === 0) ? (
+              <p style={{ color: '#64748B', fontSize: '0.9rem' }}>Aucune photo dans la galerie pour le moment.</p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+                {vehicle.media.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      border: item.isPrimary ? '2px solid #0F172A' : '1px solid #E2E8F0',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      position: 'relative',
+                      background: '#F8FAFC',
+                    }}
+                  >
+                    <div style={{ height: '130px', overflow: 'hidden' }}>
+                      <img
+                        src={item.media?.url}
+                        alt={item.caption || vehicle.brand}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    </div>
+                    <div style={{ padding: '8px', fontSize: '0.75rem' }}>
+                      {item.isPrimary ? (
+                        <span style={{ background: '#0F172A', color: '#FFF', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                          ★ Principale
+                        </span>
+                      ) : (
+                        canManageMedia && (
+                          <button
+                            type="button"
+                            style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', padding: 0, fontWeight: 600 }}
+                            onClick={() => setPrimary(item.id)}
+                          >
+                            Définir principale
+                          </button>
+                        )
+                      )}
+
+                      {canManageMedia && (
+                        <div style={{ marginTop: '6px', textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 0 }}
+                            onClick={() => deletePhoto(item.id)}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>

@@ -275,7 +275,7 @@ const formatPayment = (payment) => {
   return formatted;
 };
 
-const validateReservationPayment = async (paymentId, currentUser) => {
+const validateReservationPayment = async (paymentId, currentUser, options = {}) => {
   assertCoachAccess(currentUser);
   if (!currentUser.permissions.includes('MANAGE_RESERVATION_PAYMENT')) throw new AppError('Insufficient permissions', 403);
 
@@ -294,6 +294,20 @@ const validateReservationPayment = async (paymentId, currentUser) => {
     throw new AppError('Payment amount exceeds remaining reservation balance', 400);
   }
 
+  const departmentId = reservation.trip.schedule.departmentId;
+  let resolvedAgencyId = options.agencyId || null;
+  if (resolvedAgencyId) {
+    const agency = await prisma.agency.findUnique({ where: { id: resolvedAgencyId } });
+    if (!agency || agency.departmentId !== departmentId) {
+      throw new AppError('Invalid agency for this reservation department', 400);
+    }
+  } else {
+    const defaultAgency = await prisma.agency.findFirst({
+      where: { departmentId, isActive: true },
+    });
+    resolvedAgencyId = defaultAgency?.id || null;
+  }
+
   const ticketResult = await prisma.$transaction(async (tx) => {
     // The conditional update makes validation safe when two agents submit at once.
     const changed = await tx.payment.updateMany({
@@ -302,6 +316,7 @@ const validateReservationPayment = async (paymentId, currentUser) => {
         status: 'VERIFIED',
         validatedById: currentUser.id,
         validatedAt: new Date(),
+        agencyId: resolvedAgencyId,
       },
     });
     if (changed.count !== 1) throw new AppError('Payment has already been processed', 409);
@@ -311,21 +326,27 @@ const validateReservationPayment = async (paymentId, currentUser) => {
     if (confirmedReservation?.status !== 'CONFIRMED') {
       throw new AppError('Ticket can only be generated for confirmed reservations', 409);
     }
-    const ticketCode = `TCK-${require('crypto').randomUUID()}`;
-    const ticket = await tx.ticket.upsert({
-      where: { reservationId: reservation.id },
-      update: {},
-      create: {
-        ticketCode,
-        serialNumber: `SN-${Date.now()}-${require('crypto').randomInt(10000, 99999)}`,
-        qrCode: `vanguard://ticket/${ticketCode}`,
-        reservationId: reservation.id,
-        status: 'VALID',
-        issuedByUserId: currentUser.id,
-      },
-    });
+    const existingTicket = await tx.ticket.findUnique({ where: { reservationId: reservation.id } });
+    let ticket = existingTicket;
+    let created = false;
+
+    if (!existingTicket) {
+      const ticketCode = `TCK-${require('crypto').randomUUID()}`;
+      ticket = await tx.ticket.create({
+        data: {
+          ticketCode,
+          serialNumber: `SN-${Date.now()}-${require('crypto').randomInt(10000, 99999)}`,
+          qrCode: `vanguard://ticket/${ticketCode}`,
+          reservationId: reservation.id,
+          status: 'VALID',
+          issuedByUserId: currentUser.id,
+        },
+      });
+      created = true;
+    }
+
     const updated = await tx.payment.findUnique({ where: { id: paymentId } });
-    return { payment: updated, ticket, created: false };
+    return { payment: updated, ticket, created };
   });
 
   await auditService.log('validate_reservation_payment', currentUser.id, {
@@ -333,6 +354,7 @@ const validateReservationPayment = async (paymentId, currentUser) => {
     targetPaymentId: paymentId,
     amount: ticketResult.payment.amount,
     status: ticketResult.payment.status,
+    agencyId: resolvedAgencyId,
   });
 
   if (ticketResult.created) {
@@ -340,6 +362,71 @@ const validateReservationPayment = async (paymentId, currentUser) => {
   }
 
   return { payment: formatPayment(ticketResult.payment), ticket: await ticketService.getTicketByCode(ticketResult.ticket.ticketCode) };
+};
+
+const getReservationPaymentReceipt = async (paymentId, currentUser) => {
+  assertCoachAccess(currentUser);
+  if (!currentUser.permissions.includes('VIEW_PAYMENT')) throw new AppError('Insufficient permissions', 403);
+
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: {
+      agency: true,
+      validatedBy: {
+        select: { id: true, firstName: true, lastName: true, email: true },
+      },
+      reservation: {
+        include: {
+          trip: {
+            include: {
+              schedule: {
+                include: { route: true, bus: true },
+              },
+            },
+          },
+          tickets: true,
+        },
+      },
+    },
+  });
+
+  if (!payment) throw new AppError('Payment not found', 404);
+  if (!payment.reservation) throw new AppError('Reservation payment relationship is invalid', 400);
+
+  await assertReservationDepartmentAccess(payment.reservation, currentUser);
+
+  return {
+    receiptNumber: `REC-${payment.id.slice(-8).toUpperCase()}-${Date.now().toString().slice(-4)}`,
+    paymentId: payment.id,
+    paymentReference: payment.reference || payment.id,
+    reservationCode: payment.reservation.reservationCode,
+    customerName: payment.reservation.customerName,
+    customerPhone: payment.reservation.customerPhone,
+    amount: formatMoneyFromCents(parseMoneyToCents(payment.amount)),
+    currency: payment.currency,
+    method: payment.method,
+    channel: payment.channel,
+    status: payment.status,
+    agency: payment.agency
+      ? {
+          id: payment.agency.id,
+          name: payment.agency.name,
+          code: payment.agency.code,
+          city: payment.agency.city,
+          address: payment.agency.address,
+          phone: payment.agency.phone,
+        }
+      : null,
+    validatedBy: payment.validatedBy
+      ? `${payment.validatedBy.firstName || ''} ${payment.validatedBy.lastName || ''}`.trim() || payment.validatedBy.email
+      : 'N/A',
+    validatedAt: payment.validatedAt || payment.createdAt,
+    route: payment.reservation.trip?.schedule?.route
+      ? `${payment.reservation.trip.schedule.route.departureCity} → ${payment.reservation.trip.schedule.route.arrivalCity}`
+      : 'N/A',
+    seatNumber: payment.reservation.seatNumber,
+    ticketCode: payment.reservation.tickets?.[0]?.ticketCode || null,
+  };
 };
 
 const rejectReservationPayment = async (paymentId, currentUser, reason = null) => {
@@ -378,6 +465,7 @@ module.exports = {
   getReservationPayment,
   updateReservationPayment,
   validateReservationPayment,
+  getReservationPaymentReceipt,
   rejectReservationPayment,
   cancelReservationPayment,
 };

@@ -315,7 +315,7 @@ const getPublicReservationByCode = async (code) => {
 };
 
 const createPublicReservationPayment = async (reservationId, data) => {
-  const { amount, method, reference, comment } = data;
+  const { amount, method, reference, comment, network, phoneNumber, countryCode } = data;
 
   if (!reservationId) throw new AppError('reservationId is required', 400);
   if (!amount) throw new AppError('amount is required', 400);
@@ -333,9 +333,48 @@ const createPublicReservationPayment = async (reservationId, data) => {
     throw new AppError('Reservation is not in a payable state', 409);
   }
 
-  const amountNum = Number(amount);
-  if (!Number.isFinite(amountNum) || amountNum <= 0) {
-    throw new AppError('amount must be a positive number', 400);
+  const totalRequiredCents = Math.round(Number(reservation.totalAmount || 0) * 100);
+  const totalVerifiedCents = (reservation.payments || [])
+    .filter((p) => ['VERIFIED', 'COMPLETED'].includes(p.status))
+    .reduce((sum, p) => sum + Math.round(Number(p.amount || 0) * 100), 0);
+  const remainingBalanceCents = Math.max(totalRequiredCents - totalVerifiedCents, 0);
+  const remainingCents = remainingBalanceCents;
+
+  if (remainingBalanceCents <= 0) {
+    throw new AppError('Reservation is already fully paid', 409);
+  }
+
+  const currency = 'USD';
+  const expectedAmountStr = (remainingBalanceCents / 100).toFixed(2);
+  const clientAmountCents = Math.round(Number(amount) * 100);
+  if (!Number.isFinite(clientAmountCents) || clientAmountCents !== remainingBalanceCents) {
+    throw new AppError(`Invalid payment amount. Exact remaining amount due is ${expectedAmountStr} ${currency}`, 400);
+  }
+
+  const amountNum = remainingBalanceCents / 100;
+  const idempotencyKey = data.idempotencyKey ? normalizeString(data.idempotencyKey) : null;
+
+  if (idempotencyKey) {
+    const existing = await prisma.payment.findUnique({
+      where: { idempotencyKey },
+    });
+    if (existing) {
+      return {
+        payment: {
+          id: existing.id,
+          amount: existing.amount,
+          currency: existing.currency,
+          method: existing.method,
+          channel: existing.channel,
+          provider: existing.provider,
+          status: existing.status,
+          reference: existing.reference,
+          providerTransactionId: existing.providerTransactionId,
+          createdAt: existing.createdAt,
+        },
+        message: 'Paiement déjà enregistré (idempotence).',
+      };
+    }
   }
 
   const normalizedMethod = normalizeString(method).toUpperCase();
@@ -346,24 +385,81 @@ const createPublicReservationPayment = async (reservationId, data) => {
 
   const channel = normalizedMethod === 'MOBILE_MONEY' ? 'ONLINE' : 'AGENCY';
   const provider = normalizedMethod === 'MOBILE_MONEY' ? 'MBIYOPAY' : 'AGENCY';
-  const currency = 'USD';
 
   const paymentReference = reference ? normalizeString(reference) : reservation.reservationCode || reservation.id;
-  const providerInit = normalizedMethod === 'MOBILE_MONEY'
-    ? await mbiyoPayProvider.initiatePayment({
-        amount: amountNum,
+
+  if (normalizedMethod === 'MOBILE_MONEY') {
+    const resolvedNetwork = normalizeString(network || data.networkName || data.network_name).toUpperCase();
+    const validNetworks = new Set(['VODACOM', 'AIRTEL', 'ORANGE', 'AFRICELL']);
+    if (!validNetworks.has(resolvedNetwork)) {
+      throw new AppError('Invalid Mobile Money network. Supported values: Vodacom, Airtel, Orange, Africell.', 400);
+    }
+
+    const phone = normalizeString(phoneNumber || data.phone_number || data.phoneNumber);
+    if (!/^\+?[0-9]{7,15}$/.test(phone)) {
+      throw new AppError('Invalid mobile phone number.', 400);
+    }
+
+    const resolvedCountryCode = normalizeString(countryCode || data.country_code || data.countryCode).toUpperCase();
+    if (!['CD', 'RW', 'UG', 'TZ', 'ZM', 'CM', 'GA', 'BJ'].includes(resolvedCountryCode)) {
+      throw new AppError('Invalid country code for Mobile Money.', 400);
+    }
+
+    const providerInit = await mbiyoPayProvider.initiatePayment({
+      amount: amountNum,
+      currency,
+      reference: paymentReference,
+      orderId: reservation.reservationCode,
+      description: `Coach reservation ${reservation.reservationCode}`,
+      customerPhone: phone,
+      metadata: {
+        network: resolvedNetwork,
+        phone_number: phone,
+        country_code: resolvedCountryCode,
+      },
+    });
+
+    if (!providerInit || providerInit.status === 'FAILED' || providerInit.status === 'PENDING_PROVIDER_SETUP') {
+      throw new AppError(providerInit?.message || "Impossible d'initialiser le paiement Mobile Money. Veuillez réessayer.", 502);
+    }
+
+    if (!providerInit.providerTransactionId) {
+      throw new AppError("Impossible d'initialiser le paiement Mobile Money. Veuillez réessayer.", 502);
+    }
+
+    const payment = await prisma.payment.create({
+      data: {
+        reservationId: reservation.id,
+        amount: amountNum.toFixed(2),
         currency,
+        channel,
+        provider,
+        method: normalizedMethod,
+        status: 'PENDING',
         reference: paymentReference,
-        orderId: reservation.reservationCode,
-        description: `Coach reservation ${reservation.reservationCode}`,
-        customerPhone: reservation.customerPhone,
-        metadata: {
-          network: 'MTN',
-          phone_number: reservation.customerPhone,
-          country_code: 'CD',
-        },
-      })
-    : { providerTransactionId: null, providerReference: null, status: 'VERIFIED' };
+        idempotencyKey: idempotencyKey || undefined,
+        providerTransactionId: providerInit.providerTransactionId,
+        providerReference: providerInit.providerReference || paymentReference,
+        comment: comment ? normalizeString(comment) : null,
+      },
+    });
+
+    return {
+      payment: {
+        id: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        method: payment.method,
+        channel: payment.channel,
+        provider: payment.provider,
+        status: payment.status,
+        reference: payment.reference,
+        providerTransactionId: payment.providerTransactionId,
+        createdAt: payment.createdAt,
+      },
+      message: 'Paiement Mobile Money initié. La confirmation réelle est réservée au webhook MbiyoPay vérifié.',
+    };
+  }
 
   const payment = await prisma.payment.create({
     data: {
@@ -375,8 +471,7 @@ const createPublicReservationPayment = async (reservationId, data) => {
       method: normalizedMethod,
       status: 'PENDING',
       reference: paymentReference,
-      providerTransactionId: providerInit?.providerTransactionId || null,
-      providerReference: providerInit?.providerReference || null,
+      idempotencyKey: idempotencyKey || undefined,
       comment: comment ? normalizeString(comment) : null,
     },
   });
@@ -393,9 +488,7 @@ const createPublicReservationPayment = async (reservationId, data) => {
       reference: payment.reference,
       createdAt: payment.createdAt,
     },
-    message: normalizedMethod === 'MOBILE_MONEY'
-      ? 'Paiement en cours. La confirmation réelle est réservée au webhook MbiyoPay vérifié.'
-      : 'Paiement en attente de validation par notre agence.',
+    message: 'Paiement en attente de validation par notre agence.',
   };
 };
 

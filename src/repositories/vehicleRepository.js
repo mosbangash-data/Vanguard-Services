@@ -7,7 +7,7 @@ const listVehicles = async ({ where = {}, skip = 0, take = 20, orderBy = { creat
       skip,
       take,
       orderBy,
-      include: { media: { include: { media: true }, orderBy: { order: 'asc' } } },
+      include: { media: { include: { media: true }, orderBy: [{ isPrimary: 'desc' }, { order: 'asc' }] } },
     }),
     prisma.vehicle.count({ where }),
   ]);
@@ -17,7 +17,7 @@ const listVehicles = async ({ where = {}, skip = 0, take = 20, orderBy = { creat
 
 const getVehicleById = async (id) => prisma.vehicle.findUnique({
   where: { id },
-  include: { media: { include: { media: true }, orderBy: { order: 'asc' } } },
+  include: { media: { include: { media: true }, orderBy: [{ isPrimary: 'desc' }, { order: 'asc' }] } },
 });
 
 const createVehicle = async (data) => prisma.vehicle.create({ data });

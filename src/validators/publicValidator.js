@@ -58,6 +58,21 @@ const validatePublicReservationPaymentCreate = (req, res, next) => {
       message: 'Only CASH and MOBILE_MONEY are supported for public reservations.',
     });
   }
+  if (method === 'MOBILE_MONEY') {
+    const network = normalizeString(body.network || body.networkName || body.network_name).toUpperCase();
+    const phone = normalizeString(body.phoneNumber || body.phone_number || body.phone);
+    const countryCode = normalizeString(body.countryCode || body.country_code).toUpperCase();
+    const validNetworks = new Set(['VODACOM', 'AIRTEL', 'ORANGE', 'AFRICELL']);
+    if (!validNetworks.has(network)) {
+      return res.status(400).json({ success: false, message: 'Invalid Mobile Money network. Supported values: Vodacom, Airtel, Orange, Africell.' });
+    }
+    if (!/^\+?[0-9]{7,15}$/.test(phone)) {
+      return res.status(400).json({ success: false, message: 'Invalid mobile phone number.' });
+    }
+    if (!['CD', 'RW', 'UG', 'TZ', 'ZM', 'CM', 'GA', 'BJ'].includes(countryCode)) {
+      return res.status(400).json({ success: false, message: 'Invalid country code for Mobile Money.' });
+    }
+  }
   if (
     body.status !== undefined ||
     body.validatedById !== undefined ||
@@ -66,7 +81,10 @@ const validatePublicReservationPaymentCreate = (req, res, next) => {
     body.providerReference !== undefined ||
     body.channel !== undefined ||
     body.currency !== undefined ||
-    body.provider !== undefined
+    body.provider !== undefined ||
+    body.approved !== undefined ||
+    body.confirmed !== undefined ||
+    body.ticketGenerated !== undefined
   ) {
     return res.status(400).json({
       success: false,

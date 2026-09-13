@@ -31,7 +31,18 @@ const listBuses = async (query = {}, currentUser) => {
   }
 
   const [items, total] = await Promise.all([
-    prisma.bus.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+    prisma.bus.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        media: {
+          include: { media: true },
+          orderBy: [{ isPrimary: 'desc' }, { order: 'asc' }],
+        },
+      },
+    }),
     prisma.bus.count({ where }),
   ]);
 
@@ -40,7 +51,15 @@ const listBuses = async (query = {}, currentUser) => {
 
 const getBusById = async (busId, currentUser) => {
   requireCoachAdmin(currentUser);
-  const bus = await prisma.bus.findUnique({ where: { id: busId } });
+  const bus = await prisma.bus.findUnique({
+    where: { id: busId },
+    include: {
+      media: {
+        include: { media: true },
+        orderBy: [{ isPrimary: 'desc' }, { order: 'asc' }],
+      },
+    },
+  });
   if (!bus) throw new AppError('Bus not found', 404);
   await assertDepartmentIdForUser(currentUser, bus.departmentId, 'VANGUARD_COACH');
   return { bus };
