@@ -45,6 +45,8 @@ const createBusMedia = async (data, currentUser) => {
   const url = typeof data?.url === 'string' ? data.url.trim() : '';
   const size = Number.isFinite(Number(data?.size)) ? Number(data.size) : null;
 
+  const mediaId = typeof data?.mediaId === 'string' ? data.mediaId.trim() : null;
+
   if (!busId || !fileName || !originalName || !mimeType || !url || size === null) {
     throw new AppError('busId, fileName, originalName, mimeType, size and url are required', 400);
   }
@@ -71,6 +73,7 @@ const createBusMedia = async (data, currentUser) => {
 
   const busMedia = await busMediaRepository.createBusMedia({
     busId,
+    mediaId,
     caption,
     order,
     isPrimary,

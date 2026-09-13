@@ -30,13 +30,34 @@ const updateQuoteRequest = async (id, data) => prisma.quoteRequest.update({ wher
 
 const listProjects = async ({ where = {}, skip = 0, take = 20, orderBy = { createdAt: 'desc' } } = {}) => {
   const [items, total] = await Promise.all([
-    prisma.project.findMany({ where, skip, take, orderBy, include: { department: true } }),
+    prisma.project.findMany({
+      where,
+      skip,
+      take,
+      orderBy,
+      include: {
+        department: true,
+        gallery: {
+          include: { media: true },
+          orderBy: { order: 'asc' },
+        },
+      },
+    }),
     prisma.project.count({ where }),
   ]);
   return { items, total };
 };
 
-const getProjectById = async (id) => prisma.project.findUnique({ where: { id }, include: { department: true } });
+const getProjectById = async (id) => prisma.project.findUnique({
+  where: { id },
+  include: {
+    department: true,
+    gallery: {
+      include: { media: true },
+      orderBy: { order: 'asc' },
+    },
+  },
+});
 
 const createProject = async (data) => prisma.project.create({ data, include: { department: true } });
 

@@ -114,11 +114,91 @@ export function ResourcePage({ resource }) {
   // Mutations
   const mutation = useMutation({
     mutationFn: async ({ action, id, data }) => {
-      if (action === 'create') return createResource(resource.endpoint, data)
-      if (action === 'update') return updateResource(resource.endpoint, id, data)
-      if (action === 'status') return patchResource(resource.endpoint, id, '/status', data)
-      if (action === 'reset') return patchResource(resource.endpoint, id, '/password-reset', data)
-      return deleteResource(resource.endpoint, id)
+      const mediaConfig = resource.mediaConfig
+      const pendingMedia = data?.__pendingMedia || []
+      const deletedMediaIds = data?.__deletedMediaIds || []
+      const primaryExistingId = data?.__primaryExistingId
+      const payload = { ...data }
+      delete payload.__mediaFiles
+      delete payload.__pendingMedia
+      delete payload.__deletedMediaIds
+      delete payload.__primaryExistingId
+
+      let result
+      if (action === 'create') {
+        result = await createResource(resource.endpoint, payload)
+      } else if (action === 'update') {
+        result = await updateResource(resource.endpoint, id, payload)
+      } else if (action === 'status') {
+        result = await patchResource(resource.endpoint, id, '/status', payload)
+      } else if (action === 'reset') {
+        result = await patchResource(resource.endpoint, id, '/password-reset', payload)
+      } else {
+        result = await deleteResource(resource.endpoint, id)
+      }
+
+      if (!mediaConfig) {
+        return result
+      }
+
+      const entityId = result?.id || result?.bus?.id || result?.vehicle?.id || result?.project?.id || id
+      if (!entityId) return result
+
+      // 1. Process deletions of existing media
+      if (Array.isArray(deletedMediaIds) && deletedMediaIds.length > 0) {
+        for (const delId of deletedMediaIds) {
+          try {
+            await api.delete(`${mediaConfig.mediaEndpoint}/${delId}`)
+          } catch (e) {
+            console.error('Erreur suppression media', delId, e)
+          }
+        }
+      }
+
+      // 2. Process primary update on existing media
+      if (primaryExistingId) {
+        try {
+          await api.put(`${mediaConfig.mediaEndpoint}/${primaryExistingId}`, { isPrimary: true })
+        } catch (e) {
+          console.error('Erreur mise à jour primary media', primaryExistingId, e)
+        }
+      }
+
+      // 3. Process uploads for pending files
+      if (Array.isArray(pendingMedia) && pendingMedia.length > 0) {
+        for (let index = 0; index < pendingMedia.length; index += 1) {
+          const item = pendingMedia[index]
+          const file = item.file
+          if (!file) continue
+
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('entityType', mediaConfig.uploadEntityType || 'bus')
+          formData.append('entityId', String(entityId))
+
+          const uploadResponse = await api.post('/api/upload', formData)
+          const uploadedFile = uploadResponse.data?.data?.file
+          const uploadedMedia = uploadResponse.data?.data?.media
+
+          const mediaPayload = {
+            [mediaConfig.relationKey || 'busId']: entityId,
+            mediaId: uploadedMedia?.id,
+            fileName: uploadedFile?.fileName || uploadedMedia?.fileName || file.name,
+            originalName: uploadedFile?.originalName || uploadedMedia?.originalName || file.name,
+            mimeType: uploadedFile?.mimeType || uploadedMedia?.mimeType || file.type,
+            size: uploadedFile?.size || uploadedMedia?.size || file.size,
+            url: uploadedFile?.url || uploadedMedia?.url || `/uploads/${uploadedFile?.fileName}`,
+            isPrimary: Boolean(item.isPrimary),
+            order: index,
+          }
+
+          if (mediaConfig.mediaEndpoint) {
+            await api.post(mediaConfig.mediaEndpoint, mediaPayload)
+          }
+        }
+      }
+
+      return result
     },
     onSuccess: (_, variables) => {
       setFormState(null)

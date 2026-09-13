@@ -11,19 +11,21 @@ const getBusMediaById = async (id) => prisma.busMedia.findUnique({
   include: { media: true, bus: true },
 });
 
-const createBusMedia = async ({ busId, caption, order, isPrimary, mediaData }) => prisma.busMedia.create({
+const createBusMedia = async ({ busId, mediaId, caption, order, isPrimary, mediaData }) => prisma.busMedia.create({
   data: {
     bus: { connect: { id: busId } },
     caption,
     order,
     isPrimary,
-    media: {
-      create: {
-        ...mediaData,
-        entityType: 'bus',
-        entityId: busId,
-      },
-    },
+    media: mediaId
+      ? { connect: { id: mediaId } }
+      : {
+          create: {
+            ...mediaData,
+            entityType: 'bus',
+            entityId: busId,
+          },
+        },
   },
   include: { media: true },
 });

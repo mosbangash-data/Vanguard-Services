@@ -5,6 +5,7 @@ import { api } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { useLanguage } from '../../i18n/useLanguage'
+import { MediaUploader } from '../../components/media/MediaUploader'
 
 const PROJECT_STATUS_OPTIONS = ['DRAFT', 'PUBLISHED', 'ARCHIVED']
 const PUBLICATION_STATUS_OPTIONS = ['DRAFT', 'PUBLISHED', 'ARCHIVED']
@@ -40,6 +41,10 @@ export function ProjectFormPage() {
   const [values, setValues] = useState(EMPTY_FORM)
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
+  const [galleryFiles, setGalleryFiles] = useState([])
+  const [galleryError, setGalleryError] = useState('')
+  const [galleryLoading, setGalleryLoading] = useState(false)
+  const [existingGallery, setExistingGallery] = useState([])
 
   const departmentQuery = useQuery({
     queryKey: ['construction-department'],
@@ -58,6 +63,17 @@ export function ProjectFormPage() {
     queryFn: async () => {
       const response = await api.get(`/api/construction/projects/${id}`)
       return response.data?.data?.project || response.data?.data || {}
+    },
+    enabled: isEditing,
+  })
+
+  const galleryQuery = useQuery({
+    queryKey: ['construction-project-gallery', id],
+    queryFn: async () => {
+      const response = await api.get(`/api/construction/projects/${id}/gallery`)
+      const items = response.data?.data?.items || response.data?.data?.gallery || response.data?.data || []
+      setExistingGallery(Array.isArray(items) ? items : [])
+      return Array.isArray(items) ? items : []
     },
     enabled: isEditing,
   })
@@ -81,18 +97,49 @@ export function ProjectFormPage() {
         ...payload,
         departmentId: department.id,
       }
+      let response
       if (isEditing) {
-        return api.put(`/api/construction/projects/${id}`, body)
+        response = await api.put(`/api/construction/projects/${id}`, body)
+      } else {
+        response = await api.post('/api/construction/projects', body)
       }
-      return api.post('/api/construction/projects', body)
+
+      const result = response.data?.data
+      const project = result?.project || result || null
+      if (galleryFiles.length > 0) {
+        setGalleryLoading(true)
+        const targetProjectId = project?.id || id
+        if (!targetProjectId) throw new Error('Project ID unavailable for media upload')
+        for (let index = 0; index < galleryFiles.length; index += 1) {
+          const file = galleryFiles[index]
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('entityType', 'construction-project')
+          formData.append('entityId', targetProjectId)
+          const uploaded = await api.post('/api/upload', formData)
+          const media = uploaded.data?.data?.file || uploaded.data?.data?.media || uploaded.data?.data || uploaded.data
+          const createdMedia = await api.post(`/api/construction/projects/${targetProjectId}/gallery`, {
+            mediaId: media.id,
+            order: index,
+            caption: file.name,
+          })
+          if (index === 0 && createdMedia.data?.data?.gallery) {
+            await api.post(`/api/construction/projects/${targetProjectId}/gallery/${createdMedia.data.data.gallery.id}/set-primary`)
+          }
+        }
+      }
+      return response
     },
     onSuccess: (response) => {
       const result = response.data?.data
       const project = result?.project || result || null
+      setGalleryFiles([])
+      setGalleryError('')
       navigate(project?.id ? `/construction/projects/${project.id}` : '/construction/projects')
     },
     onError: (error) => {
       setSubmitError(error?.response?.data?.message || t('construction.projects.submitError'))
+      setGalleryError(error?.response?.data?.message || 'Une erreur est survenue lors de l’upload des photos.')
     },
   })
 
@@ -186,6 +233,24 @@ export function ProjectFormPage() {
             <span>{t('construction.projects.fields.description')}</span>
             <textarea rows="5" value={values.description} onChange={(event) => handleFieldChange('description', event.target.value)} />
           </label>
+        </div>
+
+        <div className="full-width">
+          <MediaUploader
+            label="Galerie du projet"
+            existingMedia={existingGallery.map((item) => ({
+              id: item.id,
+              isPrimary: item.order === 0,
+              url: item.media?.url,
+              caption: item.caption,
+              order: item.order,
+            }))}
+            pendingFiles={galleryFiles}
+            onPendingChange={setGalleryFiles}
+            disabled={mutation.isPending || galleryLoading}
+            isUploading={galleryLoading}
+            uploadProgressText="Téléversement des photos en cours…"
+          />
         </div>
 
         {submitError && <p className="error">{submitError}</p>}

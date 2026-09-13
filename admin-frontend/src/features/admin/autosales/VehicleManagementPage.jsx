@@ -41,7 +41,9 @@ import {
   LoadingState,
   ErrorState,
   EmptyState,
+  MediaUploader,
 } from '../../../components/ui'
+import { resolveMediaUrl } from '../../../utils/media'
 
 const STATUS_OPTIONS = ['AVAILABLE', 'RESERVED', 'SOLD', 'IN_MAINTENANCE']
 const CURRENCY_OPTIONS = ['USD', 'CDF']
@@ -364,7 +366,7 @@ export function VehicleManagementPage() {
                             flexShrink: 0
                           }}>
                             {primaryMedia ? (
-                              <img src={primaryMedia} alt={vehicle.brand} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={resolveMediaUrl(primaryMedia)} alt={vehicle.brand} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               <CarFront size={20} color="#64748B" />
                             )}
@@ -631,7 +633,7 @@ export function VehicleDetailPage() {
     },
   })
 
-  const uploadImage = async (file) => {
+  const uploadImage = async (file, isPrimaryOverride = null) => {
     if (!file) return
     setUploading(true)
     setUploadError('')
@@ -641,19 +643,23 @@ export function VehicleDetailPage() {
       formData.append('entityType', 'vehicle')
       formData.append('entityId', id)
 
-      const uploadRes = await api.post('/api/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      const uploadRes = await api.post('/api/upload', formData)
       const uploadedFile = uploadRes.data?.data?.file
+      const uploadedMedia = uploadRes.data?.data?.media
+
+      const isPrimary = isPrimaryOverride !== null
+        ? isPrimaryOverride
+        : !(data?.media && data.media.length > 0)
 
       await api.post('/api/vehicle-media', {
         vehicleId: id,
-        fileName: uploadedFile.fileName,
-        originalName: uploadedFile.originalName,
-        mimeType: uploadedFile.mimeType,
-        size: uploadedFile.size,
-        url: uploadedFile.url,
-        isPrimary: !(data?.media && data.media.length > 0),
+        mediaId: uploadedMedia?.id,
+        fileName: uploadedFile?.fileName || uploadedMedia?.fileName,
+        originalName: uploadedFile?.originalName || uploadedMedia?.originalName,
+        mimeType: uploadedFile?.mimeType || uploadedMedia?.mimeType,
+        size: uploadedFile?.size || uploadedMedia?.size,
+        url: uploadedFile?.url || uploadedMedia?.url,
+        isPrimary,
       })
 
       queryClient.invalidateQueries({ queryKey: ['autosales-vehicle-detail', id] })
@@ -707,7 +713,7 @@ export function VehicleDetailPage() {
   }
 
   const vehicle = data
-  const primaryMedia = vehicle.media?.find((m) => m.isPrimary)?.media?.url || vehicle.imageUrl
+  const primaryMedia = resolveMediaUrl(vehicle.media?.find((m) => m.isPrimary)?.media?.url || vehicle.imageUrl)
 
   return (
     <div className="page vanguard-vehicle-detail-page">
@@ -811,82 +817,29 @@ export function VehicleDetailPage() {
             <CardTitle>Galerie & Photos ({vehicle.media?.length || 0})</CardTitle>
           </CardHeader>
           <CardContent>
-            {canManageMedia && (
-              <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <label className="btn btn-outline" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#F8FAFC' }}>
-                  <span>{uploading ? 'Envoi en cours...' : '+ Ajouter une photo à la galerie'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    disabled={uploading}
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) {
-                        uploadImage(e.target.files[0])
-                        e.target.value = ''
-                      }
-                    }}
-                  />
-                </label>
-                {uploadError && <span style={{ color: '#EF4444', fontSize: '0.85rem' }}>{uploadError}</span>}
+            {uploadError && (
+              <div style={{ marginBottom: '12px', padding: '10px 14px', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C', borderRadius: '6px', fontSize: '0.8125rem' }}>
+                {uploadError}
               </div>
             )}
-
-            {(!vehicle.media || vehicle.media.length === 0) ? (
-              <p style={{ color: '#64748B', fontSize: '0.9rem' }}>Aucune photo dans la galerie pour le moment.</p>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
-                {vehicle.media.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      border: item.isPrimary ? '2px solid #0F172A' : '1px solid #E2E8F0',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      position: 'relative',
-                      background: '#F8FAFC',
-                    }}
-                  >
-                    <div style={{ height: '130px', overflow: 'hidden' }}>
-                      <img
-                        src={item.media?.url}
-                        alt={item.caption || vehicle.brand}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                    </div>
-                    <div style={{ padding: '8px', fontSize: '0.75rem' }}>
-                      {item.isPrimary ? (
-                        <span style={{ background: '#0F172A', color: '#FFF', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                          ★ Principale
-                        </span>
-                      ) : (
-                        canManageMedia && (
-                          <button
-                            type="button"
-                            style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', padding: 0, fontWeight: 600 }}
-                            onClick={() => setPrimary(item.id)}
-                          >
-                            Définir principale
-                          </button>
-                        )
-                      )}
-
-                      {canManageMedia && (
-                        <div style={{ marginTop: '6px', textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 0 }}
-                            onClick={() => deletePhoto(item.id)}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <MediaUploader
+              label="Photos du véhicule"
+              helperText="Formats acceptés : JPEG, PNG, WEBP, GIF. Max 10 Mo par photo."
+              existingMedia={vehicle.media || []}
+              onSetPrimary={canManageMedia ? setPrimary : null}
+              onDeleteExisting={canManageMedia ? deletePhoto : null}
+              isUploading={uploading}
+              uploadProgressText="Téléversement de la photo en cours…"
+              disabled={!canManageMedia}
+              onPendingChange={async (newPending) => {
+                if (!canManageMedia || newPending.length === 0) return
+                for (const pending of newPending) {
+                  if (pending.file) {
+                    await uploadImage(pending.file, pending.isPrimary)
+                  }
+                }
+              }}
+            />
           </CardContent>
         </Card>
       </div>

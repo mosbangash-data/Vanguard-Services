@@ -17,6 +17,7 @@ import { api } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { useLanguage } from '../../i18n/useLanguage'
+import { resolveMediaUrl } from '../../utils/media'
 import {
   PageHeader,
   Card,
@@ -219,9 +220,18 @@ export function ProjectListPage() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          flexShrink: 0
+                          flexShrink: 0,
+                          overflow: 'hidden'
                         }}>
-                          <HardHat size={18} />
+                          {project.gallery?.[0]?.media?.url ? (
+                            <img
+                              src={resolveMediaUrl(project.gallery[0].media.url)}
+                              alt={project.title || ''}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <HardHat size={18} />
+                          )}
                         </div>
                         <div>
                           <strong style={{ fontSize: '0.9rem', color: '#0F172A' }}>

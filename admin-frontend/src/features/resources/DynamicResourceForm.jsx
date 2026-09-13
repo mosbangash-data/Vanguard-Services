@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { FormField, Input, Select, Textarea, Button, Modal } from '../../components/ui'
+import { MediaUploader } from '../../components/media/MediaUploader'
 import { AlertCircle, Check, Save, X, Loader2 } from 'lucide-react'
 
 const toOptionsList = (payload) => {
@@ -57,7 +58,18 @@ function RelationalSelectField({ field, value, onChange, disabled, hasError, inp
 }
 
 // Field wrapper to handle dynamic form inputs cleanly
-function DynamicField({ field, value, onChange, error, disabled }) {
+function DynamicField({
+  field,
+  value,
+  onChange,
+  error,
+  disabled,
+  initialData,
+  mediaState,
+  onPendingMediaChange,
+  onSetPrimaryMedia,
+  onDeleteExistingMedia,
+}) {
   const inputId = useId()
 
   const handleChange = (e) => {
@@ -82,6 +94,33 @@ function DynamicField({ field, value, onChange, error, disabled }) {
 
   const isRelationalSelect = field.type === 'select' && Boolean(field.optionsUrl)
   const staticOptions = field.options || []
+  const mediaFieldTypes = new Set(['file', 'image', 'gallery'])
+  const isMediaField = mediaFieldTypes.has(field.type)
+
+  if (isMediaField) {
+    return (
+      <FormField
+        id={inputId}
+        label={field.label}
+        required={field.required}
+        helper={field.helper}
+        error={error}
+        className={field.fullWidth ? 'field-full-width' : ''}
+      >
+        <MediaUploader
+          label={field.label}
+          helperText={field.helper}
+          existingMedia={mediaState?.existing || []}
+          pendingFiles={mediaState?.pending || []}
+          onPendingChange={onPendingMediaChange}
+          onSetPrimary={onSetPrimaryMedia}
+          onDeleteExisting={onDeleteExistingMedia}
+          disabled={disabled}
+          maxFiles={field.maxFiles || 10}
+        />
+      </FormField>
+    )
+  }
 
   return (
     <FormField
@@ -134,7 +173,7 @@ function DynamicField({ field, value, onChange, error, disabled }) {
         />
       ) : field.type === 'multiselect' ? (
         <div className="multiselect-pill-grid">
-          {availableOptions.map((opt) => {
+          {(field.options || []).map((opt) => {
             const isSelected = Array.isArray(value) && value.includes(opt.value)
             return (
               <button
@@ -217,6 +256,11 @@ export function DynamicResourceForm({
 
   const [formData, setFormData] = useState({})
   const [errors, setErrors] = useState({})
+  const [mediaState, setMediaState] = useState({
+    pending: [],
+    existing: [],
+    deleted: [],
+  })
 
   // Initialize form state
   useEffect(() => {
@@ -256,7 +300,75 @@ export function DynamicResourceForm({
 
     setFormData(initialValues)
     setErrors({})
+
+    // Initialize media state from initialData.media
+    const existing = Array.isArray(initialData?.media)
+      ? initialData.media.map((m) => ({ ...m }))
+      : []
+    setMediaState({
+      pending: [],
+      existing,
+      deleted: [],
+    })
   }, [isOpen, resource, initialData, mode])
+
+  const handlePendingMediaChange = (newPending) => {
+    setMediaState((prev) => ({ ...prev, pending: newPending }))
+  }
+
+  const handleSetPrimaryMedia = (idOrPendingId) => {
+    setMediaState((prev) => {
+      const isExisting = prev.existing.some((m) => m.id === idOrPendingId)
+      if (isExisting) {
+        return {
+          ...prev,
+          existing: prev.existing.map((m) => ({
+            ...m,
+            isPrimary: m.id === idOrPendingId,
+          })),
+          pending: prev.pending.map((p) => ({
+            ...p,
+            isPrimary: false,
+          })),
+        }
+      }
+
+      return {
+        ...prev,
+        existing: prev.existing.map((m) => ({
+          ...m,
+          isPrimary: false,
+        })),
+        pending: prev.pending.map((p) => ({
+          ...p,
+          isPrimary: p.id === idOrPendingId,
+        })),
+      }
+    })
+  }
+
+  const handleDeleteExistingMedia = (mediaId) => {
+    setMediaState((prev) => {
+      const deletedItem = prev.existing.find((m) => m.id === mediaId)
+      const remainingExisting = prev.existing.filter((m) => m.id !== mediaId)
+      let nextPending = [...prev.pending]
+
+      if (deletedItem?.isPrimary) {
+        if (remainingExisting.length > 0) {
+          remainingExisting[0].isPrimary = true
+        } else if (nextPending.length > 0) {
+          nextPending[0].isPrimary = true
+        }
+      }
+
+      return {
+        ...prev,
+        existing: remainingExisting,
+        deleted: [...prev.deleted, mediaId],
+        pending: nextPending,
+      }
+    })
+  }
 
   const handleFieldChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }))
@@ -310,6 +422,21 @@ export function DynamicResourceForm({
     if (!validate()) return
 
     const payload = { ...formData }
+
+    const hasMediaField = resource.fields?.some((field) => ['file', 'image', 'gallery'].includes(field.type))
+    if (hasMediaField) {
+      payload.__pendingMedia = mediaState.pending
+      payload.__deletedMediaIds = mediaState.deleted
+      const primaryExisting = mediaState.existing.find((m) => m.isPrimary)
+      if (primaryExisting) {
+        payload.__primaryExistingId = primaryExisting.id
+      }
+      resource.fields?.forEach((field) => {
+        if (['file', 'image', 'gallery'].includes(field.type)) {
+          delete payload[field.name]
+        }
+      })
+    }
 
     // Auto-resolve departmentId for resources that require it
     if (!payload.departmentId) {
@@ -372,6 +499,11 @@ export function DynamicResourceForm({
               onChange={handleFieldChange}
               error={errors[field.name]}
               disabled={isSubmitting}
+              initialData={initialData}
+              mediaState={mediaState}
+              onPendingMediaChange={handlePendingMediaChange}
+              onSetPrimaryMedia={handleSetPrimaryMedia}
+              onDeleteExistingMedia={handleDeleteExistingMedia}
             />
           ))}
         </div>

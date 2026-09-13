@@ -59,16 +59,18 @@ const createVehicleMedia = async (data, currentUser) => {
   const url = typeof data?.url === 'string' ? data.url.trim() : '';
   const size = Number.isFinite(Number(data?.size)) ? Number(data.size) : null;
 
+  const mediaId = typeof data?.mediaId === 'string' ? data.mediaId.trim() : null;
+
   if (!vehicleId || !fileName || !originalName || !mimeType || !url || size === null) {
     throw new AppError('vehicleId, fileName, originalName, mimeType, size and url are required', 400);
   }
   if (size <= 0) {
     throw new AppError('size must be a positive number', 400);
   }
-  if (!/^https?:\/\/.+/i.test(url)) {
-    throw new AppError('url must be a valid absolute URL', 400);
+  if (!/^https?:\/\/.+/i.test(url) && !url.startsWith('/uploads/')) {
+    throw new AppError('url must be a valid absolute URL or upload path', 400);
   }
-  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4'];
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];
   if (!allowedMimeTypes.includes(mimeType.toLowerCase())) {
     throw new AppError('mimeType is not supported', 400);
   }
@@ -85,6 +87,7 @@ const createVehicleMedia = async (data, currentUser) => {
 
   const vehicleMedia = await vehicleMediaRepository.createVehicleMedia({
     vehicleId,
+    mediaId,
     caption,
     order,
     isPrimary,
