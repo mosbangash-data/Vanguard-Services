@@ -4,8 +4,10 @@ import path from 'node:path'
 
 console.log('🧪 Starting Automated Resource System Verification...')
 
-// 1. Check resourceConfig.js
-const configPath = path.resolve('admin-frontend/src/features/resources/resourceConfig.js')
+// 1. Check resourceConfig
+const configPath = ['admin-frontend/src/features/resources/resourceConfig.jsx', 'admin-frontend/src/features/resources/resourceConfig.js']
+  .map((p) => path.resolve(p))
+  .find((p) => fs.existsSync(p))
 const configContent = fs.readFileSync(configPath, 'utf8')
 
 // Test for presence of key resource definitions

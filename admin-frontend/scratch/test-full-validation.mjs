@@ -28,8 +28,10 @@ assert(resourcePageSrc.includes('setTimeout'), 'FAIL: debounce timer manquant')
 assert(resourcePageSrc.includes('clear-search-btn'), 'FAIL: bouton de suppression rapide manquant')
 console.log('✅ 3. Système de recherche réactif avec debounce de 300ms et réinitialisation.')
 
-// 4. Validation des schémas de ressources dans resourceConfig.js
-const configPath = path.resolve('admin-frontend/src/features/resources/resourceConfig.js')
+// 4. Validation des schémas de ressources dans resourceConfig
+const configPath = ['admin-frontend/src/features/resources/resourceConfig.jsx', 'admin-frontend/src/features/resources/resourceConfig.js']
+  .map((p) => path.resolve(p))
+  .find((p) => fs.existsSync(p))
 const configSrc = fs.readFileSync(configPath, 'utf8')
 
 const resourcesToCheck = [

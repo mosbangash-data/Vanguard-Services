@@ -1,3 +1,5 @@
+import React from 'react'
+
 const resource = (path, label, endpoint, options = {}) => ({
   path,
   label,
