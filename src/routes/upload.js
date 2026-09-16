@@ -2,45 +2,37 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { parseMultipart } = require('../middleware/uploadMiddleware');
-const prisma = require('../config/prisma');
+const mediaService = require('../services/mediaService');
 const { AppError } = require('../middleware/errorHandler');
 
 router.use(authenticateToken);
 
 router.post('/', parseMultipart, async (req, res, next) => {
   try {
-    const file = req.file || (req.files && req.files[0]);
-    if (!file) {
+    const files = Array.isArray(req.files) && req.files.length > 0 ? req.files : (req.file ? [req.file] : []);
+    if (files.length === 0) {
       throw new AppError('No file uploaded', 400);
     }
 
-    const entityType = typeof req.body?.entityType === 'string' ? req.body.entityType.trim() : 'general';
-    const entityId = typeof req.body?.entityId === 'string' ? req.body.entityId.trim() : req.user.id;
+    const payload = {
+      department: req.body?.department || req.body?.departmentType || null,
+      entityType: req.body?.entityType || 'general',
+      entityId: req.body?.entityId || req.user.id,
+      uploadedById: req.user.id,
+      files,
+      isPrimary: req.body?.isPrimary === 'true' || req.body?.isPrimary === true,
+      order: req.body?.order !== undefined ? Number(req.body.order) : 0,
+    };
 
-    const media = await prisma.media.create({
-      data: {
-        fileName: file.filename,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
-        url: file.url,
-        entityType,
-        entityId,
-        uploadedById: req.user.id,
-      },
-    });
+    const result = await mediaService.uploadAndLinkFiles(payload);
+    const [first] = result.items || [];
 
     res.status(201).json({
       success: true,
       data: {
-        media,
-        file: {
-          url: file.url,
-          fileName: file.filename,
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          size: file.size,
-        },
+        items: result.items,
+        media: result.items,
+        file: first || null,
       },
     });
   } catch (err) {

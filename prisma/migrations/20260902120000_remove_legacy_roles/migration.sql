@@ -1,3 +1,27 @@
+-- Ensure the migration prerequisites exist on a blank database.
+INSERT INTO "Role" ("id", "name")
+VALUES (
+  md5(random()::text || clock_timestamp()::text),
+  'SERVICE_ADMIN'::"RoleName"
+)
+ON CONFLICT ("name") DO NOTHING;
+
+INSERT INTO "Department" ("id", "type", "name")
+VALUES (
+  md5(random()::text || clock_timestamp()::text),
+  'CONSTRUCTION'::"DepartmentType",
+  'Construction'
+)
+ON CONFLICT ("type") DO NOTHING;
+
+INSERT INTO "Department" ("id", "type", "name")
+VALUES (
+  md5(random()::text || clock_timestamp()::text),
+  'AUTO_SALES'::"DepartmentType",
+  'Auto Sales'
+)
+ON CONFLICT ("type") DO NOTHING;
+
 -- Migrate legacy users to the canonical department-scoped SERVICE_ADMIN role.
 DO $$
 DECLARE
