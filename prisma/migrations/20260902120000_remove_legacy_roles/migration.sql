@@ -1,24 +1,30 @@
 -- Ensure the migration prerequisites exist on a blank database.
-INSERT INTO "Role" ("id", "name")
+INSERT INTO "Role" ("id", "name", "createdAt", "updatedAt")
 VALUES (
   md5(random()::text || clock_timestamp()::text),
-  'SERVICE_ADMIN'::"RoleName"
+  'SERVICE_ADMIN'::"RoleName",
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
 )
 ON CONFLICT ("name") DO NOTHING;
 
-INSERT INTO "Department" ("id", "type", "name")
+INSERT INTO "Department" ("id", "type", "name", "createdAt", "updatedAt")
 VALUES (
   md5(random()::text || clock_timestamp()::text),
   'CONSTRUCTION'::"DepartmentType",
-  'Construction'
+  'Construction',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
 )
 ON CONFLICT ("type") DO NOTHING;
 
-INSERT INTO "Department" ("id", "type", "name")
+INSERT INTO "Department" ("id", "type", "name", "createdAt", "updatedAt")
 VALUES (
   md5(random()::text || clock_timestamp()::text),
   'AUTO_SALES'::"DepartmentType",
-  'Auto Sales'
+  'Auto Sales',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
 )
 ON CONFLICT ("type") DO NOTHING;
 
