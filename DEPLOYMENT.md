@@ -51,7 +51,35 @@ npm run build
 
 ## Start command
 
-npx prisma migrate deploy && node src/server.js
+npm start
+
+## Production / Render
+
+Configure these Render environment variables:
+
+- `DATABASE_URL`: the Render PostgreSQL connection URL
+- `SUPER_ADMIN_EMAIL`: the email used to log in to the Super Admin account
+- `SUPER_ADMIN_PASSWORD`: a strong secret password, stored only in Render
+- `NODE_ENV=production`
+
+Set the Render commands as follows:
+
+**Pre-Deploy Command**
+
+```text
+npx prisma migrate deploy && npm run create:super-admin
+```
+
+**Start Command**
+
+```text
+npm start
+```
+
+The pre-deploy script creates or updates only the configured Super Admin. It
+non-destructively ensures the `SUPER_ADMIN` role, the `VANGUARD_COACH`
+department, and the role's existing permission set. It does not run
+`prisma/seed.js`, delete business data, or start the server.
 
 ## Health check
 
@@ -60,11 +88,14 @@ npx prisma migrate deploy && node src/server.js
 
 ## Super Admin
 
-The application seeds the Super Admin only if the account does not already exist.
+The production bootstrap creates or updates the Super Admin by email.
 
 - Use SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD from the Render environment.
 - They are never exposed to the frontend or committed to source control.
-- The seeded user is created/updated without overwriting unrelated accounts.
+- The configured account is made ACTIVE, assigned SUPER_ADMIN and
+  VANGUARD_COACH, and receives the existing Super Admin permissions.
+- Re-running the bootstrap is idempotent and does not overwrite unrelated
+  accounts.
 
 ## CORS
 
