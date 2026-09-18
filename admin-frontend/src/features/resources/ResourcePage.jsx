@@ -5,6 +5,7 @@ import { hasPermission } from '../auth/permissions'
 import { useAuth } from '../auth/authContext'
 import { createResource, deleteResource, listResource, patchResource, updateResource } from './resourceApi'
 import { DynamicResourceForm } from './DynamicResourceForm'
+import { api, uploadMedia } from '../../services/api'
 import {
   Button,
   StatusBadge,
@@ -171,23 +172,20 @@ export function ResourcePage({ resource }) {
           const file = item.file
           if (!file) continue
 
-          const formData = new FormData()
-          formData.append('file', file)
-          formData.append('entityType', mediaConfig.uploadEntityType || 'bus')
-          formData.append('entityId', String(entityId))
-
-          const uploadResponse = await api.post('/api/upload', formData)
-          const uploadedFile = uploadResponse.data?.data?.file
-          const uploadedMedia = uploadResponse.data?.data?.media
+          const uploadedMedia = await uploadMedia(file, {
+            department: mediaConfig.department,
+            entityType: mediaConfig.uploadEntityType || 'bus',
+            entityId,
+          })
 
           const mediaPayload = {
             [mediaConfig.relationKey || 'busId']: entityId,
-            mediaId: uploadedMedia?.id,
-            fileName: uploadedFile?.fileName || uploadedMedia?.fileName || file.name,
-            originalName: uploadedFile?.originalName || uploadedMedia?.originalName || file.name,
-            mimeType: uploadedFile?.mimeType || uploadedMedia?.mimeType || file.type,
-            size: uploadedFile?.size || uploadedMedia?.size || file.size,
-            url: uploadedFile?.url || uploadedMedia?.url || `/uploads/${uploadedFile?.fileName}`,
+            mediaId: uploadedMedia.id,
+            fileName: uploadedMedia.fileName || file.name,
+            originalName: uploadedMedia.originalName || file.name,
+            mimeType: uploadedMedia.mimeType || file.type,
+            size: uploadedMedia.size || file.size,
+            url: uploadedMedia.secureUrl || uploadedMedia.url,
             isPrimary: Boolean(item.isPrimary),
             order: index,
           }

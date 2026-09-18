@@ -1,8 +1,18 @@
 const { AppError } = require('../middleware/errorHandler');
+const prisma = require('../config/prisma');
 const auditService = require('./auditService');
 const vehicleRepository = require('../repositories/vehicleRepository');
 const vehicleMediaRepository = require('../repositories/vehicleMediaRepository');
 const { assertDepartmentIdForUser } = require('./departmentAccessService');
+const { deleteMediaIfOrphaned } = require('./mediaService');
+
+const requireMediaForEntity = async (mediaId, entityType, entityId, departmentType) => {
+  const media = await prisma.media.findUnique({ where: { id: mediaId } });
+  if (!media || media.entityType !== entityType || media.entityId !== entityId || media.department !== departmentType) {
+    throw new AppError('Media is not valid for this entity', 403);
+  }
+  return media;
+};
 
 const assertAutoSalesAccess = (currentUser) => {
   if (!currentUser) {
@@ -67,8 +77,8 @@ const createVehicleMedia = async (data, currentUser) => {
   if (size <= 0) {
     throw new AppError('size must be a positive number', 400);
   }
-  if (!/^https?:\/\/.+/i.test(url) && !url.startsWith('/uploads/')) {
-    throw new AppError('url must be a valid absolute URL or upload path', 400);
+  if (!/^https?:\/\/.+/i.test(url)) {
+    throw new AppError('url must be a valid Cloudinary URL', 400);
   }
   const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];
   if (!allowedMimeTypes.includes(mimeType.toLowerCase())) {
@@ -80,6 +90,11 @@ const createVehicleMedia = async (data, currentUser) => {
     throw new AppError('Vehicle not found', 404);
   }
   await assertDepartmentIdForUser(currentUser, vehicle.departmentId, 'AUTO_SALES');
+
+  if (mediaId) {
+    const media = await requireMediaForEntity(mediaId, 'vehicle', vehicleId, vehicle.department?.type);
+    if (!media) throw new AppError('Media is not valid for this vehicle', 403);
+  }
 
   if (isPrimary) {
     await vehicleMediaRepository.unsetPrimaryForVehicle(vehicleId);
@@ -141,7 +156,7 @@ const updateVehicleMedia = async (id, data, currentUser) => {
     throw new AppError('size must be a positive number', 400);
   }
   if (mediaUpdate.url !== undefined && !/^https?:\/\//i.test(mediaUpdate.url)) {
-    throw new AppError('url must be a valid absolute URL', 400);
+    throw new AppError('url must be a valid Cloudinary URL', 400);
   }
   if (mediaUpdate.mimeType !== undefined) {
     const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4'];
@@ -177,6 +192,7 @@ const deleteVehicleMedia = async (id, currentUser) => {
   await assertDepartmentIdForUser(currentUser, existing.vehicle.departmentId, 'AUTO_SALES');
 
   await vehicleMediaRepository.deleteVehicleMedia(id);
+  await deleteMediaIfOrphaned(existing.mediaId);
 
   await auditService.log('delete_vehicle_media', currentUser.id, {
     targetVehicleId: existing.vehicleId,

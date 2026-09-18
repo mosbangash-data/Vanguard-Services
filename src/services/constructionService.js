@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const constructionRepository = require('../repositories/constructionRepository');
+const { deleteMediaIfOrphaned } = require('./mediaService');
 
 const assertConstructionAccess = (currentUser) => {
   if (!currentUser) throw new AppError('Unauthorized', 401);
@@ -603,6 +604,9 @@ const createProjectGallery = async (data, currentUser) => {
   // verify media exists
   const media = await prisma.media.findUnique({ where: { id: data.mediaId } });
   if (!media) throw new AppError('Media not found', 404);
+  if (media.entityType !== 'project' || media.entityId !== projectId || media.department !== project.department?.type) {
+    throw new AppError('Media is not valid for this project', 403);
+  }
 
   const payload = {
     projectId,
@@ -646,6 +650,7 @@ const deleteProjectGallery = async (galleryId, currentUser) => {
   await assertProjectAccess(existing.project, currentUser);
 
   const deleted = await constructionRepository.deleteProjectGallery(galleryId);
+  await deleteMediaIfOrphaned(deleted.mediaId);
   await auditService.log('delete_project_media', currentUser.id, { targetProjectId: deleted.projectId, targetMediaId: deleted.mediaId, galleryId: deleted.id });
 
   return { gallery: deleted };

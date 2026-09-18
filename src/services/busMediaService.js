@@ -1,8 +1,17 @@
 const { AppError } = require('../middleware/errorHandler');
-const auditService = require('./auditService');
 const prisma = require('../config/prisma');
+const auditService = require('./auditService');
 const busMediaRepository = require('../repositories/busMediaRepository');
 const { requireCoachAdmin, assertDepartmentIdForUser } = require('./departmentAccessService');
+const { deleteMediaIfOrphaned } = require('./mediaService');
+
+const requireMediaForBus = async (mediaId, busId, departmentType) => {
+  const media = await prisma.media.findUnique({ where: { id: mediaId } });
+  if (!media || media.entityType !== 'bus' || media.entityId !== busId || media.department !== departmentType) {
+    throw new AppError('Media is not valid for this bus', 403);
+  }
+  return media;
+};
 
 const listBusMedia = async (busId, currentUser) => {
   requireCoachAdmin(currentUser);
@@ -53,8 +62,8 @@ const createBusMedia = async (data, currentUser) => {
   if (size <= 0) {
     throw new AppError('size must be a positive number', 400);
   }
-  if (!/^https?:\/\/.+/i.test(url) && !url.startsWith('/uploads/')) {
-    throw new AppError('url must be a valid absolute URL or upload path', 400);
+  if (!/^https?:\/\/.+/i.test(url)) {
+    throw new AppError('url must be a valid Cloudinary URL', 400);
   }
   const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];
   if (!allowedMimeTypes.includes(mimeType.toLowerCase())) {
@@ -66,6 +75,7 @@ const createBusMedia = async (data, currentUser) => {
     throw new AppError('Bus not found', 404);
   }
   await assertDepartmentIdForUser(currentUser, bus.departmentId, 'VANGUARD_COACH');
+  if (mediaId) await requireMediaForBus(mediaId, busId, 'VANGUARD_COACH');
 
   if (isPrimary) {
     await busMediaRepository.unsetPrimaryForBus(busId);
@@ -125,8 +135,8 @@ const updateBusMedia = async (id, data, currentUser) => {
   if (mediaUpdate.size !== undefined && mediaUpdate.size <= 0) {
     throw new AppError('size must be a positive number', 400);
   }
-  if (mediaUpdate.url !== undefined && !/^https?:\/\//i.test(mediaUpdate.url) && !mediaUpdate.url.startsWith('/uploads/')) {
-    throw new AppError('url must be a valid absolute URL or upload path', 400);
+  if (mediaUpdate.url !== undefined && !/^https?:\/\//i.test(mediaUpdate.url)) {
+    throw new AppError('url must be a valid Cloudinary URL', 400);
   }
   if (mediaUpdate.mimeType !== undefined) {
     const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];
@@ -161,6 +171,7 @@ const deleteBusMedia = async (id, currentUser) => {
   await assertDepartmentIdForUser(currentUser, existing.bus.departmentId, 'VANGUARD_COACH');
 
   await busMediaRepository.deleteBusMedia(id);
+  await deleteMediaIfOrphaned(existing.mediaId);
 
   await auditService.log('delete_bus_media', currentUser.id, {
     targetBusId: existing.busId,

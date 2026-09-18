@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { api } from '../../services/api'
+import { api, uploadMedia } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { MediaUploader } from '../../components/media/MediaUploader'
@@ -34,13 +34,11 @@ export function ProjectDetailPage() {
   const galleryList = toList(gallery.data)
 
   const uploadProjectPhoto = async (file) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('entityType', 'project')
-    formData.append('entityId', id)
-
-    const uploadRes = await api.post('/api/upload', formData)
-    const media = uploadRes.data?.data?.media
+    const media = await uploadMedia(file, {
+      department: 'CONSTRUCTION',
+      entityType: 'project',
+      entityId: id,
+    })
 
     const createRes = await api.post(`/api/construction/projects/${id}/gallery`, {
       mediaId: media.id,
@@ -82,7 +80,7 @@ export function ProjectDetailPage() {
 
   const existingMedia = galleryList.map((item) => ({
     id: item.id,
-    url: resolveMediaUrl(item.media?.url),
+    url: resolveMediaUrl(item.media?.secureUrl || item.media?.url),
     isPrimary: item.order === 0,
     caption: item.caption,
     order: item.order,

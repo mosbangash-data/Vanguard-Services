@@ -126,6 +126,7 @@ export const resourceGroups = {
       roles: ['SUPER_ADMIN', 'SERVICE_ADMIN'],
       mediaConfig: {
         entityType: 'bus',
+        department: 'VANGUARD_COACH',
         mediaEndpoint: '/api/bus-media',
         relationKey: 'busId',
         uploadEntityType: 'bus',
@@ -133,7 +134,10 @@ export const resourceGroups = {
       },
       columns: [
         { key: 'photo', label: 'Photo', render: (b) => {
-          const primary = b.media?.find((m) => m.isPrimary)?.media?.url || b.media?.[0]?.media?.url;
+          const primary = b.media?.find((m) => m.isPrimary)?.media?.secureUrl
+            || b.media?.find((m) => m.isPrimary)?.media?.url
+            || b.media?.[0]?.media?.secureUrl
+            || b.media?.[0]?.media?.url;
           return primary ? <img src={resolveMediaUrl(primary)} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} /> : '—';
         }},
         { key: 'plateNumber', label: 'Immatriculation' },

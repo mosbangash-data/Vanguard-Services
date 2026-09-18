@@ -12,6 +12,10 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = getToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+    delete config.headers['content-type']
+  }
   return config
 })
 
@@ -22,3 +26,19 @@ api.interceptors.response.use(
     return Promise.reject(error)
   },
 )
+
+export async function uploadMedia(file, { department, entityType, entityId }) {
+  if (!file) throw new Error('A file is required.')
+  const formData = new FormData()
+  formData.append('file', file)
+  if (department) formData.append('department', department)
+  if (entityType) formData.append('entityType', entityType)
+  if (entityId) formData.append('entityId', String(entityId))
+
+  const response = await api.post('/api/upload', formData)
+  const media = response.data?.data?.media
+  if (!media || Array.isArray(media)) {
+    throw new Error('The upload response did not contain one media object.')
+  }
+  return media
+}

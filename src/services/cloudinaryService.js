@@ -3,17 +3,13 @@ const { AppError } = require('../middleware/errorHandler');
 const env = require('../config/env');
 
 const VALID_DEPARTMENTS = new Set([
+  'GENERAL',
   'AUTO_SALES',
-  'REAL_ESTATE',
-  'CAR_RENTAL',
-  'HOTEL',
-  'RESTAURANT',
-  'SERVICES',
   'VANGUARD_COACH',
   'CONSTRUCTION',
 ]);
 
-const SAFE_ENTITY_TYPES = new Set(['vehicle', 'bus', 'project', 'property', 'room', 'restaurant', 'service', 'general']);
+const SAFE_ENTITY_TYPES = new Set(['vehicle', 'bus', 'project', 'general']);
 
 const normalizeDepartment = (value) => {
   if (!value || typeof value !== 'string') {
@@ -89,13 +85,13 @@ const getOptimizedUrl = (publicId, options = {}) => {
   });
 };
 
-const uploadMedia = async (file, { department, entityType, entityId, folderOverride, resourceType = 'image' } = {}) => {
+const uploadMedia = async (file, { department, entityType, entityId, resourceType = 'image' } = {}) => {
   if (!file || !file.buffer) {
     throw new AppError('A valid file buffer is required for upload', 400);
   }
 
   const client = getCloudinaryClient();
-  const resolvedFolder = folderOverride || buildCloudinaryFolder({ department, entityType, entityId });
+  const resolvedFolder = buildCloudinaryFolder({ department, entityType, entityId });
   const uploadOptions = {
     folder: resolvedFolder,
     resource_type: resourceType,
@@ -110,7 +106,11 @@ const uploadMedia = async (file, { department, entityType, entityId, folderOverr
   return {
     publicId: result.public_id,
     url: result.secure_url,
+    secureUrl: result.secure_url,
     resourceType: result.resource_type || resourceType,
+    format: result.format || null,
+    width: result.width || null,
+    height: result.height || null,
     fileName: file.originalname || file.filename || result.original_filename,
     originalName: file.originalname || file.filename || result.original_filename,
     mimeType: file.mimetype || result.format,
@@ -119,10 +119,10 @@ const uploadMedia = async (file, { department, entityType, entityId, folderOverr
   };
 };
 
-const destroyMedia = async (publicId) => {
+const destroyMedia = async (publicId, { resourceType = 'image' } = {}) => {
   if (!publicId) return { result: 'noop' };
   const client = getCloudinaryClient();
-  const result = await client.uploader.destroy(publicId, { resource_type: 'image' });
+  const result = await client.uploader.destroy(publicId, { resource_type: resourceType });
   return result;
 };
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api } from '../../services/api'
+import { api, uploadMedia } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { useLanguage } from '../../i18n/useLanguage'
@@ -112,12 +112,11 @@ export function ProjectFormPage() {
         if (!targetProjectId) throw new Error('Project ID unavailable for media upload')
         for (let index = 0; index < galleryFiles.length; index += 1) {
           const file = galleryFiles[index]
-          const formData = new FormData()
-          formData.append('file', file)
-          formData.append('entityType', 'construction-project')
-          formData.append('entityId', targetProjectId)
-          const uploaded = await api.post('/api/upload', formData)
-          const media = uploaded.data?.data?.file || uploaded.data?.data?.media || uploaded.data?.data || uploaded.data
+          const media = await uploadMedia(file, {
+            department: 'CONSTRUCTION',
+            entityType: 'project',
+            entityId: targetProjectId,
+          })
           const createdMedia = await api.post(`/api/construction/projects/${targetProjectId}/gallery`, {
             mediaId: media.id,
             order: index,
@@ -241,7 +240,7 @@ export function ProjectFormPage() {
             existingMedia={existingGallery.map((item) => ({
               id: item.id,
               isPrimary: item.order === 0,
-              url: item.media?.url,
+              url: item.media?.secureUrl || item.media?.url,
               caption: item.caption,
               order: item.order,
             }))}

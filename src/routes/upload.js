@@ -19,20 +19,19 @@ router.post('/', parseMultipart, async (req, res, next) => {
       entityType: req.body?.entityType || 'general',
       entityId: req.body?.entityId || req.user.id,
       uploadedById: req.user.id,
+      user: req.user,
       files,
       isPrimary: req.body?.isPrimary === 'true' || req.body?.isPrimary === true,
       order: req.body?.order !== undefined ? Number(req.body.order) : 0,
     };
 
     const result = await mediaService.uploadAndLinkFiles(payload);
-    const [first] = result.items || [];
+    const media = result.items.length === 1 ? result.items[0] : result.items;
 
     res.status(201).json({
       success: true,
       data: {
-        items: result.items,
-        media: result.items,
-        file: first || null,
+        media,
       },
     });
   } catch (err) {

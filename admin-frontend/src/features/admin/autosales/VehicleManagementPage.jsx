@@ -17,7 +17,7 @@ import {
   FileSpreadsheet,
   Ticket,
 } from 'lucide-react'
-import { api } from '../../../services/api'
+import { api, uploadMedia } from '../../../services/api'
 import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
 import { useLanguage } from '../../../i18n/useLanguage'
@@ -638,14 +638,11 @@ export function VehicleDetailPage() {
     setUploading(true)
     setUploadError('')
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('entityType', 'vehicle')
-      formData.append('entityId', id)
-
-      const uploadRes = await api.post('/api/upload', formData)
-      const uploadedFile = uploadRes.data?.data?.file
-      const uploadedMedia = uploadRes.data?.data?.media
+      const uploadedMedia = await uploadMedia(file, {
+        department: 'AUTO_SALES',
+        entityType: 'vehicle',
+        entityId: id,
+      })
 
       const isPrimary = isPrimaryOverride !== null
         ? isPrimaryOverride
@@ -654,11 +651,11 @@ export function VehicleDetailPage() {
       await api.post('/api/vehicle-media', {
         vehicleId: id,
         mediaId: uploadedMedia?.id,
-        fileName: uploadedFile?.fileName || uploadedMedia?.fileName,
-        originalName: uploadedFile?.originalName || uploadedMedia?.originalName,
-        mimeType: uploadedFile?.mimeType || uploadedMedia?.mimeType,
-        size: uploadedFile?.size || uploadedMedia?.size,
-        url: uploadedFile?.url || uploadedMedia?.url,
+        fileName: uploadedMedia.fileName,
+        originalName: uploadedMedia.originalName,
+        mimeType: uploadedMedia.mimeType,
+        size: uploadedMedia.size,
+        url: uploadedMedia.secureUrl || uploadedMedia.url,
         isPrimary,
       })
 

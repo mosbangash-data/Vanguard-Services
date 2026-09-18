@@ -1,5 +1,5 @@
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
-const isValidUrl = (value) => /^https?:\/\/[\w\-@:%._+~#=\/]+$/i.test(value) || typeof value === 'string' && value.startsWith('/uploads/');
+const isValidUrl = (value) => /^https?:\/\/[\w\-@:%._+~#=\/?&]+$/i.test(value);
 const isPositiveInteger = (value) => Number.isInteger(Number(value)) && Number(value) >= 0;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];
 
@@ -35,7 +35,7 @@ const validateVehicleMediaCreate = (req, res, next) => {
     return res.status(400).json({ success: false, message: 'url is required' });
   }
   if (!isValidUrl(url)) {
-    return res.status(400).json({ success: false, message: 'url must be a valid absolute URL' });
+    return res.status(400).json({ success: false, message: 'url must be a valid Cloudinary URL' });
   }
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
     return res.status(400).json({ success: false, message: 'mimeType is not supported' });

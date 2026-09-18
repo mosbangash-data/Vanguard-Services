@@ -1,35 +1,33 @@
-const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const { AppError } = require('./errorHandler');
-
-const UPLOAD_DIR = path.join(__dirname, '../../public/uploads');
-
-// Ensure upload directory exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
 
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
-  'video/mp4',
 ]);
 
 const MIME_EXTENSIONS = {
-  'image/jpeg': '.jpg',
+  'image/jpeg': ['.jpg', '.jpeg'],
   'image/png': '.png',
   'image/webp': '.webp',
   'image/gif': '.gif',
-  'video/mp4': '.mp4',
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+const hasImageSignature = (buffer, mimeType) => {
+  if (mimeType === 'image/jpeg') return buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (mimeType === 'image/png') return buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (mimeType === 'image/gif') return ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii'));
+  if (mimeType === 'image/webp') return buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+  return false;
+};
+
 /**
- * Parses multipart/form-data from incoming request buffer.
+ * Parses multipart/form-data in memory. Cloudinary is the durable store;
+ * keeping the buffer on the request avoids writing persistent local files.
  */
 const parseMultipart = (req, res, next) => {
   const contentType = req.headers['content-type'] || '';
@@ -51,8 +49,8 @@ const parseMultipart = (req, res, next) => {
 
   req.on('data', (chunk) => {
     totalSize += chunk.length;
-    if (totalSize > MAX_FILE_SIZE + 65536) {
-      req.destroy(new AppError('Uploaded content exceeds size limit (10MB)', 413));
+    if (totalSize > (MAX_FILE_SIZE * 12) + 65536) {
+    req.destroy(new AppError('Uploaded content exceeds size limit', 413));
       return;
     }
     chunks.push(chunk);
@@ -97,27 +95,28 @@ const parseMultipart = (req, res, next) => {
               const mimeType = (typeMatch ? typeMatch[1].trim() : 'application/octet-stream').toLowerCase();
 
               if (!ALLOWED_MIME_TYPES.has(mimeType)) {
-                return next(new AppError(`Unsupported file type: ${mimeType}. Allowed: JPEG, PNG, WEBP, GIF, MP4`, 400));
+                return next(new AppError(`Unsupported file type: ${mimeType}. Allowed: JPEG, PNG, WEBP, GIF`, 400));
               }
 
               if (bodyBuffer.length > MAX_FILE_SIZE) {
                 return next(new AppError('File exceeds maximum size limit (10MB)', 413));
               }
 
-              const ext = MIME_EXTENSIONS[mimeType] || path.extname(originalFilename).toLowerCase() || '.bin';
-              const secureFilename = `${crypto.randomUUID()}${ext}`;
-              const filePath = path.join(UPLOAD_DIR, secureFilename);
-
-              fs.writeFileSync(filePath, bodyBuffer);
+              const ext = path.extname(path.basename(originalFilename)).toLowerCase();
+              const expectedExt = MIME_EXTENSIONS[mimeType] || [];
+              if (!expectedExt.includes(ext)) {
+                return next(new AppError(`File extension does not match MIME type: ${mimeType}`, 400));
+              }
+              if (!hasImageSignature(bodyBuffer, mimeType)) {
+                return next(new AppError('File content does not match its declared image type', 422));
+              }
 
               const fileInfo = {
                 fieldname: fieldName,
                 originalname: path.basename(originalFilename),
-                filename: secureFilename,
                 mimetype: mimeType,
                 size: bodyBuffer.length,
-                path: filePath,
-                url: `/uploads/${secureFilename}`,
+                buffer: bodyBuffer,
               };
 
               req.files.push(fileInfo);
@@ -147,7 +146,6 @@ const parseMultipart = (req, res, next) => {
 
 module.exports = {
   parseMultipart,
-  UPLOAD_DIR,
   ALLOWED_MIME_TYPES,
   MAX_FILE_SIZE,
 };

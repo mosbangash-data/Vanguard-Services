@@ -15,8 +15,13 @@ export function resolveMediaUrl(url) {
   ) {
     return url
   }
+
   const cleanPath = url.startsWith('/') ? url : `/${url}`
   return API_URL ? `${API_URL}${cleanPath}` : cleanPath
+}
+
+export function getMediaUrl(media) {
+  return resolveMediaUrl(media?.secureUrl || media?.url || '')
 }
 
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
