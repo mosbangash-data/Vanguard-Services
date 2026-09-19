@@ -64,7 +64,7 @@ export default function Automobile() {
 
   const getVehicleImage = (vehicle) => {
     const primary = vehicle.media?.find((m) => m.isPrimary) || vehicle.media?.[0]
-    return primary?.media?.url || '/assets/automobile/automobile-card.jpg'
+    return primary?.media?.secureUrl || primary?.media?.url || '/assets/automobile/automobile-card.jpg'
   }
 
   const getWhatsAppUrl = (vehicle) => {

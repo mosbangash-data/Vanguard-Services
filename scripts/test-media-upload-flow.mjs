@@ -139,8 +139,8 @@ check('DynamicResourceForm sépare les médias du payload JSON et gère l\'état
 
 check('ResourcePage orchestre l\'upload physique, la création de l\'entité et l\'association BusMedia', () => {
   const code = fs.readFileSync(path.resolve('admin-frontend/src/features/resources/ResourcePage.jsx'), 'utf8');
-  assert(code.includes("api.post('/api/upload', formData)"), 'Appel /api/upload manquant dans mutationFn');
-  assert(code.includes("formData.append('file', file)"), 'Construction de FormData manquante');
+  assert(code.includes("import { api, uploadMedia } from '../../services/api'"), 'API média centralisée manquante');
+  assert(code.includes('uploadMedia(file, {'), 'Appel uploadMedia manquant dans mutationFn');
   assert(code.includes("api.delete(`${mediaConfig.mediaEndpoint}/${delId}`)"), 'Suppression des médias supprimés manquante');
   assert(code.includes("api.put(`${mediaConfig.mediaEndpoint}/${primaryExistingId}`"), 'Mise à jour du média principal existant manquante');
   assert(code.includes("api.post(mediaConfig.mediaEndpoint, mediaPayload)"), 'Association du média via mediaConfig.mediaEndpoint manquante');
@@ -159,9 +159,9 @@ check('VehicleManagementPage utilise MediaUploader, uploadImage sans Content-Typ
   assert(code.includes('uploadedMedia?.id'), 'mediaId manquant lors de l\'association vehicle-media');
 });
 
-check('vehicleMediaService accepte les chemins locaux /uploads/ et le type image/webp', () => {
+check('vehicleMediaService utilise mediaId et le type image/webp', () => {
   const code = fs.readFileSync(path.resolve('src/services/vehicleMediaService.js'), 'utf8');
-  assert(code.includes("!url.startsWith('/uploads/')"), 'Validation URL doit accepter les chemins /uploads/');
+  assert(code.includes('mediaId'), 'Association par mediaId manquante');
   assert(code.includes("'image/webp'"), 'image/webp manquant dans allowedMimeTypes');
 });
 
@@ -193,7 +193,7 @@ check('ProjectFormPage intègre MediaUploader pour l\'ajout de photos lors de la
 
 check('ProjectListPage affiche la miniature du projet avec resolveMediaUrl et fallback HardHat', () => {
   const code = fs.readFileSync(path.resolve('admin-frontend/src/features/construction/ProjectListPage.jsx'), 'utf8');
-  assert(code.includes('resolveMediaUrl(project.gallery[0].media.url)'), 'Miniature projet avec resolveMediaUrl manquante');
+  assert(code.includes('resolveMediaUrl(project.gallery[0].media.secureUrl || project.gallery[0].media.url)'), 'Miniature projet Cloudinary manquante');
   assert(code.includes('<HardHat size={18} />'), 'Icône fallback HardHat manquante');
 });
 
@@ -205,19 +205,19 @@ check('constructionRepository inclut la galerie et le media associé dans listPr
 });
 
 // -------------------------------------------------------------
-// SECTION 7 : PROXY VITE POUR LE STOCKAGE LOCAL
+// SECTION 7 : PROXY VITE POUR L'API
 // -------------------------------------------------------------
-console.log('\n--- TEST GROUP 7 : PROXY VITE POUR LE STOCKAGE STATIQUE ---');
+console.log('\n--- TEST GROUP 7 : PROXY VITE POUR L\'API ---');
 
-check('admin-frontend/vite.config.js proxifie /uploads vers le backend local', () => {
+check('admin-frontend/vite.config.js proxifie /api vers le backend local', () => {
   const code = fs.readFileSync(path.resolve('admin-frontend/vite.config.js'), 'utf8');
-  assert(code.includes("'/uploads'"), 'Proxy /uploads manquant dans admin-frontend/vite.config.js');
+  assert(code.includes("'/api'"), 'Proxy /api manquant dans admin-frontend/vite.config.js');
   assert(code.includes("'http://127.0.0.1:3000'"), 'Target 127.0.0.1:3000 manquant dans admin-frontend/vite.config.js');
 });
 
-check('client-frontend/vite.config.js proxifie /uploads vers le backend local', () => {
+check('client-frontend/vite.config.js proxifie /api vers le backend local', () => {
   const code = fs.readFileSync(path.resolve('client-frontend/vite.config.js'), 'utf8');
-  assert(code.includes("'/uploads'"), 'Proxy /uploads manquant dans client-frontend/vite.config.js');
+  assert(code.includes("'/api'"), 'Proxy /api manquant dans client-frontend/vite.config.js');
   assert(code.includes("'http://127.0.0.1:3000'"), 'Target 127.0.0.1:3000 manquant dans client-frontend/vite.config.js');
 });
 

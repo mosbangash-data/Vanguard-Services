@@ -1,7 +1,7 @@
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 const isValidUrl = (value) => /^https?:\/\/[\w\-@:%._+~#=\/?&]+$/i.test(value);
 const isPositiveInteger = (value) => Number.isInteger(Number(value)) && Number(value) >= 0;
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const validateVehicleMediaCreate = (req, res, next) => {
   const body = req.body;
@@ -10,6 +10,7 @@ const validateVehicleMediaCreate = (req, res, next) => {
   }
 
   const vehicleId = normalizeString(body.vehicleId);
+  const mediaId = normalizeString(body.mediaId);
   const fileName = normalizeString(body.fileName);
   const originalName = normalizeString(body.originalName);
   const mimeType = normalizeString(body.mimeType).toLowerCase();
@@ -19,6 +20,7 @@ const validateVehicleMediaCreate = (req, res, next) => {
   if (!vehicleId) {
     return res.status(400).json({ success: false, message: 'vehicleId is required' });
   }
+  if (mediaId) return next();
   if (!fileName) {
     return res.status(400).json({ success: false, message: 'fileName is required' });
   }

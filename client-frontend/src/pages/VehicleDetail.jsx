@@ -36,7 +36,7 @@ export default function VehicleDetail() {
   const formatPrice = (p) => new Intl.NumberFormat('fr-FR').format(Number(p))
   const getImages = (v) => {
     const media = v?.media || []
-    return media.length ? media.map((m) => m.media?.url).filter(Boolean) : ['/assets/automobile/automobile-card.jpg']
+    return media.length ? media.map((m) => m.media?.secureUrl || m.media?.url).filter(Boolean) : ['/assets/automobile/automobile-card.jpg']
   }
 
   const handleSubmit = async (e) => {

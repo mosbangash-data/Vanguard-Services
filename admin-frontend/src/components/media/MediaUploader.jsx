@@ -18,8 +18,17 @@ export function MediaUploader({
   helperText = 'Formats supportés : JPEG, PNG, WEBP, GIF. Taille maximale : 10 Mo par image.',
 }) {
   const fileInputRef = useRef(null)
+  const pendingFilesRef = useRef(pendingFiles)
   const [isDragOver, setIsDragOver] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+
+  pendingFilesRef.current = pendingFiles
+
+  useEffect(() => () => {
+    pendingFilesRef.current.forEach((pending) => {
+      if (pending.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(pending.previewUrl)
+    })
+  }, [])
 
   // Validate files
   const validateFile = (file) => {
@@ -258,7 +267,7 @@ export function MediaUploader({
         >
           {/* Existing Photos */}
           {existingMedia.map((mediaItem) => {
-            const url = resolveMediaUrl(mediaItem.media?.url || mediaItem.url)
+            const url = resolveMediaUrl(mediaItem.media?.secureUrl || mediaItem.media?.url || mediaItem.secureUrl || mediaItem.url)
             const isPrimary = Boolean(mediaItem.isPrimary)
 
             return (
@@ -505,6 +514,12 @@ export function MediaUploader({
                       </button>
                     </div>
                   </div>
+
+                  {pending.error && (
+                    <div style={{ padding: '6px 0 0', color: '#B91C1C', fontSize: '0.68rem', lineHeight: 1.2 }}>
+                      {pending.error}
+                    </div>
+                  )}
                 </div>
               </div>
             )

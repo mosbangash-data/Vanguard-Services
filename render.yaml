@@ -7,7 +7,6 @@ services:
       npm install
       npm run prisma:generate
       npm run build
-    preDeployCommand: npx prisma migrate deploy && npm run create:super-admin
     startCommand: npm start
     envVars:
       - key: NODE_ENV

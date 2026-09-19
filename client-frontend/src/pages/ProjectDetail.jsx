@@ -70,9 +70,9 @@ export default function ProjectDetail() {
               <div className="grid grid-3 project-gallery-grid">
                 {gallery.map((item) => (
                   <div key={item.id} className="project-gallery-item">
-                    {item.media?.url ? (
+                    {(item.media?.secureUrl || item.media?.url) ? (
                       <img
-                        src={item.media.url}
+                        src={item.media.secureUrl || item.media.url}
                         alt={item.caption || project.title}
                         loading="lazy"
                         width="800"

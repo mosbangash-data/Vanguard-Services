@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { api, uploadMedia } from '../../services/api'
@@ -22,6 +22,8 @@ export function ProjectDetailPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [uploading, setUploading] = useState(false)
+  const [pendingMedia, setPendingMedia] = useState([])
+  const uploadingPendingIds = useRef(new Set())
 
   const canUpdate = hasPermission(user, 'UPDATE_PROJECT') || user?.role === 'SUPER_ADMIN'
 
@@ -33,7 +35,7 @@ export function ProjectDetailPage() {
   const updateList = toList(updates.data)
   const galleryList = toList(gallery.data)
 
-  const uploadProjectPhoto = async (file) => {
+  const uploadProjectPhoto = async (file, order, shouldSetPrimary) => {
     const media = await uploadMedia(file, {
       department: 'CONSTRUCTION',
       entityType: 'project',
@@ -43,10 +45,10 @@ export function ProjectDetailPage() {
     const createRes = await api.post(`/api/construction/projects/${id}/gallery`, {
       mediaId: media.id,
       caption: file.name,
-      order: galleryList.length,
+      order,
     })
 
-    if (galleryList.length === 0 && createRes.data?.data?.gallery?.id) {
+    if (shouldSetPrimary && createRes.data?.data?.gallery?.id) {
       await api.post(`/api/construction/projects/${id}/gallery/${createRes.data.data.gallery.id}/set-primary`)
     }
 
@@ -176,18 +178,31 @@ export function ProjectDetailPage() {
           label="Photos du projet"
           helperText="Formats acceptés : JPEG, PNG, WEBP, GIF. Max 10 Mo par photo."
           existingMedia={existingMedia}
+          pendingFiles={pendingMedia}
           onSetPrimary={canUpdate ? setPrimaryProjectPhoto : null}
           onDeleteExisting={canUpdate ? deleteProjectPhoto : null}
           isUploading={uploading}
           uploadProgressText="Téléversement de la photo en cours…"
           disabled={!canUpdate}
           onPendingChange={async (newPending) => {
-            if (!canUpdate || newPending.length === 0) return
+            if (!canUpdate) return
+            setPendingMedia(newPending)
+            if (newPending.length === 0) return
             setUploading(true)
             try {
-              for (const item of newPending) {
-                if (item.file) {
-                  await uploadProjectPhoto(item.file)
+              for (const [index, item] of newPending.entries()) {
+                if (item.file && !uploadingPendingIds.current.has(item.id)) {
+                  uploadingPendingIds.current.add(item.id)
+                  try {
+                    await uploadProjectPhoto(
+                      item.file,
+                      galleryList.length + index,
+                      galleryList.length === 0 && index === 0,
+                    )
+                    setPendingMedia((current) => current.filter((pending) => pending.id !== item.id))
+                  } finally {
+                    uploadingPendingIds.current.delete(item.id)
+                  }
                 }
               }
             } catch (err) {

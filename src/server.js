@@ -1,6 +1,7 @@
 const http = require('http');
 const app = require('./app');
 const prisma = require('./config/prisma');
+const { runProductionBootstrap } = require('./bootstrap/productionBootstrap');
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -10,6 +11,12 @@ async function startServer() {
   try {
     await prisma.$connect();
     console.log('Prisma connected to PostgreSQL successfully.');
+
+    if (process.env.NODE_ENV === 'production') {
+      await runProductionBootstrap(prisma);
+      console.log('Database migrations applied.');
+      console.log('Super Admin bootstrap completed.');
+    }
 
     server.listen(PORT, () => {
       console.log(`Vanguard Services backend listening on http://localhost:${PORT}`);

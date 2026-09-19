@@ -115,7 +115,7 @@ export default function Construction() {
   }
 
   const getProjectImage = (project) => {
-    const url = project.gallery?.[0]?.media?.url
+    const url = project.gallery?.[0]?.media?.secureUrl || project.gallery?.[0]?.media?.url
     return url || '/assets/construction/construction-card.jpg'
   }
 

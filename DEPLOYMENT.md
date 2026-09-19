@@ -43,11 +43,25 @@ Set these in Render as Environment Variables.
 
 Do not put secrets in VITE_* variables. They are public in the browser.
 
+## Render environment variables
+
+Configure these in Render only; do not commit real values:
+
+- `NODE_ENV=production`
+- `DATABASE_URL=<Render PostgreSQL URL>`
+- `SUPER_ADMIN_EMAIL=<real Super Admin email>`
+- `SUPER_ADMIN_PASSWORD=<strong password>`
+- `JWT_SECRET=<strong secret>`
+- `SESSION_SECRET=<strong secret>`
+- `CORS_ORIGIN=<allowed production origin>`
+
+The Super Admin password is required in production and has no default.
+
 ## Build command
 
-npm install
-npm run prisma:generate
-npm run build
+```text
+npm run render:build
+```
 
 ## Start command
 
@@ -64,22 +78,25 @@ Configure these Render environment variables:
 
 Set the Render commands as follows:
 
-**Pre-Deploy Command**
-
-```text
-npx prisma migrate deploy && npm run create:super-admin
-```
-
 **Start Command**
 
 ```text
 npm start
 ```
 
-The pre-deploy script creates or updates only the configured Super Admin. It
-non-destructively ensures the `SUPER_ADMIN` role, the `VANGUARD_COACH`
-department, and the role's existing permission set. It does not run
-`prisma/seed.js`, delete business data, or start the server.
+At startup in production, the application connects to PostgreSQL, runs
+`npx prisma migrate deploy`, then creates or updates only the configured Super
+Admin before opening the HTTP listener. It does not run `prisma/seed.js`, use
+`deleteMany()`, or start accepting traffic when migration or bootstrap fails.
+
+Expected startup logs are:
+
+```text
+Prisma connected to PostgreSQL successfully.
+Database migrations applied.
+Super Admin bootstrap completed.
+Vanguard Services backend listening on http://localhost:<PORT>
+```
 
 ## Health check
 
@@ -141,4 +158,5 @@ Required next step before full production use:
 
 - Dev mode remains unchanged.
 - No business logic was modified for this deployment preparation.
-- No functional test suite was re-run beyond the minimal syntax- and config-level checks needed for production prep.
+- The production bootstrap test covers required variables, migration ordering,
+  idempotence, password rotation, permissions, and migration failure handling.

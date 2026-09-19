@@ -37,8 +37,8 @@ export async function uploadMedia(file, { department, entityType, entityId }) {
 
   const response = await api.post('/api/upload', formData)
   const media = response.data?.data?.media
-  if (!media || Array.isArray(media)) {
-    throw new Error('The upload response did not contain one media object.')
+  if (!media || Array.isArray(media) || !media.id) {
+    throw new Error('The upload response did not contain one valid media object.')
   }
   return media
 }

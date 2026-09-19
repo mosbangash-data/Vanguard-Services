@@ -223,9 +223,9 @@ export function ProjectListPage() {
                           flexShrink: 0,
                           overflow: 'hidden'
                         }}>
-                          {project.gallery?.[0]?.media?.url ? (
+                          {(project.gallery?.[0]?.media?.secureUrl || project.gallery?.[0]?.media?.url) ? (
                             <img
-                              src={resolveMediaUrl(project.gallery[0].media.url)}
+                              src={resolveMediaUrl(project.gallery[0].media.secureUrl || project.gallery[0].media.url)}
                               alt={project.title || ''}
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />

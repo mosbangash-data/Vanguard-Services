@@ -2,10 +2,13 @@ const rawApiUrl = (import.meta.env?.VITE_API_URL || '').trim()
 const API_URL = rawApiUrl ? rawApiUrl.replace(/\/+$/, '').replace(/\/api$/, '') : ''
 
 /**
- * Resolves a media URL (e.g. /uploads/uuid.jpg) into an accessible URL.
+ * Resolves a media URL while preserving Cloudinary URLs and legacy relative URLs.
  * Supports absolute URLs, relative URLs, data URLs, and object URLs.
  */
-export function resolveMediaUrl(url) {
+export function resolveMediaUrl(value) {
+  const url = typeof value === 'object'
+    ? value?.secureUrl || value?.url || ''
+    : value
   if (!url || typeof url !== 'string') return ''
   if (
     url.startsWith('http://') ||
@@ -21,7 +24,7 @@ export function resolveMediaUrl(url) {
 }
 
 export function getMediaUrl(media) {
-  return resolveMediaUrl(media?.secureUrl || media?.url || '')
+  return resolveMediaUrl(media)
 }
 
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']

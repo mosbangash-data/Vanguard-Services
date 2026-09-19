@@ -30,7 +30,7 @@ const ensureValidFiles = (files) => {
 
 const resolveEntityContext = async ({ department, entityType, entityId, user }) => {
   const requestedType = normalizeString(entityType).toLowerCase();
-  const normalizedType = requestedType === 'construction-project' ? 'project' : requestedType;
+  const normalizedType = requestedType;
   if (!['vehicle', 'project', 'bus', 'general'].includes(normalizedType)) {
     throw new AppError('entityType must be one of vehicle, project, bus or general', 422);
   }
@@ -72,7 +72,7 @@ const resolveEntityContext = async ({ department, entityType, entityId, user }) 
 
 const uploadAndLinkFiles = async ({ files, department, entityType = 'general', entityId, uploadedById, user, isPrimary = false, order = 0 }) => {
   const safeFiles = ensureValidFiles(files);
-  const canonicalEntityType = normalizeString(entityType).toLowerCase() === 'construction-project' ? 'project' : normalizeString(entityType).toLowerCase();
+  const canonicalEntityType = normalizeString(entityType).toLowerCase();
   const { department: resolvedDepartment } = await resolveEntityContext({ department, entityType: canonicalEntityType, entityId, user });
   const actualEntityId = entityId || 'generic';
   const uploadedPublicIds = [];
@@ -105,11 +105,22 @@ const uploadAndLinkFiles = async ({ files, department, entityType = 'general', e
       });
 
       createdMedia.push({
-        ...mediaRecord,
-        secureUrl: uploadResult.secureUrl || uploadResult.url,
+        id: mediaRecord.id,
+        url: mediaRecord.url,
+        secureUrl: uploadResult.secureUrl || mediaRecord.url,
+        publicId: mediaRecord.publicId,
+        resourceType: mediaRecord.resourceType,
         format: uploadResult.format || null,
+        size: mediaRecord.size,
         width: uploadResult.width || null,
         height: uploadResult.height || null,
+        fileName: mediaRecord.fileName,
+        originalName: mediaRecord.originalName,
+        mimeType: mediaRecord.mimeType,
+        department: mediaRecord.department,
+        entityType: mediaRecord.entityType,
+        entityId: mediaRecord.entityId,
+        uploadedById: mediaRecord.uploadedById,
       });
     }
 

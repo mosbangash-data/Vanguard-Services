@@ -108,23 +108,29 @@ export function ProjectFormPage() {
       const project = result?.project || result || null
       if (galleryFiles.length > 0) {
         setGalleryLoading(true)
-        const targetProjectId = project?.id || id
-        if (!targetProjectId) throw new Error('Project ID unavailable for media upload')
-        for (let index = 0; index < galleryFiles.length; index += 1) {
-          const file = galleryFiles[index]
-          const media = await uploadMedia(file, {
-            department: 'CONSTRUCTION',
-            entityType: 'project',
-            entityId: targetProjectId,
-          })
-          const createdMedia = await api.post(`/api/construction/projects/${targetProjectId}/gallery`, {
-            mediaId: media.id,
-            order: index,
-            caption: file.name,
-          })
-          if (index === 0 && createdMedia.data?.data?.gallery) {
-            await api.post(`/api/construction/projects/${targetProjectId}/gallery/${createdMedia.data.data.gallery.id}/set-primary`)
+        try {
+          const targetProjectId = project?.id || id
+          if (!targetProjectId) throw new Error('Project ID unavailable for media upload')
+          const startingOrder = existingGallery.length
+          const shouldSetPrimary = existingGallery.length === 0
+          for (let index = 0; index < galleryFiles.length; index += 1) {
+            const file = galleryFiles[index]
+            const media = await uploadMedia(file, {
+              department: 'CONSTRUCTION',
+              entityType: 'project',
+              entityId: targetProjectId,
+            })
+            const createdMedia = await api.post(`/api/construction/projects/${targetProjectId}/gallery`, {
+              mediaId: media.id,
+              order: startingOrder + index,
+              caption: file.name,
+            })
+            if (shouldSetPrimary && index === 0 && createdMedia.data?.data?.gallery) {
+              await api.post(`/api/construction/projects/${targetProjectId}/gallery/${createdMedia.data.data.gallery.id}/set-primary`)
+            }
           }
+        } finally {
+          setGalleryLoading(false)
         }
       }
       return response

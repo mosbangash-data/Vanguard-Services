@@ -71,17 +71,20 @@ const createVehicleMedia = async (data, currentUser) => {
 
   const mediaId = typeof data?.mediaId === 'string' ? data.mediaId.trim() : null;
 
-  if (!vehicleId || !fileName || !originalName || !mimeType || !url || size === null) {
+  if (!vehicleId) {
+    throw new AppError('vehicleId is required', 400);
+  }
+  if (!mediaId && (!fileName || !originalName || !mimeType || !url || size === null)) {
     throw new AppError('vehicleId, fileName, originalName, mimeType, size and url are required', 400);
   }
-  if (size <= 0) {
+  if (!mediaId && size <= 0) {
     throw new AppError('size must be a positive number', 400);
   }
-  if (!/^https?:\/\/.+/i.test(url)) {
+  if (!mediaId && !/^https?:\/\/.+/i.test(url)) {
     throw new AppError('url must be a valid Cloudinary URL', 400);
   }
-  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];
-  if (!allowedMimeTypes.includes(mimeType.toLowerCase())) {
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  if (!mediaId && !allowedMimeTypes.includes(mimeType.toLowerCase())) {
     throw new AppError('mimeType is not supported', 400);
   }
 
@@ -159,7 +162,7 @@ const updateVehicleMedia = async (id, data, currentUser) => {
     throw new AppError('url must be a valid Cloudinary URL', 400);
   }
   if (mediaUpdate.mimeType !== undefined) {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4'];
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowedMimeTypes.includes(mediaUpdate.mimeType.toLowerCase())) {
       throw new AppError('mimeType is not supported', 400);
     }
