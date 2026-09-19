@@ -69,6 +69,7 @@ function DynamicField({
   onPendingMediaChange,
   onSetPrimaryMedia,
   onDeleteExistingMedia,
+  mediaProgress,
 }) {
   const inputId = useId()
 
@@ -116,7 +117,9 @@ function DynamicField({
           onSetPrimary={onSetPrimaryMedia}
           onDeleteExisting={onDeleteExistingMedia}
           disabled={disabled}
-          maxFiles={field.maxFiles || 10}
+          isUploading={disabled}
+          uploadProgressText={mediaProgress || 'Enregistrement et traitement des médias…'}
+          maxFiles={field.maxFiles || 12}
         />
       </FormField>
     )
@@ -228,6 +231,7 @@ export function DynamicResourceForm({
   onClose,
   isSubmitting = false,
   serverError = '',
+  mediaProgress = '',
 }) {
   const { user } = useAuth()
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
@@ -490,6 +494,13 @@ export function DynamicResourceForm({
           </div>
         )}
 
+        {mediaProgress && !serverError && (
+          <div className="form-alert-info" role="status">
+            <Loader2 size={18} className="spin-icon" />
+            <span>{mediaProgress}</span>
+          </div>
+        )}
+
         <div className="resource-form-grid">
           {(resource.fields || []).map((field) => (
             <DynamicField
@@ -504,6 +515,7 @@ export function DynamicResourceForm({
               onPendingMediaChange={handlePendingMediaChange}
               onSetPrimaryMedia={handleSetPrimaryMedia}
               onDeleteExistingMedia={handleDeleteExistingMedia}
+              mediaProgress={mediaProgress}
             />
           ))}
         </div>

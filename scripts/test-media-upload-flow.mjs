@@ -159,10 +159,11 @@ check('VehicleManagementPage utilise MediaUploader, uploadImage sans Content-Typ
   assert(code.includes('uploadedMedia?.id'), 'mediaId manquant lors de l\'association vehicle-media');
 });
 
-check('vehicleMediaService utilise mediaId et le type image/webp', () => {
+check('vehicleMediaService utilise mediaId et la validation Media centralisée', () => {
   const code = fs.readFileSync(path.resolve('src/services/vehicleMediaService.js'), 'utf8');
   assert(code.includes('mediaId'), 'Association par mediaId manquante');
-  assert(code.includes("'image/webp'"), 'image/webp manquant dans allowedMimeTypes');
+  const mediaConfig = fs.readFileSync(path.resolve('src/config/media.js'), 'utf8');
+  assert(mediaConfig.includes("'image/webp'"), 'image/webp manquant dans la configuration Media centrale');
 });
 
 check('vehicleMediaRepository supporte la connexion d\'un Media existant par mediaId', () => {

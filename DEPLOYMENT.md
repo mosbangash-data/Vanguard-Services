@@ -41,6 +41,11 @@ Set these in Render as Environment Variables.
 - VITE_API_URL
 - VITE_ADMIN_URL
 
+### Cloudinary media storage
+- CLOUDINARY_CLOUD_NAME
+- CLOUDINARY_API_KEY
+- CLOUDINARY_API_SECRET
+
 Do not put secrets in VITE_* variables. They are public in the browser.
 
 ## Render environment variables
@@ -143,16 +148,26 @@ This keeps direct refreshes on public routes working as long as they are matched
 
 ## Uploads / media
 
-The current project stores or references uploaded files via the application filesystem and existing media routes. Render's filesystem is ephemeral for typical web services, so production should not rely on local disk permanence.
+The official upload path is `POST /api/upload`: Multer keeps the request in memory,
+the backend validates the file, Cloudinary stores the asset, and Prisma stores its
+Cloudinary URL, `publicId`, and `resourceType`. No media is persisted on the Render
+filesystem.
 
-Current state at code level:
-- there are upload/media endpoints but no persistent cloud storage layer is configured yet
-- local storage should not be considered durable on Render for production uploads
+Render's filesystem remains ephemeral, which is safe for this pipeline because it is
+not used as permanent media storage. Configure all three Cloudinary variables above
+in Render; do not expose them through `VITE_*` variables.
 
-Required next step before full production use:
-- move uploaded files to a durable external storage such as Render Disk (if supported by setup) or S3-compatible storage
-- update media URLs to reference the external provider
-- keep local fallback only for development
+### Orphan reconciliation
+
+An upload can leave a Cloudinary asset without a `Media` row only if the database
+write fails after Cloudinary accepts the file; the upload service attempts an
+immediate rollback with `Promise.allSettled`. A successful upload followed by a
+failed relation request can also leave a `Media` row without a relation.
+
+Do not run a destructive cron job automatically. Before production, add a protected
+manual or dry-run reconciliation command that lists old unreferenced `Media` rows,
+checks their `publicId` and `resourceType`, and deletes only explicitly approved
+assets after an operator review.
 
 ## Notes
 

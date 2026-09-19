@@ -431,6 +431,11 @@ model Media {
   vehicleMedia   VehicleMedia[]
   projectGallery ProjectGallery[]
   busMedia       BusMedia[]
+
+  @@index([entityType, entityId])
+  @@index([department])
+  @@index([publicId])
+  @@index([uploadedById])
 }
 
 model CustomerRequest {
@@ -985,7 +990,9 @@ model BusMedia {
   bus   Bus   @relation(fields: [busId], references: [id], onDelete: Cascade)
   media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 
-  @@index([busId])
+  @@unique([busId, mediaId])
+  @@index([busId, isPrimary])
+  @@index([busId, order])
 }
 
 model VehicleReservationPolicy {

@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
 const app = require('../src/app');
+const prisma = require('../src/config/prisma');
 const { main: seedMain } = require('../prisma/seed');
 
 let server;
@@ -9,6 +10,7 @@ let baseUrl;
 let adminToken;
 let vehicleId;
 let mediaId;
+let adminUserId;
 
 const request = async (method, path, body, token) => {
   const headers = {};
@@ -48,6 +50,8 @@ test.before(async () => {
 
   assert.equal(loginRes.status, 200, 'Admin login should succeed');
   adminToken = loginRes.data.data.token;
+  const adminUser = await prisma.user.findUnique({ where: { email: 'admin@vanguard.local' } });
+  adminUserId = adminUser.id;
 });
 
 test.after(async () => {
@@ -76,16 +80,28 @@ test('vehicle media CRUD flows for auto sales', async () => {
   vehicleId = createVehicle.data.data.vehicle.id;
   assert.ok(vehicleId, 'Created vehicle should have an id');
 
+  const sourceMedia = await prisma.media.create({
+    data: {
+      fileName: 'front.jpg',
+      originalName: 'front.jpg',
+      mimeType: 'image/jpeg',
+      size: 1024,
+      url: 'https://res.cloudinary.com/test/image/upload/front.jpg',
+      publicId: null,
+      resourceType: 'image',
+      entityType: 'vehicle',
+      entityId: vehicleId,
+      department: 'AUTO_SALES',
+      uploadedById: adminUserId,
+    },
+  });
+
   const createMedia = await request('POST', '/api/vehicle-media', {
     vehicleId,
+    mediaId: sourceMedia.id,
     caption: 'Front exterior',
     order: 1,
     isPrimary: true,
-    fileName: 'front.jpg',
-    originalName: 'front.jpg',
-    mimeType: 'image/jpeg',
-    size: 1024,
-    url: 'https://example.com/front.jpg',
   }, adminToken);
 
   assert.equal(createMedia.status, 201);
@@ -112,16 +128,28 @@ test('vehicle media CRUD flows for auto sales', async () => {
   assert.equal(updateResponse.data.data.vehicleMedia.caption, 'Front exterior updated');
   assert.equal(updateResponse.data.data.vehicleMedia.isPrimary, false);
 
+  const secondSourceMedia = await prisma.media.create({
+    data: {
+      fileName: 'side.jpg',
+      originalName: 'side.jpg',
+      mimeType: 'image/jpeg',
+      size: 2048,
+      url: 'https://res.cloudinary.com/test/image/upload/side.jpg',
+      publicId: null,
+      resourceType: 'image',
+      entityType: 'vehicle',
+      entityId: vehicleId,
+      department: 'AUTO_SALES',
+      uploadedById: adminUserId,
+    },
+  });
+
   const createSecondMedia = await request('POST', '/api/vehicle-media', {
     vehicleId,
+    mediaId: secondSourceMedia.id,
     caption: 'Side view',
     order: 2,
     isPrimary: true,
-    fileName: 'side.jpg',
-    originalName: 'side.jpg',
-    mimeType: 'image/jpeg',
-    size: 2048,
-    url: 'https://example.com/side.jpg',
   }, adminToken);
 
   assert.equal(createSecondMedia.status, 201);

@@ -1,9 +1,7 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const { uploadMedia, destroyMedia, sanitizeDepartment } = require('./cloudinaryService');
-
-const MAX_FILES = 12;
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const { MAX_FILES, MAX_FILE_SIZE, ALLOWED_MIME_TYPES, SUPPORTED_ENTITY_TYPES, GENERAL_ENTITY_ID } = require('../config/media');
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -20,7 +18,7 @@ const ensureValidFiles = (files) => {
     if (!ALLOWED_MIME_TYPES.has(mimeType)) {
       throw new AppError(`Unsupported file type: ${mimeType || 'unknown'}. Allowed: JPEG, PNG, WEBP, GIF`, 400);
     }
-    if (file.size && Number(file.size) > 10 * 1024 * 1024) {
+    if (file.size && Number(file.size) > MAX_FILE_SIZE) {
       throw new AppError('Each file must be 10MB or smaller', 413);
     }
   }
@@ -31,15 +29,21 @@ const ensureValidFiles = (files) => {
 const resolveEntityContext = async ({ department, entityType, entityId, user }) => {
   const requestedType = normalizeString(entityType).toLowerCase();
   const normalizedType = requestedType;
-  if (!['vehicle', 'project', 'bus', 'general'].includes(normalizedType)) {
+  if (!SUPPORTED_ENTITY_TYPES.has(normalizedType)) {
     throw new AppError('entityType must be one of vehicle, project, bus or general', 422);
   }
 
   if (normalizedType === 'general') {
+    if (entityId && entityId !== GENERAL_ENTITY_ID) {
+      throw new AppError(`General media must use entityId ${GENERAL_ENTITY_ID}`, 422);
+    }
+    if (user?.role !== 'SUPER_ADMIN' && user?.department?.type !== 'GENERAL') {
+      throw new AppError('General media is restricted to the GENERAL department', 403);
+    }
     if (department && sanitizeDepartment(department) !== 'GENERAL') {
       throw new AppError('General media must use the GENERAL department', 403);
     }
-    return { department: 'GENERAL', entity: null };
+    return { department: 'GENERAL', entity: null, entityId: GENERAL_ENTITY_ID };
   }
   if (!entityId) throw new AppError('entityId is required for this entityType', 400);
 
@@ -70,11 +74,13 @@ const resolveEntityContext = async ({ department, entityType, entityId, user }) 
   return { department: resolvedDepartment, entity };
 };
 
+const assertMediaEntityAccess = resolveEntityContext;
+
 const uploadAndLinkFiles = async ({ files, department, entityType = 'general', entityId, uploadedById, user, isPrimary = false, order = 0 }) => {
   const safeFiles = ensureValidFiles(files);
   const canonicalEntityType = normalizeString(entityType).toLowerCase();
-  const { department: resolvedDepartment } = await resolveEntityContext({ department, entityType: canonicalEntityType, entityId, user });
-  const actualEntityId = entityId || 'generic';
+  const { department: resolvedDepartment } = await assertMediaEntityAccess({ entityType: canonicalEntityType, entityId, user });
+  const actualEntityId = entityId || GENERAL_ENTITY_ID;
   const uploadedPublicIds = [];
   const createdMedia = [];
 
@@ -168,33 +174,35 @@ const uploadVehicleMedia = async ({ vehicleId, files, user, isPrimary = false, o
   }
 
   const linked = [];
-  for (let index = 0; index < uploadResult.items.length; index += 1) {
-    const media = uploadResult.items[index];
-    const mediaOrder = Number(order) + index;
-    const shouldBePrimary = primaryCandidate && index === 0;
+  try {
+    for (let index = 0; index < uploadResult.items.length; index += 1) {
+      const media = uploadResult.items[index];
+      const mediaOrder = Number(order) + index;
+      const shouldBePrimary = primaryCandidate && index === 0;
 
-    const created = await prisma.vehicleMedia.create({
-      data: {
-        vehicleId,
-        mediaId: media.id,
-        caption: null,
-        order: mediaOrder,
-        isPrimary: shouldBePrimary,
-      },
-      include: { media: true },
-    });
-
-    if (shouldBePrimary) {
-      await prisma.vehicleMedia.updateMany({
-        where: { vehicleId, id: { not: created.id } },
-        data: { isPrimary: false },
+      const created = await prisma.vehicleMedia.create({
+        data: { vehicleId, mediaId: media.id, caption: null, order: mediaOrder, isPrimary: shouldBePrimary },
+        include: { media: true },
       });
+
+      if (shouldBePrimary) {
+        await prisma.vehicleMedia.updateMany({
+          where: { vehicleId, id: { not: created.id } },
+          data: { isPrimary: false },
+        });
+      }
+
+      linked.push(created);
     }
-
-    linked.push(created);
+    return { items: linked, uploadedPublicIds: uploadResult.uploadedPublicIds };
+  } catch (error) {
+    const relationIds = linked.map((item) => item.id);
+    if (relationIds.length > 0) {
+      await Promise.allSettled([prisma.vehicleMedia.deleteMany({ where: { id: { in: relationIds } } })]);
+    }
+    await Promise.allSettled(uploadResult.items.map((item) => deleteMediaIfOrphaned(item.id)));
+    throw error;
   }
-
-  return { items: linked, uploadedPublicIds: uploadResult.uploadedPublicIds };
 };
 
 const deleteMediaIfOrphaned = async (mediaId) => {
@@ -217,4 +225,5 @@ module.exports = {
   uploadVehicleMedia,
   deleteMediaIfOrphaned,
   resolveEntityContext,
+  assertMediaEntityAccess,
 };

@@ -1,24 +1,9 @@
 const path = require('path');
 const multer = require('multer');
 const { AppError } = require('./errorHandler');
+const { MAX_FILE_SIZE, MAX_FILES, ALLOWED_MIME_TYPES, MIME_EXTENSIONS, IMAGE_SIGNATURES } = require('../config/media');
 
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const MIME_EXTENSIONS = {
-  'image/jpeg': ['.jpg', '.jpeg'],
-  'image/png': ['.png'],
-  'image/webp': ['.webp'],
-  'image/gif': ['.gif'],
-};
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_FILES = 12;
-
-const hasImageSignature = (buffer, mimeType) => {
-  if (mimeType === 'image/jpeg') return buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  if (mimeType === 'image/png') return buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-  if (mimeType === 'image/gif') return ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii'));
-  if (mimeType === 'image/webp') return buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
-  return false;
-};
+const hasImageSignature = (buffer, mimeType) => Boolean(IMAGE_SIGNATURES[mimeType]?.(buffer));
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -53,6 +38,9 @@ const parseMultipart = (req, res, next) => {
     if (error) {
       if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
         return next(new AppError('File exceeds maximum size limit (10MB)', 413));
+      }
+      if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_COUNT') {
+        return next(new AppError(`A maximum of ${MAX_FILES} files can be uploaded at once`, 400));
       }
       return next(error);
     }

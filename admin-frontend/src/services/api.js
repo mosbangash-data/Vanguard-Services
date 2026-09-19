@@ -27,15 +27,24 @@ api.interceptors.response.use(
   },
 )
 
-export async function uploadMedia(file, { department, entityType, entityId }) {
+/**
+ * @typedef {Object} UploadedMedia
+ * @property {string} id
+ * @property {string} url Cloudinary secure URL returned by the backend
+ * @property {string|null} publicId
+ * @property {string} resourceType
+ */
+
+/** @returns {Promise<UploadedMedia>} */
+export async function uploadMedia(file, { entityType, entityId }) {
   if (!file) throw new Error('A file is required.')
   const formData = new FormData()
   formData.append('file', file)
-  if (department) formData.append('department', department)
   if (entityType) formData.append('entityType', entityType)
   if (entityId) formData.append('entityId', String(entityId))
 
   const response = await api.post('/api/upload', formData)
+  // Backend contract: { success: true, data: { media: Media } } for one file.
   const media = response.data?.data?.media
   if (!media || Array.isArray(media) || !media.id) {
     throw new Error('The upload response did not contain one valid media object.')

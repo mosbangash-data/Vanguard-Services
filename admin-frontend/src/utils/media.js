@@ -28,6 +28,7 @@ export function getMediaUrl(media) {
 }
 
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+export const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB
 
 export function formatFileSize(bytes) {

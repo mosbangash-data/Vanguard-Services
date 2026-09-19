@@ -1,46 +1,38 @@
 const prisma = require('../config/prisma');
 
-const listMediaByVehicleId = async (vehicleId) => prisma.vehicleMedia.findMany({
+const listMediaByVehicleId = async (vehicleId, client = prisma) => client.vehicleMedia.findMany({
   where: { vehicleId },
-  orderBy: { order: 'asc' },
+  orderBy: [{ isPrimary: 'desc' }, { order: 'asc' }, { id: 'asc' }],
   include: { media: true },
 });
 
-const getVehicleMediaById = async (id) => prisma.vehicleMedia.findUnique({
+const getVehicleMediaById = async (id, client = prisma) => client.vehicleMedia.findUnique({
   where: { id },
   include: { media: true, vehicle: true },
 });
 
-const createVehicleMedia = async ({ vehicleId, mediaId, caption, order, isPrimary, mediaData }) => prisma.vehicleMedia.create({
+const createVehicleMedia = async ({ vehicleId, mediaId, caption, order, isPrimary }, client = prisma) => client.vehicleMedia.create({
   data: {
     vehicle: { connect: { id: vehicleId } },
     caption,
     order,
     isPrimary,
-    media: mediaId
-      ? { connect: { id: mediaId } }
-      : {
-          create: {
-            ...mediaData,
-            entityType: 'vehicle',
-            entityId: vehicleId,
-          },
-        },
+    media: { connect: { id: mediaId } },
   },
   include: { media: true },
 });
 
-const updateVehicleMedia = async (id, data) => prisma.vehicleMedia.update({
+const updateVehicleMedia = async (id, data, client = prisma) => client.vehicleMedia.update({
   where: { id },
   data,
   include: { media: true },
 });
 
-const deleteVehicleMedia = async (id) => prisma.vehicleMedia.delete({
+const deleteVehicleMedia = async (id, client = prisma) => client.vehicleMedia.delete({
   where: { id },
 });
 
-const unsetPrimaryForVehicle = async (vehicleId) => prisma.vehicleMedia.updateMany({
+const unsetPrimaryForVehicle = async (vehicleId, client = prisma) => client.vehicleMedia.updateMany({
   where: { vehicleId, isPrimary: true },
   data: { isPrimary: false },
 });

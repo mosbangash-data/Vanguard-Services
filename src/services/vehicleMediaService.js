@@ -6,6 +6,18 @@ const vehicleMediaRepository = require('../repositories/vehicleMediaRepository')
 const { assertDepartmentIdForUser } = require('./departmentAccessService');
 const { deleteMediaIfOrphaned } = require('./mediaService');
 
+const normalizeOrder = (value, fallback = 0) => {
+  if (value === undefined) return fallback;
+  if (value === null || value === '') {
+    throw new AppError('order must be a non-negative integer', 400);
+  }
+  const normalized = Number(value);
+  if (!Number.isInteger(normalized) || normalized < 0) {
+    throw new AppError('order must be a non-negative integer', 400);
+  }
+  return normalized;
+};
+
 const mediaMatchesEntity = (media, entityType, entityId, departmentType) => Boolean(
   media
   && media.entityType === entityType
@@ -79,32 +91,14 @@ const createVehicleMedia = async (data, currentUser) => {
 
   const vehicleId = typeof data?.vehicleId === 'string' ? data.vehicleId : null;
   const caption = data?.caption ? String(data.caption).trim() : null;
-  const order = data?.order !== undefined ? Number(data.order) : 0;
+  const order = normalizeOrder(data?.order);
   const isPrimary = data?.isPrimary === true;
-  const fileName = typeof data?.fileName === 'string' ? data.fileName.trim() : '';
-  const originalName = typeof data?.originalName === 'string' ? data.originalName.trim() : '';
-  const mimeType = typeof data?.mimeType === 'string' ? data.mimeType.trim() : '';
-  const url = typeof data?.url === 'string' ? data.url.trim() : '';
-  const size = Number.isFinite(Number(data?.size)) ? Number(data.size) : null;
-
   const mediaId = typeof data?.mediaId === 'string' ? data.mediaId.trim() : null;
 
   if (!vehicleId) {
     throw new AppError('vehicleId is required', 400);
   }
-  if (!mediaId && (!fileName || !originalName || !mimeType || !url || size === null)) {
-    throw new AppError('vehicleId, fileName, originalName, mimeType, size and url are required', 400);
-  }
-  if (!mediaId && size <= 0) {
-    throw new AppError('size must be a positive number', 400);
-  }
-  if (!mediaId && !/^https?:\/\/.+/i.test(url)) {
-    throw new AppError('url must be a valid Cloudinary URL', 400);
-  }
-  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-  if (!mediaId && !allowedMimeTypes.includes(mimeType.toLowerCase())) {
-    throw new AppError('mimeType is not supported', 400);
-  }
+  if (!mediaId) throw new AppError('mediaId is required. Upload the file through /api/upload first.', 400);
 
   const vehicle = await vehicleRepository.getVehicleById(vehicleId);
   if (!vehicle) {
@@ -117,24 +111,9 @@ const createVehicleMedia = async (data, currentUser) => {
     if (!media) throw new AppError('Media is not valid for this vehicle', 403);
   }
 
-  if (isPrimary) {
-    await vehicleMediaRepository.unsetPrimaryForVehicle(vehicleId);
-  }
-
-  const vehicleMedia = await vehicleMediaRepository.createVehicleMedia({
-    vehicleId,
-    mediaId,
-    caption,
-    order,
-    isPrimary,
-    mediaData: {
-      fileName,
-      originalName,
-      mimeType,
-      size,
-      url,
-      uploadedById: currentUser.id,
-    },
+  const vehicleMedia = await prisma.$transaction(async (tx) => {
+    if (isPrimary) await vehicleMediaRepository.unsetPrimaryForVehicle(vehicleId, tx);
+    return vehicleMediaRepository.createVehicleMedia({ vehicleId, mediaId, caption, order, isPrimary }, tx);
   });
 
   await auditService.log('create_vehicle_media', currentUser.id, {
@@ -158,40 +137,17 @@ const updateVehicleMedia = async (id, data, currentUser) => {
 
   const updatePayload = {};
   if (data?.caption !== undefined) updatePayload.caption = data.caption ? String(data.caption).trim() : null;
-  if (data?.order !== undefined) updatePayload.order = Number.isFinite(Number(data.order)) ? Number(data.order) : existing.order;
+  if (data?.order !== undefined) updatePayload.order = normalizeOrder(data.order, existing.order);
   if (data?.isPrimary !== undefined) updatePayload.isPrimary = data.isPrimary === true;
 
+  const vehicleMedia = await prisma.$transaction(async (tx) => {
+    if (data?.isPrimary === true) await vehicleMediaRepository.unsetPrimaryForVehicle(existing.vehicleId, tx);
+    return vehicleMediaRepository.updateVehicleMedia(id, updatePayload, tx);
+  });
+
   if (data?.isPrimary === true) {
-    await vehicleMediaRepository.unsetPrimaryForVehicle(existing.vehicleId);
     await auditService.log('vehicle_media_primary_changed', currentUser.id, { vehicleId: existing.vehicleId, vehicleMediaId: id });
   }
-
-  const mediaUpdate = {};
-  if (data?.fileName !== undefined) mediaUpdate.fileName = String(data.fileName).trim();
-  if (data?.originalName !== undefined) mediaUpdate.originalName = String(data.originalName).trim();
-  if (data?.mimeType !== undefined) mediaUpdate.mimeType = String(data.mimeType).trim();
-  if (data?.url !== undefined) mediaUpdate.url = String(data.url).trim();
-  if (data?.size !== undefined) mediaUpdate.size = Number.isFinite(Number(data.size)) ? Number(data.size) : existing.media.size;
-
-  if (mediaUpdate.size !== undefined && mediaUpdate.size <= 0) {
-    throw new AppError('size must be a positive number', 400);
-  }
-  if (mediaUpdate.url !== undefined && !/^https?:\/\//i.test(mediaUpdate.url)) {
-    throw new AppError('url must be a valid Cloudinary URL', 400);
-  }
-  if (mediaUpdate.mimeType !== undefined) {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowedMimeTypes.includes(mediaUpdate.mimeType.toLowerCase())) {
-      throw new AppError('mimeType is not supported', 400);
-    }
-  }
-
-  const updateData = { ...updatePayload };
-  if (Object.keys(mediaUpdate).length > 0) {
-    updateData.media = { update: mediaUpdate };
-  }
-
-  const vehicleMedia = await vehicleMediaRepository.updateVehicleMedia(id, updateData);
 
   await auditService.log('update_vehicle_media', currentUser.id, {
     targetVehicleId: existing.vehicleId,
@@ -212,7 +168,13 @@ const deleteVehicleMedia = async (id, currentUser) => {
   }
   await assertDepartmentIdForUser(currentUser, existing.vehicle.departmentId, 'AUTO_SALES');
 
-  await vehicleMediaRepository.deleteVehicleMedia(id);
+  await prisma.$transaction(async (tx) => {
+    await vehicleMediaRepository.deleteVehicleMedia(id, tx);
+    const remaining = await vehicleMediaRepository.listMediaByVehicleId(existing.vehicleId, tx);
+    for (const [index, item] of remaining.entries()) {
+      if (item.order !== index) await vehicleMediaRepository.updateVehicleMedia(item.id, { order: index }, tx);
+    }
+  });
   await deleteMediaIfOrphaned(existing.mediaId);
 
   await auditService.log('delete_vehicle_media', currentUser.id, {

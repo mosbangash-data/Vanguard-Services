@@ -143,12 +143,12 @@ check('webhookController est idempotent et gère Coach, AutoSales et Parcels', (
 });
 
 console.log('\n--- TEST GROUP 9-14 : UPLOAD MULTIPART, BUS MEDIA & VEHICLE MEDIA ---');
-check('uploadMiddleware gère le multipart local avec UUIDs et validation MIME', () => {
+check('uploadMiddleware gère le multipart en mémoire pour Cloudinary', () => {
   const code = fs.readFileSync(path.resolve('src/middleware/uploadMiddleware.js'), 'utf8');
   assert(code.includes('parseMultipart'), 'Fonction parseMultipart manquante');
-  assert(code.includes('crypto.randomUUID()'), 'Génération de nom UUID manquante');
   assert(code.includes('ALLOWED_MIME_TYPES'), 'Validation ALLOWED_MIME_TYPES manquante');
   assert(code.includes('MAX_FILE_SIZE'), 'Limite MAX_FILE_SIZE manquante');
+  assert(code.includes('memoryStorage'), 'Le stockage Multer doit rester en mémoire');
 });
 
 check('Route /api/upload et /api/bus-media sont déclarées et montées dans src/app.js', () => {

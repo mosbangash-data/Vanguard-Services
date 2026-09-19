@@ -4,6 +4,7 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const { parseMultipart } = require('../middleware/uploadMiddleware');
 const mediaService = require('../services/mediaService');
 const { AppError } = require('../middleware/errorHandler');
+const { GENERAL_ENTITY_ID } = require('../config/media');
 
 router.use(authenticateToken);
 
@@ -15,9 +16,8 @@ router.post('/', parseMultipart, async (req, res, next) => {
     }
 
     const payload = {
-      department: req.body?.department || req.body?.departmentType || null,
       entityType: req.body?.entityType || 'general',
-      entityId: req.body?.entityId || req.user.id,
+      entityId: req.body?.entityId || GENERAL_ENTITY_ID,
       uploadedById: req.user.id,
       user: req.user,
       files,

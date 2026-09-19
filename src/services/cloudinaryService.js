@@ -9,7 +9,7 @@ const VALID_DEPARTMENTS = new Set([
   'CONSTRUCTION',
 ]);
 
-const SAFE_ENTITY_TYPES = new Set(['vehicle', 'bus', 'project', 'general']);
+const { SUPPORTED_ENTITY_TYPES } = require('../config/media');
 
 const normalizeDepartment = (value) => {
   if (!value || typeof value !== 'string') {
@@ -28,7 +28,7 @@ const sanitizeDepartment = (value) => normalizeDepartment(value);
 
 const normalizeEntityType = (value) => {
   const normalized = String(value || 'general').trim().toLowerCase();
-  if (!SAFE_ENTITY_TYPES.has(normalized)) {
+  if (!SUPPORTED_ENTITY_TYPES.has(normalized)) {
     throw new AppError(`Unsupported entityType for media upload: ${value}`, 400);
   }
   return normalized;
@@ -47,10 +47,6 @@ const buildCloudinaryFolder = ({ department, entityType, entityId }) => {
     vehicle: 'vehicles',
     bus: 'buses',
     project: 'projects',
-    property: 'properties',
-    room: 'rooms',
-    restaurant: 'restaurants',
-    service: 'services',
     general: 'general',
   };
 

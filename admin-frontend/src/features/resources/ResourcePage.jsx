@@ -82,6 +82,7 @@ export function ResourcePage({ resource }) {
   const [newPassword, setNewPassword] = useState('')
   const [notice, setNotice] = useState('')
   const [serverError, setServerError] = useState('')
+  const [mediaProgress, setMediaProgress] = useState('')
 
   // Debounce search input
   useEffect(() => {
@@ -145,23 +146,32 @@ export function ResourcePage({ resource }) {
       const entityId = result?.id || result?.bus?.id || result?.vehicle?.id || result?.project?.id || id
       if (!entityId) return result
 
-      // 1. Process deletions of existing media
+      const mediaFailure = (operation, error, detail) => {
+        const reason = errorMessage(error)
+        const failure = new Error(`Media: ${operation}${detail ? ` (${detail})` : ''}: ${reason}`)
+        failure.cause = error
+        return failure
+      }
+
+      // Keep this sequence deterministic so a retry can identify the failing item.
       if (Array.isArray(deletedMediaIds) && deletedMediaIds.length > 0) {
-        for (const delId of deletedMediaIds) {
+        for (const [index, delId] of deletedMediaIds.entries()) {
+          setMediaProgress(`Suppression du média ${index + 1}/${deletedMediaIds.length}…`)
           try {
             await api.delete(`${mediaConfig.mediaEndpoint}/${delId}`)
-          } catch (e) {
-            console.error('Erreur suppression media', delId, e)
+          } catch (error) {
+            throw mediaFailure('suppression', error, delId)
           }
         }
       }
 
       // 2. Process primary update on existing media
       if (primaryExistingId) {
+        setMediaProgress('Définition du média principal…')
         try {
           await api.put(`${mediaConfig.mediaEndpoint}/${primaryExistingId}`, { isPrimary: true })
-        } catch (e) {
-          console.error('Erreur mise à jour primary media', primaryExistingId, e)
+        } catch (error) {
+          throw mediaFailure('média principal', error, primaryExistingId)
         }
       }
 
@@ -172,30 +182,35 @@ export function ResourcePage({ resource }) {
           const file = item.file
           if (!file) continue
 
-          const uploadedMedia = await uploadMedia(file, {
-            department: mediaConfig.department,
-            entityType: mediaConfig.uploadEntityType || 'bus',
-            entityId,
-          })
+          setMediaProgress(`Téléversement du média ${index + 1}/${pendingMedia.length}…`)
+          let uploadedMedia
+          try {
+            uploadedMedia = await uploadMedia(file, {
+              entityType: mediaConfig.uploadEntityType || 'bus',
+              entityId,
+            })
+          } catch (error) {
+            throw mediaFailure('upload', error, file.name)
+          }
 
           const mediaPayload = {
             [mediaConfig.relationKey || 'busId']: entityId,
             mediaId: uploadedMedia.id,
-            fileName: uploadedMedia.fileName || file.name,
-            originalName: uploadedMedia.originalName || file.name,
-            mimeType: uploadedMedia.mimeType || file.type,
-            size: uploadedMedia.size || file.size,
-            url: uploadedMedia.secureUrl || uploadedMedia.url,
             isPrimary: Boolean(item.isPrimary),
             order: index,
           }
 
           if (mediaConfig.mediaEndpoint) {
-            await api.post(mediaConfig.mediaEndpoint, mediaPayload)
+            try {
+              await api.post(mediaConfig.mediaEndpoint, mediaPayload)
+            } catch (error) {
+              throw mediaFailure('association', error, file.name)
+            }
           }
         }
       }
 
+      setMediaProgress('')
       return result
     },
     onSuccess: (_, variables) => {
@@ -204,6 +219,7 @@ export function ResourcePage({ resource }) {
       setPasswordModal(null)
       setNewPassword('')
       setServerError('')
+      setMediaProgress('')
 
       const msg = variables.action === 'create'
         ? 'Élément créé avec succès.'
@@ -219,6 +235,7 @@ export function ResourcePage({ resource }) {
     },
     onError: (err) => {
       setServerError(errorMessage(err))
+      setMediaProgress('')
     },
   })
 
@@ -551,6 +568,7 @@ export function ResourcePage({ resource }) {
           initialData={formState.initialData}
           isSubmitting={mutation.isPending}
           serverError={serverError}
+          mediaProgress={mediaProgress}
           onClose={() => {
             setFormState(null)
             setServerError('')

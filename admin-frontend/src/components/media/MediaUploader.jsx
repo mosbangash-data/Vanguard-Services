@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { UploadCloud, Image as ImageIcon, Star, Trash2, Plus, AlertCircle, Check, Loader2, X } from 'lucide-react'
-import { resolveMediaUrl, ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE, formatFileSize } from '../../utils/media'
+import { resolveMediaUrl, ALLOWED_IMAGE_TYPES, ALLOWED_IMAGE_EXTENSIONS, MAX_IMAGE_SIZE, formatFileSize } from '../../utils/media'
 
 export function MediaUploader({
   existingMedia = [],
@@ -13,7 +13,7 @@ export function MediaUploader({
   disabled = false,
   isUploading = false,
   uploadProgressText = '',
-  maxFiles = 10,
+  maxFiles = 12,
   label = 'Photos & Galerie',
   helperText = 'Formats supportés : JPEG, PNG, WEBP, GIF. Taille maximale : 10 Mo par image.',
 }) {
@@ -32,8 +32,13 @@ export function MediaUploader({
 
   // Validate files
   const validateFile = (file) => {
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) {
+    const mimeType = String(file.type || '').toLowerCase()
+    const extension = `.${String(file.name || '').split('.').pop()}`.toLowerCase()
+    if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {
       return `Le format "${file.type || 'inconnu'}" n'est pas autorisé. Utilisez JPEG, PNG, WEBP ou GIF.`
+    }
+    if (!ALLOWED_IMAGE_EXTENSIONS.includes(extension)) {
+      return `L'extension "${extension || 'inconnue'}" n'est pas autorisée.`
     }
     if (file.size > MAX_IMAGE_SIZE) {
       return `Le fichier "${file.name}" dépasse la taille maximale autorisée (10 Mo).`

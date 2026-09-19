@@ -21,7 +21,11 @@ const errorHandler = (err, req, res, next) => {
     : 'Une erreur interne est survenue. Veuillez réessayer.';
 
   if (process.env.NODE_ENV !== 'production') {
-    console.error(err);
+    console.error('[api-error]', {
+      name: err.name,
+      message,
+      statusCode,
+    });
   }
 
   if (isApiRequest(req)) {

@@ -126,7 +126,6 @@ export const resourceGroups = {
       roles: ['SUPER_ADMIN', 'SERVICE_ADMIN'],
       mediaConfig: {
         entityType: 'bus',
-        department: 'VANGUARD_COACH',
         mediaEndpoint: '/api/bus-media',
         relationKey: 'busId',
         uploadEntityType: 'bus',
