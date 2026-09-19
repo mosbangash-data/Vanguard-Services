@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, Link } from 'react-router-dom'
 import {
@@ -18,6 +18,7 @@ import {
   Sparkles,
   Layers,
   Settings,
+  BarChart3,
 } from 'lucide-react'
 import { useLanguage } from '../../../i18n/useLanguage'
 import { api } from '../../../services/api'
@@ -64,10 +65,27 @@ const formatMoney = (value, currency, lang = 'fr') => {
 export function AdminDashboardPage() {
   const { lang, t } = useLanguage()
   const navigate = useNavigate()
+  const [reportPeriod, setReportPeriod] = useState('month')
+  const [reportStartDate, setReportStartDate] = useState('')
+  const [reportEndDate, setReportEndDate] = useState('')
 
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['admin-dashboard-overview'],
     queryFn: fetchDashboardOverview,
+  })
+
+  const salesReportQuery = useQuery({
+    queryKey: ['vanguard-coach-sales-report', reportPeriod, reportStartDate, reportEndDate],
+    queryFn: async () => {
+      const params = { period: reportPeriod }
+      if (reportPeriod === 'custom') {
+        params.startDate = reportStartDate
+        params.endDate = reportEndDate
+      }
+      const response = await api.get('/api/dashboard/vanguard-coach-sales', { params })
+      return response.data?.data || response.data
+    },
+    enabled: reportPeriod !== 'custom' || Boolean(reportStartDate && reportEndDate),
   })
 
   if (isPending) {
@@ -410,6 +428,103 @@ export function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card style={{ marginBottom: '28px' }}>
+        <CardHeader>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <BarChart3 size={19} color="#2563EB" />
+            <div>
+              <CardTitle>Rapport des ventes Vanguard Coach</CardTitle>
+              <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748B' }}>
+                Données réelles des billets, colis et paiements enregistrés.
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'end', marginBottom: '20px' }}>
+            <label style={{ display: 'grid', gap: '6px', fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>
+              Période
+              <select value={reportPeriod} onChange={(event) => setReportPeriod(event.target.value)} style={{ minWidth: '150px', padding: '9px 10px', border: '1px solid #CBD5E1', borderRadius: '6px' }}>
+                <option value="day">Jour</option>
+                <option value="week">Semaine</option>
+                <option value="month">Mois</option>
+                <option value="custom">Personnalisée</option>
+              </select>
+            </label>
+            {reportPeriod === 'custom' && (
+              <>
+                <label style={{ display: 'grid', gap: '6px', fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>
+                  Du
+                  <input type="date" value={reportStartDate} onChange={(event) => setReportStartDate(event.target.value)} style={{ padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
+                </label>
+                <label style={{ display: 'grid', gap: '6px', fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>
+                  Au
+                  <input type="date" value={reportEndDate} onChange={(event) => setReportEndDate(event.target.value)} style={{ padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
+                </label>
+              </>
+            )}
+          </div>
+
+          {salesReportQuery.isPending ? (
+            <LoadingState message="Chargement du rapport des ventes..." />
+          ) : salesReportQuery.isError ? (
+            <ErrorState
+              title="Impossible de charger le rapport des ventes"
+              message={salesReportQuery.error?.response?.data?.message || 'Une erreur est survenue lors du chargement du rapport.'}
+              onRetry={() => salesReportQuery.refetch()}
+            />
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                {[
+                  ['Billets vendus', salesReportQuery.data?.totals?.tickets || 0],
+                  ['Passagers', salesReportQuery.data?.totals?.passengers || 0],
+                  ['Colis enregistrés', salesReportQuery.data?.totals?.parcels || 0],
+                  ['Paiements payés', salesReportQuery.data?.totals?.paidPayments || 0],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ padding: '12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>{label}</div>
+                    <div style={{ marginTop: '4px', fontSize: '1.35rem', fontWeight: 800, color: '#0F172A' }}>{formatNumber(value, lang)}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ padding: '14px', border: '1px solid #DBEAFE', borderRadius: '8px', background: '#EFF6FF' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#1D4ED8', fontWeight: 700 }}>Chiffre d’affaires billets</div>
+                  <strong>{formatMoney(salesReportQuery.data?.revenue?.tickets?.USD || 0, 'USD', lang)} · {formatMoney(salesReportQuery.data?.revenue?.tickets?.CDF || 0, 'CDF', lang)}</strong>
+                </div>
+                <div style={{ padding: '14px', border: '1px solid #D1FAE5', borderRadius: '8px', background: '#ECFDF5' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700 }}>Chiffre d’affaires colis</div>
+                  <strong>{formatMoney(salesReportQuery.data?.revenue?.parcels?.USD || 0, 'USD', lang)} · {formatMoney(salesReportQuery.data?.revenue?.parcels?.CDF || 0, 'CDF', lang)}</strong>
+                </div>
+                <div style={{ padding: '14px', border: '1px solid #FED7AA', borderRadius: '8px', background: '#FFF7ED' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#C2410C', fontWeight: 700 }}>Total des ventes</div>
+                  <strong>{formatMoney(salesReportQuery.data?.revenue?.total?.USD || 0, 'USD', lang)} · {formatMoney(salesReportQuery.data?.revenue?.total?.CDF || 0, 'CDF', lang)}</strong>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 10px', fontSize: '0.95rem' }}>Ventes par trajet</h3>
+                  {(salesReportQuery.data?.byRoute || []).length === 0 ? <p style={{ color: '#64748B', fontSize: '0.85rem' }}>Aucune vente sur cette période.</p> : (salesReportQuery.data.byRoute || []).map((route) => (
+                    <div key={route.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '8px 0', borderBottom: '1px solid #F1F5F9', fontSize: '0.84rem' }}>
+                      <span>{route.code} · {route.label}</span><strong>{route.payments}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <h3 style={{ margin: '0 0 10px', fontSize: '0.95rem' }}>Ventes par agence</h3>
+                  {(salesReportQuery.data?.byAgency || []).length === 0 ? <p style={{ color: '#64748B', fontSize: '0.85rem' }}>Aucune vente sur cette période.</p> : (salesReportQuery.data.byAgency || []).map((agency) => (
+                    <div key={agency.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '8px 0', borderBottom: '1px solid #F1F5F9', fontSize: '0.84rem' }}>
+                      <span>{agency.code} · {agency.name}</span><strong>{agency.payments}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* 4. Discrete Audit & Activity Callout (Requirement: Do NOT clutter dashboard with a massive log table) */}
       <Card style={{

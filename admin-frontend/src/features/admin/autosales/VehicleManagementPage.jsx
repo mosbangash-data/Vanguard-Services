@@ -113,6 +113,16 @@ export function VehicleManagementPage() {
   const canUpdate = hasPermission(user, 'UPDATE_VEHICLE') || user?.role === 'SUPER_ADMIN'
   const canDelete = hasPermission(user, 'DELETE_VEHICLE') || user?.role === 'SUPER_ADMIN'
 
+  const departmentQuery = useQuery({
+    queryKey: ['autosales-department'],
+    queryFn: async () => {
+      const response = await api.get('/api/departments')
+      return toList(response.data?.data || response.data).find((item) => item.type === 'AUTO_SALES') || null
+    },
+    enabled: canCreate,
+    staleTime: 30 * 60 * 1000,
+  })
+
   const vehiclesQuery = useQuery({
     queryKey: ['autosales-vehicles', search, statusFilter],
     queryFn: async () => {
@@ -263,6 +273,10 @@ export function VehicleManagementPage() {
       setServerError('La marque, le modèle et le prix sont obligatoires.')
       return
     }
+    if (formState.mode === 'create' && !departmentQuery.data?.id) {
+      setServerError(departmentQuery.error?.response?.data?.message || 'Le département AUTO_SALES est indisponible.')
+      return
+    }
 
     const payload = {
       brand: String(formState.values.brand || '').trim(),
@@ -276,6 +290,7 @@ export function VehicleManagementPage() {
       color: formState.values.color || null,
       description: formState.values.description || null,
     }
+    if (formState.mode === 'create') payload.departmentId = departmentQuery.data.id
 
     saveMutation.mutate({ payload, pendingMedia: formState.pendingMedia || [] })
   }

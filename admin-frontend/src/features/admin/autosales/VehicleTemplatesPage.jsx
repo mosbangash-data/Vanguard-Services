@@ -84,6 +84,16 @@ export function VehicleTemplatesPage() {
   const canView = hasPermission(user, 'VIEW_VEHICLE') || user?.role === 'SUPER_ADMIN'
   const canManage = hasPermission(user, 'CREATE_VEHICLE') || user?.role === 'SUPER_ADMIN'
 
+  const departmentQuery = useQuery({
+    queryKey: ['autosales-department'],
+    queryFn: async () => {
+      const response = await api.get('/api/departments')
+      return toList(response.data?.data || response.data).find((item) => item.type === 'AUTO_SALES') || null
+    },
+    enabled: canManage,
+    staleTime: 30 * 60 * 1000,
+  })
+
   // Fetch templates (with isTemplate=true param or fallback)
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['autosales-vehicle-templates', search],
@@ -107,7 +117,7 @@ export function VehicleTemplatesPage() {
       if (editingTemplate) {
         return api.patch(`/api/vehicles/${editingTemplate.id}`, payload)
       }
-      return api.post('/api/vehicles', { ...payload, isTemplate: true })
+      return api.post('/api/vehicles', { ...payload, departmentId: departmentQuery.data?.id, isTemplate: true })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autosales-vehicle-templates'] })
@@ -170,6 +180,10 @@ export function VehicleTemplatesPage() {
     e.preventDefault()
     if (!formData.brand || !formData.model || !formData.price) {
       setFormError('La marque, le modèle et le prix indicatif sont obligatoires.')
+      return
+    }
+    if (!editingTemplate && !departmentQuery.data?.id) {
+      setFormError(departmentQuery.error?.response?.data?.message || 'Le département AUTO_SALES est indisponible.')
       return
     }
     saveMutation.mutate(formData)

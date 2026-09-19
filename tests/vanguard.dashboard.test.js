@@ -328,3 +328,39 @@ test('dashboard overview restricts non-super-admin access to local scope and rej
 
   await prisma.user.delete({ where: { id: agentUser.id } });
 });
+
+test('vanguard coach sales report is global for super admin and role protected', async () => {
+  const reportResponse = await request('GET', '/api/dashboard/vanguard-coach-sales?period=day', null, adminToken);
+  assert.equal(reportResponse.status, 200);
+  assert.equal(reportResponse.data.data.period, 'day');
+  assert.ok(reportResponse.data.data.totals);
+  assert.ok(reportResponse.data.data.revenue.tickets);
+  assert.ok(Array.isArray(reportResponse.data.data.byRoute));
+  assert.ok(Array.isArray(reportResponse.data.data.byAgency));
+
+  const invalidPeriodResponse = await request('GET', '/api/dashboard/vanguard-coach-sales?period=quarter', null, adminToken);
+  assert.equal(invalidPeriodResponse.status, 400);
+
+  const serviceAdminEmail = `coach-report-service-${Date.now()}@example.com`;
+  const serviceAdminPassword = 'ServiceAdmin123!';
+  const constructionDepartment = await prisma.department.findUnique({ where: { type: 'CONSTRUCTION' } });
+  const serviceAdminRole = await prisma.role.findUnique({ where: { name: 'SERVICE_ADMIN' } });
+  const serviceAdmin = await prisma.user.create({
+    data: {
+      email: serviceAdminEmail,
+      passwordHash: await bcrypt.hash(serviceAdminPassword, 10),
+      firstName: 'Coach',
+      lastName: 'Report Admin',
+      phone: `+3300000${Date.now().toString().slice(-5)}`,
+      roleId: serviceAdminRole.id,
+      departmentId: constructionDepartment.id,
+      status: 'ACTIVE',
+      firstLogin: false,
+    },
+  });
+
+  const serviceAdminToken = await login(serviceAdminEmail, serviceAdminPassword);
+  const forbiddenResponse = await request('GET', '/api/dashboard/vanguard-coach-sales?period=month', null, serviceAdminToken);
+  assert.equal(forbiddenResponse.status, 403);
+  await prisma.user.delete({ where: { id: serviceAdmin.id } });
+});

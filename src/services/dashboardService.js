@@ -5,6 +5,7 @@ const ACTIVE_AGENT_ROLES = ['AGENT'];
 const ACTIVE_ADMIN_ROLES = ['SUPER_ADMIN', 'SERVICE_ADMIN'];
 const CURRENCY_KEYS = ['USD', 'CDF'];
 const REVENUE_STATUSES = ['VERIFIED', 'COMPLETED'];
+const COACH_DEPARTMENT = 'VANGUARD_COACH';
 
 const normalizeCurrency = (value) => {
   const currency = String(value || '').trim().toUpperCase();
@@ -366,4 +367,178 @@ const getOverview = async (currentUser) => {
   };
 };
 
-module.exports = { getOverview };
+const parseReportDates = (query = {}) => {
+  const period = String(query.period || 'month').trim().toLowerCase();
+  const now = new Date();
+  let start;
+  let end;
+
+  if (period === 'custom') {
+    start = new Date(query.startDate);
+    end = new Date(query.endDate);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+      throw new AppError('startDate and endDate are required for a custom period', 400);
+    }
+    end.setUTCDate(end.getUTCDate() + 1);
+  } else if (period === 'day') {
+    start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 1);
+  } else if (period === 'week') {
+    start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+    end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 7);
+  } else if (period === 'month') {
+    start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  } else {
+    throw new AppError('period must be day, week, month or custom', 400);
+  }
+
+  if (end <= start) throw new AppError('endDate must be after startDate', 400);
+  return { period, start, end };
+};
+
+const incrementCounter = (counter, key) => {
+  counter[key] = (counter[key] || 0) + 1;
+};
+
+const addCurrencyAmount = (totals, currency, amount) => {
+  const normalizedCurrency = normalizeCurrency(currency);
+  totals[normalizedCurrency] += safeNumber(amount);
+};
+
+const getVanguardCoachSalesReport = async (query = {}, currentUser) => {
+  if (!currentUser) throw new AppError('Unauthorized', 401);
+  if (currentUser.role !== 'SUPER_ADMIN') throw new AppError('Access denied', 403);
+
+  const { period, start, end } = parseReportDates(query);
+  const dateWhere = { gte: start, lt: end };
+  const coachDepartment = await prisma.department.findUnique({ where: { type: COACH_DEPARTMENT } });
+  if (!coachDepartment) throw new AppError('Vanguard Coach department not found', 404);
+
+  const [payments, tickets, parcels] = await Promise.all([
+    prisma.payment.findMany({
+      where: {
+        createdAt: dateWhere,
+        OR: [
+          { reservation: { trip: { schedule: { departmentId: coachDepartment.id } } } },
+          { parcel: { OR: [
+            { originAgency: { departmentId: coachDepartment.id } },
+            { destinationAgency: { departmentId: coachDepartment.id } },
+          ] } },
+        ],
+      },
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        status: true,
+        reservation: {
+          select: {
+            trip: { select: { schedule: { select: { route: { select: { id: true, code: true, departureCity: true, arrivalCity: true } } } } } },
+          },
+        },
+        parcel: {
+          select: {
+            originAgency: { select: { id: true, code: true, name: true } },
+            destinationAgency: { select: { id: true, code: true, name: true } },
+          },
+        },
+        agency: { select: { id: true, code: true, name: true } },
+      },
+    }),
+    prisma.ticket.findMany({
+      where: { createdAt: dateWhere, reservation: { trip: { schedule: { departmentId: coachDepartment.id } } } },
+      select: { id: true, status: true },
+    }),
+    prisma.parcel.findMany({
+      where: {
+        createdAt: dateWhere,
+        OR: [
+          { originAgency: { departmentId: coachDepartment.id } },
+          { destinationAgency: { departmentId: coachDepartment.id } },
+        ],
+      },
+      select: {
+        id: true,
+        status: true,
+        originAgency: { select: { id: true, code: true, name: true } },
+        destinationAgency: { select: { id: true, code: true, name: true } },
+      },
+    }),
+  ]);
+
+  const paidStatuses = new Set(REVENUE_STATUSES);
+  const paymentStatuses = {};
+  const ticketStatuses = {};
+  const parcelStatuses = {};
+  const ticketRevenue = { USD: 0, CDF: 0 };
+  const parcelRevenue = { USD: 0, CDF: 0 };
+  const totalRevenue = { USD: 0, CDF: 0 };
+  const routeMap = new Map();
+  const agencyMap = new Map();
+
+  for (const payment of payments) {
+    incrementCounter(paymentStatuses, payment.status);
+    if (!paidStatuses.has(payment.status)) continue;
+    const isParcel = Boolean(payment.parcel);
+    const targetTotals = isParcel ? parcelRevenue : ticketRevenue;
+    addCurrencyAmount(targetTotals, payment.currency, payment.amount);
+    addCurrencyAmount(totalRevenue, payment.currency, payment.amount);
+
+    if (payment.reservation?.trip?.schedule?.route) {
+      const route = payment.reservation.trip.schedule.route;
+      const key = route.id;
+      const row = routeMap.get(key) || { id: route.id, code: route.code, label: `${route.departureCity} - ${route.arrivalCity}`, payments: 0, revenue: { USD: 0, CDF: 0 } };
+      row.payments += 1;
+      addCurrencyAmount(row.revenue, payment.currency, payment.amount);
+      routeMap.set(key, row);
+    }
+
+    if (payment.parcel) {
+      const agencies = payment.agency
+        ? [payment.agency]
+        : [payment.parcel.originAgency, payment.parcel.destinationAgency]
+      const uniqueAgencies = [...new Map(agencies.filter(Boolean).map((agency) => [agency.id, agency])).values()];
+      for (const agency of uniqueAgencies) {
+        if (!agency) continue;
+        const row = agencyMap.get(agency.id) || { id: agency.id, code: agency.code, name: agency.name, payments: 0, revenue: { USD: 0, CDF: 0 } };
+        row.payments += 1;
+        addCurrencyAmount(row.revenue, payment.currency, payment.amount);
+        agencyMap.set(agency.id, row);
+      }
+    }
+  }
+
+  for (const ticket of tickets) incrementCounter(ticketStatuses, ticket.status);
+  for (const parcel of parcels) incrementCounter(parcelStatuses, parcel.status);
+
+  return {
+    period,
+    startDate: start.toISOString(),
+    endDate: end.toISOString(),
+    totals: {
+      payments: payments.length,
+      paidPayments: payments.filter((payment) => paidStatuses.has(payment.status)).length,
+      tickets: tickets.length,
+      passengers: tickets.filter((ticket) => ticket.status !== 'CANCELLED').length,
+      parcels: parcels.length,
+    },
+    revenue: {
+      tickets: ticketRevenue,
+      parcels: parcelRevenue,
+      total: totalRevenue,
+    },
+    statuses: {
+      payments: paymentStatuses,
+      tickets: ticketStatuses,
+      parcels: parcelStatuses,
+    },
+    byRoute: [...routeMap.values()],
+    byAgency: [...agencyMap.values()],
+  };
+};
+
+module.exports = { getOverview, getVanguardCoachSalesReport };

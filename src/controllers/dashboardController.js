@@ -4,4 +4,13 @@ const overview = async (req, res, next) => {
   try { const data = await dashboardService.getOverview(req.user); res.json({ success: true, data }); } catch (err) { next(err); }
 };
 
-module.exports = { overview };
+const coachSalesReport = async (req, res, next) => {
+  try {
+    const data = await dashboardService.getVanguardCoachSalesReport(req.query, req.user);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { overview, coachSalesReport };
