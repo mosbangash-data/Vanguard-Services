@@ -213,12 +213,12 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         <div className="sidebar-brand vanguard-sidebar-brand">
           <Link to={isSuperAdmin ? '/admin' : userDept === 'VANGUARD_COACH' ? '/transport' : userDept === 'AUTO_SALES' ? '/automobile' : '/construction'} className="sidebar-brand-link">
             <img
-              src="/assets/logos/vanguard-admin-logo.svg"
+              src={`${import.meta.env.BASE_URL}assets/logos/vanguard-admin-logo.svg`}
               alt="Vanguard Services Administration"
               className="sidebar-logo vanguard-sidebar-logo-svg"
               onError={(e) => {
                 e.target.onerror = null
-                e.target.src = '/assets/logos/vanguard-services.png'
+                e.target.src = `${import.meta.env.BASE_URL}assets/logos/vanguard-services.png`
               }}
             />
           </Link>
