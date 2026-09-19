@@ -193,9 +193,23 @@ export function VehicleManagementPage() {
 
       return { response, failedMedia, uploadedMedia, vehicleId }
     },
-    onSuccess: ({ failedMedia, uploadedMedia, vehicleId }) => {
-      queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'] })
+    onSuccess: async ({ failedMedia = [], uploadedMedia = [], vehicleId }) => {
+      queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'], refetchType: 'none' })
       queryClient.invalidateQueries({ queryKey: ['autosales-dashboard-vehicles'] })
+
+      const refreshResult = await vehiclesQuery.refetch()
+      if (refreshResult.error) {
+        setFormState((current) => current ? {
+          ...current,
+          mode: 'edit',
+          id: current.id || vehicleId,
+          existingMedia: [...(current.existingMedia || []), ...uploadedMedia],
+          pendingMedia: failedMedia,
+        } : current)
+        setServerError('Véhicule et photos enregistrés, mais le rechargement du véhicule a échoué. Réessayez le chargement de la liste.')
+        return
+      }
+
       if (failedMedia.length > 0) {
         setFormState((current) => current ? {
           ...current,
@@ -207,6 +221,7 @@ export function VehicleManagementPage() {
         setServerError(`${failedMedia.length} image(s) n’ont pas pu être enregistrée(s). Corrigez le problème puis réessayez.`)
         return
       }
+      setServerError('')
       setFormState(null)
     },
     onError: (err) => {
@@ -412,7 +427,8 @@ export function VehicleManagementPage() {
               </thead>
               <tbody>
                 {filteredVehicles.map((vehicle) => {
-                  const primaryMedia = vehicle.media?.find((m) => m.isPrimary)?.media?.url
+                  const primary = vehicle.media?.find((m) => m.isPrimary)?.media
+                  const primaryMedia = primary?.secureUrl || primary?.url
 
                   return (
                     <tr
