@@ -9,7 +9,7 @@ export function CoachDashboard() {
   const { lang, t } = useLanguage()
 
   // Données spécifiques Transport via API trips
-  const { data: tripsData, isPending: tripsPending } = useQuery({
+  const { data: tripsData, isPending: tripsPending, isError: tripsError } = useQuery({
     queryKey: ['coach-trips'],
     queryFn: async () => {
       const res = await api.get('/api/trips', { params: { department: 'VANGUARD_COACH' } })
@@ -19,7 +19,7 @@ export function CoachDashboard() {
     enabled: !!user,
   })
 
-  const { data: reservationsData, isPending: reservationsPending } = useQuery({
+  const { data: reservationsData, isPending: reservationsPending, isError: reservationsError } = useQuery({
     queryKey: ['coach-reservations-today'],
     queryFn: async () => {
       const res = await api.get('/api/reservations', { params: { department: 'VANGUARD_COACH', today: true } })
@@ -29,7 +29,7 @@ export function CoachDashboard() {
     enabled: !!user,
   })
 
-  const { data: paymentsData, isPending: paymentsPending } = useQuery({
+  const { data: paymentsData, isPending: paymentsPending, isError: paymentsError } = useQuery({
     queryKey: ['coach-payments'],
     queryFn: async () => {
       const res = await api.get('/api/reservation-payments', { params: { department: 'VANGUARD_COACH' } })
@@ -38,6 +38,10 @@ export function CoachDashboard() {
     },
     enabled: !!user,
   })
+
+  const isPending = tripsPending || reservationsPending || paymentsPending
+
+  const isError = tripsError || reservationsError || paymentsError
 
   // États
   const emptyState = t('dashboard.emptyState') || 'Aucune donnée disponible'

@@ -6,6 +6,7 @@ import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { MediaUploader } from '../../components/media/MediaUploader'
 import { resolveMediaUrl } from '../../utils/media'
+import { ErrorState } from '../../components/ui'
 
 const get = async (path) => (await api.get(path)).data?.data
 const toList = (payload) => {
@@ -174,17 +175,24 @@ export function ProjectDetailPage() {
         <h2 style={{ margin: '0 0 16px', fontSize: '1.1rem', color: '#0F172A' }}>
           Galerie & Photos ({galleryList.length})
         </h2>
-        <MediaUploader
-          label="Photos du projet"
-          helperText="Formats acceptés : JPEG, PNG, WEBP, GIF. Max 10 Mo par photo."
-          existingMedia={existingMedia}
-          pendingFiles={pendingMedia}
-          onSetPrimary={canUpdate ? setPrimaryProjectPhoto : null}
-          onDeleteExisting={canUpdate ? deleteProjectPhoto : null}
-          isUploading={uploading}
-          uploadProgressText="Téléversement de la photo en cours…"
-          disabled={!canUpdate}
-          onPendingChange={async (newPending) => {
+        {gallery.isError ? (
+          <ErrorState
+            title="Impossible de charger la galerie"
+            message={gallery.error?.response?.data?.message || 'Impossible de récupérer les images du projet.'}
+            onRetry={() => gallery.refetch()}
+          />
+        ) : (
+          <MediaUploader
+            label="Photos du projet"
+            helperText="Formats acceptés : JPEG, PNG, WEBP, GIF. Max 10 Mo par photo."
+            existingMedia={existingMedia}
+            pendingFiles={pendingMedia}
+            onSetPrimary={canUpdate ? setPrimaryProjectPhoto : null}
+            onDeleteExisting={canUpdate ? deleteProjectPhoto : null}
+            isUploading={uploading}
+            uploadProgressText="Téléversement de la photo en cours…"
+            disabled={!canUpdate}
+            onPendingChange={async (newPending) => {
             if (!canUpdate) return
             setPendingMedia(newPending)
             if (newPending.length === 0) return
@@ -210,8 +218,9 @@ export function ProjectDetailPage() {
             } finally {
               setUploading(false)
             }
-          }}
-        />
+            }}
+          />
+        )}
       </div>
     </section>
   )

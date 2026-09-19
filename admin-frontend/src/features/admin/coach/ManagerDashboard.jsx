@@ -9,7 +9,7 @@ export function ManagerDashboard() {
   const { lang, t } = useLanguage()
 
   // Données via API dashboard overview (accessible selon permissions)
-  const { data: overviewData } = useQuery({
+  const { data: overviewData, isError: overviewError } = useQuery({
     queryKey: ['manager-dashboard-overview'],
     queryFn: async () => {
       const res = await api.get('/api/dashboard/overview')
@@ -20,7 +20,7 @@ export function ManagerDashboard() {
   })
 
   // Données trips pour le manager
-  const { data: tripsData, isPending: tripsPending } = useQuery({
+  const { data: tripsData, isPending: tripsPending, isError: tripsError } = useQuery({
     queryKey: ['manager-trips'],
     queryFn: async () => {
       const res = await api.get('/api/trips', { params: { department: 'VANGUARD_COACH' } })
@@ -31,7 +31,7 @@ export function ManagerDashboard() {
   })
 
   // Données reservations pour le manager
-  const { data: reservationsData, isPending: reservationsPending } = useQuery({
+  const { data: reservationsData, isPending: reservationsPending, isError: reservationsError } = useQuery({
     queryKey: ['manager-reservations'],
     queryFn: async () => {
       const res = await api.get('/api/reservations', { params: { department: 'VANGUARD_COACH' } })
@@ -40,6 +40,10 @@ export function ManagerDashboard() {
     },
     enabled: !!user,
   })
+
+  const isPending = tripsPending || reservationsPending
+
+  const isError = overviewError || tripsError || reservationsError
 
   // États
   const emptyState = t('dashboard.emptyState') || 'Aucune donnée disponible'
