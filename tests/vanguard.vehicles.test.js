@@ -72,6 +72,20 @@ test('vanguard vehicles CRUD', async () => {
   const vehicleId = create.data.data.vehicle.id;
   assert.ok(vehicleId, 'Created vehicle should have an id');
 
+  const duplicate = await request('POST', '/api/vehicles', {
+    departmentId: department.id,
+    brand: 'Toyota',
+    model: 'Corolla',
+    year: 2020,
+    mileage: 12000,
+    fuelType: 'Gasoline',
+    transmission: 'Automatic',
+    price: '22000.00',
+    description: 'Second vehicle with the same text attributes',
+  }, adminToken);
+  assert.equal(duplicate.status, 201);
+  assert.notEqual(duplicate.data.data.vehicle.id, vehicleId);
+
   const getOne = await request('GET', `/api/vehicles/${vehicleId}`, null, adminToken);
   assert.equal(getOne.status, 200);
   assert.equal(getOne.data.data.vehicle.id, vehicleId);

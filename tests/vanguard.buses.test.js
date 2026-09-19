@@ -58,6 +58,17 @@ test('vanguard buses CRUD', async () => {
   }, adminToken);
   assert.equal(create.status, 201);
   const busId = create.data.data.bus.id;
+  assert.equal(create.data.data.bus.plateNumber, create.data.data.bus.plateNumber.toUpperCase());
+
+  const duplicate = await request('POST', '/api/buses', {
+    departmentId: department.id,
+    plateNumber: create.data.data.bus.plateNumber,
+    brand: 'Mercedes',
+    model: 'Sprinter',
+    seats: 30,
+  }, adminToken);
+  assert.equal(duplicate.status, 201);
+  assert.equal(duplicate.data.data.bus.plateNumber, `${create.data.data.bus.plateNumber}-2`);
 
   const getOne = await request('GET', `/api/buses/${busId}`, null, adminToken);
   assert.equal(getOne.status, 200);

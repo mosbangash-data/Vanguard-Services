@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const { requireCoachAdmin, getScopedDepartmentId, assertDepartmentIdForUser } = require('./departmentAccessService');
+const { createWithUniqueSlug, slugify } = require('../utils/uniqueSlug');
 
 const normalizePage = (value) => {
   const parsed = Number(value);
@@ -68,17 +69,20 @@ const getBusById = async (busId, currentUser) => {
 const createBus = async (data, currentUser) => {
   requireCoachAdmin(currentUser);
   const departmentId = await getScopedDepartmentId(currentUser, typeof data?.departmentId === 'string' ? data.departmentId : null, 'VANGUARD_COACH');
-  const plateNumber = typeof data?.plateNumber === 'string' ? data.plateNumber.trim().toUpperCase() : '';
+  const plateNumber = typeof data?.plateNumber === 'string' ? data.plateNumber.trim() : '';
   const brand = typeof data?.brand === 'string' ? data.brand.trim() : '';
   const model = typeof data?.model === 'string' ? data.model.trim() : '';
   const seats = Number.isFinite(Number(data?.seats)) ? Number(data.seats) : null;
 
   if (!departmentId || !plateNumber || !brand || !model || !seats) throw new AppError('departmentId, plateNumber, brand, model and seats are required', 400);
 
-  const existing = await prisma.bus.findUnique({ where: { plateNumber } });
-  if (existing) throw new AppError('Bus with this plate number already exists', 409);
-
-  const bus = await prisma.bus.create({ data: { departmentId, plateNumber, brand, model, seats } });
+  const bus = await createWithUniqueSlug({
+    value: plateNumber,
+    normalize: (value) => slugify(value).toUpperCase(),
+    field: 'plateNumber',
+    findMany: () => prisma.bus.findMany({ select: { plateNumber: true } }),
+    create: (uniquePlateNumber) => prisma.bus.create({ data: { departmentId, plateNumber: uniquePlateNumber, brand, model, seats } }),
+  });
   await auditService.log('create_bus', currentUser.id, { targetBusId: bus.id });
   return { bus };
 };

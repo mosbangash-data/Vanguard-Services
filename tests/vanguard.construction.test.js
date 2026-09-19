@@ -117,6 +117,18 @@ test('construction customer requests and quote requests and projects', async () 
   assert.equal(createProjectRes.status, 201);
   const project = createProjectRes.data.data.project;
   assert.equal(project.title, projectTitle);
+  assert.equal(project.slug, projectTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
+
+  const duplicateProjectSlugs = [];
+  for (let index = 0; index < 2; index += 1) {
+    const duplicateProjectRes = await request('POST', '/api/construction/projects', {
+      title: projectTitle,
+      departmentId: project.departmentId,
+    }, constructionToken);
+    assert.equal(duplicateProjectRes.status, 201);
+    duplicateProjectSlugs.push(duplicateProjectRes.data.data.project.slug);
+  }
+  assert.deepEqual(duplicateProjectSlugs, [`${project.slug}-2`, `${project.slug}-3`]);
 
   const getProjectRes = await request('GET', `/api/construction/projects/${project.id}`, null, constructionToken);
   assert.equal(getProjectRes.status, 200);

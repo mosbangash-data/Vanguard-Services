@@ -3,6 +3,7 @@ const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const constructionRepository = require('../repositories/constructionRepository');
 const { deleteMediaIfOrphaned } = require('./mediaService');
+const { createWithUniqueSlug, slugify } = require('../utils/uniqueSlug');
 
 const assertConstructionAccess = (currentUser) => {
   if (!currentUser) throw new AppError('Unauthorized', 401);
@@ -308,14 +309,6 @@ const updateQuoteRequest = async (requestId, data, currentUser) => {
   return { quoteRequest };
 };
 
-const generateSlug = (value) => {
-  const slug = normalizeString(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return slug || `project-${Date.now()}`;
-};
-
 const listProjects = async (query = {}, currentUser) => {
   assertConstructionAccess(currentUser);
   if (!currentUser.permissions.includes('VIEW_PROJECT')) throw new AppError('Insufficient permissions', 403);
@@ -386,7 +379,6 @@ const createProject = async (data, currentUser) => {
   const projectPayload = {
     departmentId: finalDepartmentId,
     title: normalizeString(data.title),
-    slug: data.slug ? normalizeString(data.slug) : generateSlug(data.title),
     location: normalizeString(data.location) || null,
     description: normalizeString(data.description) || null,
     budget: parseBudget(data.budget),
@@ -395,7 +387,11 @@ const createProject = async (data, currentUser) => {
     isTemplate: data.isTemplate !== undefined ? Boolean(data.isTemplate) : false,
   };
 
-  const project = await constructionRepository.createProject(projectPayload);
+  const project = await createWithUniqueSlug({
+    value: data.slug || data.title,
+    findMany: () => prisma.project.findMany({ select: { slug: true } }),
+    create: (slug) => constructionRepository.createProject({ ...projectPayload, slug }),
+  });
   await auditService.log('create_project', currentUser.id, { targetProjectId: project.id, departmentId: project.departmentId });
 
   return { project };
@@ -411,7 +407,7 @@ const updateProject = async (projectId, data, currentUser) => {
 
   const updatePayload = {};
   if (data.title !== undefined) updatePayload.title = normalizeString(data.title);
-  if (data.slug !== undefined) updatePayload.slug = normalizeString(data.slug) || generateSlug(data.title || existing.title);
+  if (data.slug !== undefined) updatePayload.slug = slugify(data.slug || data.title || existing.title);
   if (data.location !== undefined) updatePayload.location = normalizeString(data.location) || null;
   if (data.description !== undefined) updatePayload.description = normalizeString(data.description) || null;
   if (data.budget !== undefined) updatePayload.budget = parseBudget(data.budget);
