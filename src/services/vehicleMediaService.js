@@ -6,9 +6,27 @@ const vehicleMediaRepository = require('../repositories/vehicleMediaRepository')
 const { assertDepartmentIdForUser } = require('./departmentAccessService');
 const { deleteMediaIfOrphaned } = require('./mediaService');
 
+const mediaMatchesEntity = (media, entityType, entityId, departmentType) => Boolean(
+  media
+  && media.entityType === entityType
+  && media.entityId === entityId
+  && media.department === departmentType
+);
+
 const requireMediaForEntity = async (mediaId, entityType, entityId, departmentType) => {
   const media = await prisma.media.findUnique({ where: { id: mediaId } });
-  if (!media || media.entityType !== entityType || media.entityId !== entityId || media.department !== departmentType) {
+  if (!mediaMatchesEntity(media, entityType, entityId, departmentType)) {
+    console.warn('[vehicle-media-validation]', {
+      vehicleId: entityId,
+      mediaId,
+      mediaExists: Boolean(media),
+      mediaEntityType: media?.entityType ?? null,
+      mediaEntityId: media?.entityId ?? null,
+      mediaDepartment: media?.department ?? null,
+      expectedEntityType: entityType,
+      expectedEntityId: entityId,
+      expectedDepartment: departmentType,
+    });
     throw new AppError('Media is not valid for this entity', 403);
   }
   return media;
@@ -207,6 +225,7 @@ const deleteVehicleMedia = async (id, currentUser) => {
 };
 
 module.exports = {
+  mediaMatchesEntity,
   listVehicleMedia,
   getVehicleMediaById,
   createVehicleMedia,
