@@ -99,7 +99,26 @@ const serveSpaIndex = (distDir, predicate) => (req, res, next) => {
   });
 };
 
-app.use(helmet());
+const cspDirectives = {
+  defaultSrc: ["'self'"],
+  baseUri: ["'self'"],
+  formAction: ["'self'"],
+  objectSrc: ["'none'"],
+  scriptSrc: ["'self'"],
+  styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+  imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com'],
+  connectSrc: ["'self'"],
+  fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+  frameSrc: ["'self'"],
+};
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: cspDirectives,
+    },
+  })
+);
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 const isTestEnv = process.env.NODE_ENV === 'test';
 const apiLimiter = rateLimit({
