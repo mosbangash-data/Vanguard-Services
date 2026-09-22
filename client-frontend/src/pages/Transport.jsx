@@ -58,7 +58,7 @@ export default function Transport() {
   const { t } = useLanguage()
   const revealRef = useReveal()
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(1)
   const [search, setSearch] = useState({ from: '', to: '', date: '' })
   const [trips, setTrips] = useState([])
   const [searching, setSearching] = useState(false)
@@ -93,25 +93,39 @@ export default function Transport() {
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentError, setPaymentError] = useState(null)
 
-  const handleSearch = async (e) => {
-    e.preventDefault()
+  const loadTrips = async (filters = {}) => {
     setSearching(true)
     setSearchError(null)
     try {
       const result = await api.searchTrips({
-        departure: search.from,
-        arrival: search.to,
-        date: search.date || undefined,
+        departure: filters.from || search.from || undefined,
+        arrival: filters.to || search.to || undefined,
+        date: filters.date || search.date || undefined,
       })
       setTrips(result?.items || [])
       setStep(1)
+      return result?.items || []
     } catch (err) {
       setSearchError(translateError(err, t))
       setTrips([])
       setStep(1)
+      return []
     } finally {
       setSearching(false)
     }
+  }
+
+  useEffect(() => {
+    void loadTrips()
+  }, [])
+
+  const handleSearch = async (e) => {
+    e.preventDefault()
+    await loadTrips({
+      from: search.from,
+      to: search.to,
+      date: search.date,
+    })
   }
 
   const handleSelectTrip = async (trip) => {
@@ -293,7 +307,6 @@ export default function Transport() {
                         placeholder={t('transportPage.fromPlaceholder')}
                         value={search.from}
                         onChange={(e) => setSearch({ ...search, from: e.target.value })}
-                        required
                       />
                     </div>
                   </div>
@@ -310,7 +323,6 @@ export default function Transport() {
                         placeholder={t('transportPage.toPlaceholder')}
                         value={search.to}
                         onChange={(e) => setSearch({ ...search, to: e.target.value })}
-                        required
                       />
                     </div>
                   </div>
@@ -326,7 +338,6 @@ export default function Transport() {
                         className="form-input"
                         value={search.date}
                         onChange={(e) => setSearch({ ...search, date: e.target.value })}
-                        required
                       />
                     </div>
                   </div>
