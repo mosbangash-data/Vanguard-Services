@@ -1,12 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { UploadCloud, Image as ImageIcon, Star, Trash2, Plus, AlertCircle, Check, Loader2, X } from 'lucide-react'
-import { getMediaUrl, ALLOWED_IMAGE_TYPES, ALLOWED_IMAGE_EXTENSIONS, MAX_IMAGE_SIZE, formatFileSize } from '../../utils/media'
+import { UploadCloud, Image as ImageIcon, Star, Trash2, AlertCircle, Loader2, X } from 'lucide-react'
+import {
+  getMediaUrl,
+  normalizeMedia,
+  ALLOWED_IMAGE_TYPES,
+  ALLOWED_IMAGE_EXTENSIONS,
+  MAX_IMAGE_SIZE,
+  formatFileSize,
+} from '../../utils/media'
+import { MediaImage } from './MediaImage'
 
 export function MediaUploader({
   existingMedia = [],
   pendingFiles = [],
   onPendingChange,
-  onExistingChange,
   primaryIdOrIndex = null,
   onSetPrimary,
   onDeleteExisting,
@@ -24,13 +31,16 @@ export function MediaUploader({
 
   pendingFilesRef.current = pendingFiles
 
+  // Cleanup object URLs on unmount
   useEffect(() => () => {
     pendingFilesRef.current.forEach((pending) => {
-      if (pending.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(pending.previewUrl)
+      if (pending.previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(pending.previewUrl)
+      }
     })
   }, [])
 
-  // Validate files
+  // Validate single file
   const validateFile = (file) => {
     const mimeType = String(file.type || '').toLowerCase()
     const extension = `.${String(file.name || '').split('.').pop()}`.toLowerCase()
@@ -46,7 +56,7 @@ export function MediaUploader({
     return null
   }
 
-  // Handle new files from input or drop
+  // Handle new files
   const handleFiles = (fileList) => {
     setErrorMessage('')
     if (!fileList || fileList.length === 0) return
@@ -75,13 +85,17 @@ export function MediaUploader({
       return
     }
 
+    const hasAnyExistingPrimary = existingMedia.some((m) => Boolean(m.isPrimary))
+    const hasAnyPendingPrimary = pendingFiles.some((p) => Boolean(p.isPrimary))
+    const needsPrimary = !hasAnyExistingPrimary && !hasAnyPendingPrimary
+
     const newPendingItems = validFiles.map((file, idx) => ({
       id: `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       file,
       name: file.name,
       size: file.size,
       previewUrl: URL.createObjectURL(file),
-      isPrimary: existingMedia.length === 0 && pendingFiles.length === 0 && idx === 0,
+      isPrimary: needsPrimary && idx === 0,
     }))
 
     const updatedPending = [...pendingFiles, ...newPendingItems]
@@ -89,19 +103,16 @@ export function MediaUploader({
       onPendingChange(updatedPending)
     }
 
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
   }
 
-  // Drag & drop handlers
+  // Drag & drop
   const handleDragOver = (e) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!disabled && !isUploading) {
-      setIsDragOver(true)
-    }
+    if (!disabled && !isUploading) setIsDragOver(true)
   }
 
   const handleDragLeave = (e) => {
@@ -123,20 +134,26 @@ export function MediaUploader({
   // Remove pending file
   const handleRemovePending = (pendingId) => {
     const itemToRemove = pendingFiles.find((p) => p.id === pendingId)
-    if (itemToRemove?.previewUrl) {
+    if (itemToRemove?.previewUrl?.startsWith('blob:')) {
       URL.revokeObjectURL(itemToRemove.previewUrl)
     }
     const updated = pendingFiles.filter((p) => p.id !== pendingId)
-    // If the removed item was primary, make the first remaining item primary
-    if (itemToRemove?.isPrimary && updated.length > 0) {
-      updated[0].isPrimary = true
+
+    // If removed was primary, make first remaining item primary
+    if (itemToRemove?.isPrimary) {
+      if (existingMedia.length > 0) {
+        // Will be handled by parent or existing
+      } else if (updated.length > 0) {
+        updated[0].isPrimary = true
+      }
     }
+
     if (onPendingChange) {
       onPendingChange(updated)
     }
   }
 
-  // Set pending item as primary
+  // Set pending as primary
   const handleSetPendingPrimary = (pendingId) => {
     if (onSetPrimary) {
       onSetPrimary(pendingId)
@@ -271,13 +288,14 @@ export function MediaUploader({
           }}
         >
           {/* Existing Photos */}
-          {existingMedia.map((mediaItem) => {
-            const url = getMediaUrl(mediaItem.media || mediaItem, { variant: 'thumbnail' })
-            const isPrimary = Boolean(mediaItem.isPrimary)
+          {existingMedia.map((rawItem) => {
+            const mediaItem = normalizeMedia(rawItem) || rawItem
+            const isPrimary = Boolean(rawItem.isPrimary ?? mediaItem.isPrimary)
+            const mediaId = rawItem.id || mediaItem.id
 
             return (
               <div
-                key={mediaItem.id}
+                key={mediaId}
                 style={{
                   position: 'relative',
                   borderRadius: '8px',
@@ -291,9 +309,10 @@ export function MediaUploader({
               >
                 {/* Image container */}
                 <div style={{ width: '100%', height: '95px', backgroundColor: '#F1F5F9', position: 'relative' }}>
-                  <img
-                    src={url}
+                  <MediaImage
+                    media={mediaItem}
                     alt={mediaItem.caption || mediaItem.originalName || 'Photo'}
+                    variant="thumbnail"
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
 
@@ -336,7 +355,7 @@ export function MediaUploader({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (onSetPrimary) onSetPrimary(mediaItem.id)
+                          if (onSetPrimary) onSetPrimary(mediaId)
                         }}
                         disabled={disabled || isUploading}
                         style={{
@@ -362,7 +381,7 @@ export function MediaUploader({
                         title="Supprimer la photo"
                         onClick={(e) => {
                           e.stopPropagation()
-                          onDeleteExisting(mediaItem.id)
+                          onDeleteExisting(mediaId)
                         }}
                         disabled={disabled || isUploading}
                         style={{

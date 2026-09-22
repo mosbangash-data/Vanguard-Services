@@ -176,6 +176,10 @@ export default function Automobile() {
                         loading="lazy"
                         width="800"
                         height="500"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null
+                          e.currentTarget.src = '/assets/automobile/automobile-card.jpg'
+                        }}
                       />
                       <span className={`badge ${getStatusClass(vehicle.status)} vehicle-card-status`}>
                         {getStatusLabel(vehicle.status)}

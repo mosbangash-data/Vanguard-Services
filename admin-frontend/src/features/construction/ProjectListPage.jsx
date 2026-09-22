@@ -18,6 +18,7 @@ import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { useLanguage } from '../../i18n/useLanguage'
 import { getMediaUrl, getPrimaryMedia } from '../../utils/media'
+import { MediaThumbnail } from '../../components/media'
 import {
   PageHeader,
   Card,
@@ -211,32 +212,13 @@ export function ProjectListPage() {
                   >
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '8px',
-                          backgroundColor: '#FFF7ED',
-                          color: '#EA580C',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          overflow: 'hidden'
-                        }}>
-                          {(() => {
-                            const primary = getPrimaryMedia(project.gallery?.map((entry) => entry?.media || entry) || [])
-                            const imageUrl = getMediaUrl(primary, { variant: 'thumbnail' })
-                            return imageUrl ? (
-                              <img
-                                src={imageUrl}
-                                alt={project.title || ''}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              />
-                            ) : (
-                              <HardHat size={18} />
-                            )
-                          })()}
-                        </div>
+                        <MediaThumbnail
+                          media={project.gallery}
+                          alt={project.title || ''}
+                          size={36}
+                          rounded={8}
+                          fallbackIcon={HardHat}
+                        />
                         <div>
                           <strong style={{ fontSize: '0.9rem', color: '#0F172A' }}>
                             {project.title || 'Projet sans titre'}

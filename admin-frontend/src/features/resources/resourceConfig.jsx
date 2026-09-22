@@ -1,5 +1,6 @@
 import React from 'react'
 import { getMediaUrl, getPrimaryMedia } from '../../utils/media'
+import { MediaThumbnail } from '../../components/media'
 
 const resource = (path, label, endpoint, options = {}) => ({
   path,
@@ -132,10 +133,9 @@ export const resourceGroups = {
         primaryOnFirstUpload: true,
       },
       columns: [
-        { key: 'photo', label: 'Photo', render: (b) => {
-          const primary = getMediaUrl(getPrimaryMedia(b.media) || b.imageUrl, { variant: 'thumbnail' })
-          return primary ? <img src={primary} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} /> : '—';
-        }},
+        { key: 'photo', label: 'Photo', render: (b) => (
+          <MediaThumbnail media={b.media} alt={`${b.brand || ''} ${b.model || ''}`} size={40} />
+        )},
         { key: 'plateNumber', label: 'Immatriculation' },
         { key: 'brand', label: 'Marque' },
         { key: 'model', label: 'Modèle' },
@@ -395,11 +395,63 @@ export const resourceGroups = {
 
   automobile: [
     resource('/automobile/vehicles', 'Véhicules', '/api/vehicles', {
+      singularLabel: 'Véhicule',
       labelKey: 'autosales.nav.vehicles',
       permission: 'VIEW_VEHICLE',
       createPermission: 'CREATE_VEHICLE',
       updatePermission: 'UPDATE_VEHICLE',
       deletePermission: 'DELETE_VEHICLE',
+      mediaConfig: {
+        entityType: 'vehicle',
+        mediaEndpoint: '/api/vehicle-media',
+        relationKey: 'vehicleId',
+        uploadEntityType: 'vehicle',
+        primaryOnFirstUpload: true,
+      },
+      columns: [
+        { key: 'photo', label: 'Photo', render: (v) => (
+          <MediaThumbnail media={v.media} alt={`${v.brand || ''} ${v.model || ''}`} size={40} />
+        )},
+        { key: 'brand', label: 'Marque' },
+        { key: 'model', label: 'Modèle' },
+        { key: 'year', label: 'Année' },
+        { key: 'price', label: 'Prix', render: (v) => `${v.price || 0} ${v.currency || 'USD'}` },
+        { key: 'mileage', label: 'Kilométrage', render: (v) => v.mileage != null ? `${v.mileage} km` : '—' },
+        { key: 'status', label: 'Statut', badge: true, badgeMap: {
+          AVAILABLE: { variant: 'active', label: 'Disponible' },
+          RESERVED: { variant: 'warning', label: 'Réservé' },
+          SOLD: { variant: 'inactive', label: 'Vendu' },
+          IN_MAINTENANCE: { variant: 'danger', label: 'En maintenance' },
+        }},
+        { key: 'createdAt', label: 'Enregistré le', type: 'date' },
+      ],
+      fields: [
+        { name: 'brand', label: 'Marque', type: 'text', required: true, placeholder: 'Ex: Toyota' },
+        { name: 'model', label: 'Modèle', type: 'text', required: true, placeholder: 'Ex: Land Cruiser Prado' },
+        { name: 'year', label: 'Année', type: 'number', required: true, placeholder: 'Ex: 2022', min: 1990, max: 2030 },
+        { name: 'price', label: 'Prix de vente', type: 'number', required: true, placeholder: 'Ex: 45000', min: 0 },
+        { name: 'currency', label: 'Devise', type: 'select', defaultValue: 'USD', options: [{ value: 'USD', label: 'USD ($)' }, { value: 'CDF', label: 'CDF (FC)' }] },
+        { name: 'mileage', label: 'Kilométrage (km)', type: 'number', placeholder: 'Ex: 35000', min: 0 },
+        { name: 'fuelType', label: 'Carburant', type: 'select', defaultValue: 'Essence', options: [
+          { value: 'Essence', label: 'Essence' },
+          { value: 'Diesel', label: 'Diesel' },
+          { value: 'Hybride', label: 'Hybride' },
+          { value: 'Électrique', label: 'Électrique' },
+        ]},
+        { name: 'transmission', label: 'Boîte de vitesses', type: 'select', defaultValue: 'Automatique', options: [
+          { value: 'Automatique', label: 'Automatique' },
+          { value: 'Manuelle', label: 'Manuelle' },
+        ]},
+        { name: 'color', label: 'Couleur', type: 'text', placeholder: 'Ex: Noir métallisé' },
+        { name: 'status', label: 'Statut', type: 'select', defaultValue: 'AVAILABLE', options: [
+          { value: 'AVAILABLE', label: 'Disponible' },
+          { value: 'RESERVED', label: 'Réservé' },
+          { value: 'SOLD', label: 'Vendu' },
+          { value: 'IN_MAINTENANCE', label: 'En maintenance' },
+        ]},
+        { name: 'description', label: 'Description détaillée', type: 'textarea', placeholder: 'Détails sur l’état, équipements, options…', fullWidth: true },
+        { name: 'gallery', label: 'Photos du véhicule', type: 'gallery', helper: 'Ajoutez une photo principale et des photos supplémentaires.', fullWidth: true },
+      ],
     }),
     resource('/automobile/templates', 'Véhicules templates', '/api/vehicles', {
       permission: 'VIEW_VEHICLE',

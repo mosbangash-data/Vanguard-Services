@@ -43,6 +43,7 @@ import {
   EmptyState,
   MediaUploader,
 } from '../../../components/ui'
+import { MediaThumbnail, MediaGallery } from '../../../components/media'
 import { getMediaUrl, getPrimaryMedia } from '../../../utils/media'
 import { syncMediaRelations } from '../../../utils/mediaSync'
 
@@ -439,23 +440,13 @@ export function VehicleManagementPage() {
                     >
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{
-                            width: '44px',
-                            height: '44px',
-                            borderRadius: '8px',
-                            backgroundColor: '#F1F5F9',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            overflow: 'hidden',
-                            flexShrink: 0
-                          }}>
-                            {primaryMedia ? (
-                              <img src={primaryMedia} alt={vehicle.brand} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <CarFront size={20} color="#64748B" />
-                            )}
-                          </div>
+                          <MediaThumbnail
+                            media={vehicle.media}
+                            alt={`${vehicle.brand} ${vehicle.model}`}
+                            size={44}
+                            rounded={8}
+                            fallbackIcon={CarFront}
+                          />
                           <div>
                             <strong style={{ fontSize: '0.9rem', color: '#0F172A' }}>
                               {vehicle.brand} {vehicle.model}
@@ -756,16 +747,12 @@ export function VehicleDetailPage() {
       await api.post('/api/vehicle-media', {
         vehicleId: id,
         mediaId: uploadedMedia?.id,
-        fileName: uploadedMedia.fileName,
-        originalName: uploadedMedia.originalName,
-        mimeType: uploadedMedia.mimeType,
-        size: uploadedMedia.size,
-        url: uploadedMedia.url,
         isPrimary,
         order,
       })
 
       queryClient.invalidateQueries({ queryKey: ['autosales-vehicle-detail', id] })
+      queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'] })
       refetch()
       return true
     } catch (err) {
@@ -780,6 +767,7 @@ export function VehicleDetailPage() {
     try {
       await api.put(`/api/vehicle-media/${mediaId}`, { isPrimary: true })
       queryClient.invalidateQueries({ queryKey: ['autosales-vehicle-detail', id] })
+      queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'] })
       refetch()
     } catch (err) {
       alert(err.response?.data?.message || 'Erreur lors de la mise à jour')
@@ -791,6 +779,7 @@ export function VehicleDetailPage() {
     try {
       await api.delete(`/api/vehicle-media/${mediaId}`)
       queryClient.invalidateQueries({ queryKey: ['autosales-vehicle-detail', id] })
+      queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'] })
       refetch()
     } catch (err) {
       alert(err.response?.data?.message || 'Erreur lors de la suppression')
@@ -818,8 +807,6 @@ export function VehicleDetailPage() {
   }
 
   const vehicle = data
-  const primary = getPrimaryMedia(vehicle.media)
-  const primaryMedia = getMediaUrl(primary || vehicle.imageUrl, { variant: 'detail' })
 
   return (
     <div className="page vanguard-vehicle-detail-page">
@@ -844,25 +831,17 @@ export function VehicleDetailPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
         {/* Gallery / Image Preview */}
         <Card>
-          <div style={{
-            height: '240px',
-            backgroundColor: '#0F172A',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden'
-          }}>
-            {primaryMedia ? (
-              <img src={primaryMedia} alt={vehicle.brand} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{ color: '#94A3B8', textAlign: 'center' }}>
-                <CarFront size={48} />
-                <p style={{ margin: '8px 0 0', fontSize: '0.84rem' }}>Aucune photo principale</p>
-              </div>
-            )}
+          <div style={{ padding: '16px 16px 0' }}>
+            <MediaGallery
+              items={vehicle.media}
+              altPrefix={`${vehicle.brand} ${vehicle.model}`}
+              minHeight={220}
+              thumbnailSize={64}
+              allowViewer={true}
+            />
           </div>
           <CardContent>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
               <span style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 600 }}>Prix de vente</span>
               <strong style={{ fontSize: '1.4rem', color: '#0F172A', fontWeight: 800 }}>
                 {formatMoney(vehicle.price, vehicle.currency, lang)}

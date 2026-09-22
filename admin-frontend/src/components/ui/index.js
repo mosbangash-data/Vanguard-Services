@@ -13,4 +13,11 @@ export { EmptyState } from './EmptyState'
 export { LoadingState } from './LoadingState'
 export { ErrorState } from './ErrorState'
 export { ErrorBoundary } from './ErrorBoundary'
-export { MediaUploader } from '../media/MediaUploader'
+export {
+  MediaImage,
+  MediaThumbnail,
+  MediaGallery,
+  MediaViewer,
+  MediaUploader,
+  MediaEmptyState,
+} from '../media'

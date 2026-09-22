@@ -16,6 +16,7 @@ import { api } from '../../../services/api'
 import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
 import { useLanguage } from '../../../i18n/useLanguage'
+import { MediaImage } from '../../../components/media'
 import {
   PageHeader,
   Card,
@@ -283,18 +284,18 @@ export function VehicleTemplatesPage() {
                   overflow: 'hidden',
                   position: 'relative'
                 }}>
-                  {primaryMedia ? (
-                    <img
-                      src={primaryMedia}
-                      alt={`${tpl.brand} ${tpl.model}`}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', color: '#94A3B8' }}>
-                      <CarFront size={32} />
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Modèle Template</span>
-                    </div>
-                  )}
+                  <MediaImage
+                    media={getPrimaryMedia(tpl.media) || tpl.imageUrl}
+                    alt={`${tpl.brand} ${tpl.model}`}
+                    variant="card"
+                    fallback={
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', color: '#94A3B8' }}>
+                        <CarFront size={32} />
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Modèle Template</span>
+                      </div>
+                    }
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
                   <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
                     <StatusBadge label="Template" variant="primary" dot={false} />
                   </div>

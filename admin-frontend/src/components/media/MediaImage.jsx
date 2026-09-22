@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { getMediaUrl } from '../../utils/media'
+import { MediaEmptyState } from './MediaEmptyState'
 
 export function MediaImage({
   media,
@@ -24,24 +25,26 @@ export function MediaImage({
 
   if (!resolvedSrc || hasError) {
     if (fallback) return fallback
-    if (fallbackSrc) return <img src={fallbackSrc} alt={alt} style={{ width: '100%', height: '100%', objectFit, ...style }} className={className} loading={loading} onClick={onClick} />
+    if (fallbackSrc) {
+      return (
+        <img
+          src={fallbackSrc}
+          alt={alt}
+          style={{ width: '100%', height: '100%', objectFit, ...style }}
+          className={className}
+          loading={loading}
+          onClick={onClick}
+        />
+      )
+    }
     return (
-      <div
+      <MediaEmptyState
+        size="sm"
+        title="Aucune image"
         className={className}
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#F1F5F9',
-          color: '#64748B',
-          ...style,
-        }}
+        style={style}
         onClick={onClick}
-      >
-        <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Aucune image</span>
-      </div>
+      />
     )
   }
 
