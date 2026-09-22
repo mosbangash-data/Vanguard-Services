@@ -270,7 +270,7 @@ export function VehicleTemplatesPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
           {templatesList.map((tpl) => {
-            const primaryMedia = tpl.media?.find((m) => m.isPrimary)?.media?.url || tpl.imageUrl
+            const primaryMedia = getMediaUrl(getPrimaryMedia(tpl.media) || tpl.imageUrl, { variant: 'card' })
 
             return (
               <Card key={tpl.id} className="vanguard-template-card" hover>

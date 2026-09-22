@@ -6,6 +6,7 @@ import { useAuth } from '../auth/authContext'
 import { createResource, deleteResource, listResource, patchResource, updateResource } from './resourceApi'
 import { DynamicResourceForm } from './DynamicResourceForm'
 import { api, uploadMedia } from '../../services/api'
+import { syncMediaRelations } from '../../utils/mediaSync'
 import {
   Button,
   StatusBadge,
@@ -119,12 +120,12 @@ export function ResourcePage({ resource }) {
       const mediaConfig = resource.mediaConfig
       const pendingMedia = data?.__pendingMedia || []
       const deletedMediaIds = data?.__deletedMediaIds || []
-      const primaryExistingId = data?.__primaryExistingId
+      const existingMedia = data?.__existingMedia || []
       const payload = { ...data }
       delete payload.__mediaFiles
       delete payload.__pendingMedia
       delete payload.__deletedMediaIds
-      delete payload.__primaryExistingId
+      delete payload.__existingMedia
 
       let result
       if (action === 'create') {
@@ -153,61 +154,25 @@ export function ResourcePage({ resource }) {
         return failure
       }
 
-      // Keep this sequence deterministic so a retry can identify the failing item.
-      if (Array.isArray(deletedMediaIds) && deletedMediaIds.length > 0) {
-        for (const [index, delId] of deletedMediaIds.entries()) {
-          setMediaProgress(`Suppression du média ${index + 1}/${deletedMediaIds.length}…`)
-          try {
-            await api.delete(`${mediaConfig.mediaEndpoint}/${delId}`)
-          } catch (error) {
-            throw mediaFailure('suppression', error, delId)
-          }
-        }
-      }
-
-      // 2. Process primary update on existing media
-      if (primaryExistingId) {
-        setMediaProgress('Définition du média principal…')
-        try {
-          await api.put(`${mediaConfig.mediaEndpoint}/${primaryExistingId}`, { isPrimary: true })
-        } catch (error) {
-          throw mediaFailure('média principal', error, primaryExistingId)
-        }
-      }
-
-      // 3. Process uploads for pending files
-      if (Array.isArray(pendingMedia) && pendingMedia.length > 0) {
-        for (let index = 0; index < pendingMedia.length; index += 1) {
-          const item = pendingMedia[index]
-          const file = item.file
-          if (!file) continue
-
-          setMediaProgress(`Téléversement du média ${index + 1}/${pendingMedia.length}…`)
-          let uploadedMedia
-          try {
-            uploadedMedia = await uploadMedia(file, {
-              entityType: mediaConfig.uploadEntityType || 'bus',
-              entityId,
-            })
-          } catch (error) {
-            throw mediaFailure('upload', error, file.name)
-          }
-
-          const mediaPayload = {
-            [mediaConfig.relationKey || 'busId']: entityId,
-            mediaId: uploadedMedia.id,
-            isPrimary: Boolean(item.isPrimary),
-            order: index,
-          }
-
-          if (mediaConfig.mediaEndpoint) {
-            try {
-              await api.post(mediaConfig.mediaEndpoint, mediaPayload)
-            } catch (error) {
-              throw mediaFailure('association', error, file.name)
-            }
-          }
-        }
+      try {
+        await syncMediaRelations({
+          api,
+          uploadMedia,
+          endpoint: mediaConfig.mediaEndpoint,
+          relationKey: mediaConfig.relationKey || 'busId',
+          uploadOptions: {
+            department: mediaConfig.department,
+            entityType: mediaConfig.uploadEntityType || mediaConfig.entityType || 'bus',
+          },
+          entityId,
+          existingMedia,
+          pendingMedia,
+          deletedMediaIds,
+          onProgress: setMediaProgress,
+          primaryMode: mediaConfig.primaryMode || 'update',
+        })
+      } catch (error) {
+        throw mediaFailure('synchronisation', error)
       }
 
       setMediaProgress('')

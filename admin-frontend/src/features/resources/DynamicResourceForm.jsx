@@ -431,10 +431,7 @@ export function DynamicResourceForm({
     if (hasMediaField) {
       payload.__pendingMedia = mediaState.pending
       payload.__deletedMediaIds = mediaState.deleted
-      const primaryExisting = mediaState.existing.find((m) => m.isPrimary)
-      if (primaryExisting) {
-        payload.__primaryExistingId = primaryExisting.id
-      }
+      payload.__existingMedia = mediaState.existing
       resource.fields?.forEach((field) => {
         if (['file', 'image', 'gallery'].includes(field.type)) {
           delete payload[field.name]

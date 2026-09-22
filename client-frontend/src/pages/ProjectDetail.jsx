@@ -5,6 +5,7 @@ import { api } from '../api/client'
 import { useFetch } from '../hooks/useFetch'
 import { LoadingState, ErrorState } from '../components/StateView'
 import { translateError } from '../utils/errors'
+import { MediaGallery } from '../components/media/MediaGallery'
 
 const formatBudget = (budget) => {
   if (budget == null) return null
@@ -67,27 +68,18 @@ export default function ProjectDetail() {
           {gallery.length > 0 && (
             <div className="project-gallery">
               <h2 className="project-gallery-title">{t('constructionPage.galleryTitle')}</h2>
-              <div className="grid grid-3 project-gallery-grid">
-                {gallery.map((item) => (
-                  <div key={item.id} className="project-gallery-item">
-                    {(item.media?.secureUrl || item.media?.url) ? (
-                      <img
-                        src={item.media.secureUrl || item.media.url}
-                        alt={item.caption || project.title}
-                        loading="lazy"
-                        width="800"
-                        height="500"
-                      />
-                    ) : (
-                      <div className="project-gallery-empty">
-                        <Images size={40} aria-hidden="true" />
-                        <span>{t('constructionPage.noProjects')}</span>
-                      </div>
-                    )}
-                    {item.caption && <p className="project-gallery-caption">{item.caption}</p>}
+              <MediaGallery
+                items={gallery}
+                altPrefix={project.title}
+                fallback={
+                  <div className="project-gallery-empty" style={{ width: '100%', minHeight: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9', color: '#64748B', borderRadius: '12px' }}>
+                    <Images size={40} aria-hidden="true" />
+                    <span style={{ marginLeft: '8px' }}>{t('constructionPage.noProjects')}</span>
                   </div>
-                ))}
-              </div>
+                }
+                objectFit="cover"
+                className="project-gallery-wrapper"
+              />
             </div>
           )}
 

@@ -6,6 +6,8 @@ import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { useLanguage } from '../../i18n/useLanguage'
 import { MediaUploader } from '../../components/media/MediaUploader'
+import { syncMediaRelations } from '../../utils/mediaSync'
+import { getMediaUrl } from '../../utils/media'
 
 const PROJECT_STATUS_OPTIONS = ['DRAFT', 'PUBLISHED', 'ARCHIVED']
 const PUBLICATION_STATUS_OPTIONS = ['DRAFT', 'PUBLISHED', 'ARCHIVED']
@@ -45,6 +47,8 @@ export function ProjectFormPage() {
   const [galleryError, setGalleryError] = useState('')
   const [galleryLoading, setGalleryLoading] = useState(false)
   const [existingGallery, setExistingGallery] = useState([])
+  const [deletedGalleryIds, setDeletedGalleryIds] = useState([])
+  const [galleryPrimaryId, setGalleryPrimaryId] = useState(null)
 
   const departmentQuery = useQuery({
     queryKey: ['construction-department'],
@@ -73,6 +77,7 @@ export function ProjectFormPage() {
       const response = await api.get(`/api/construction/projects/${id}/gallery`)
       const items = response.data?.data?.items || response.data?.data?.gallery || response.data?.data || []
       setExistingGallery(Array.isArray(items) ? items : [])
+      setGalleryPrimaryId(Array.isArray(items) ? items.find((item) => item.order === 0)?.id || null : null)
       return Array.isArray(items) ? items : []
     },
     enabled: isEditing,
@@ -106,29 +111,25 @@ export function ProjectFormPage() {
 
       const result = response.data?.data
       const project = result?.project || result || null
-      if (galleryFiles.length > 0) {
+      if (isEditing || galleryFiles.length > 0 || deletedGalleryIds.length > 0) {
         setGalleryLoading(true)
         try {
           const targetProjectId = project?.id || id
           if (!targetProjectId) throw new Error('Project ID unavailable for media upload')
-          const startingOrder = existingGallery.length
-          const shouldSetPrimary = existingGallery.length === 0
-          for (let index = 0; index < galleryFiles.length; index += 1) {
-            const file = galleryFiles[index]
-            const media = await uploadMedia(file, {
-              department: 'CONSTRUCTION',
-              entityType: 'project',
-              entityId: targetProjectId,
-            })
-            const createdMedia = await api.post(`/api/construction/projects/${targetProjectId}/gallery`, {
-              mediaId: media.id,
-              order: startingOrder + index,
-              caption: file.name,
-            })
-            if (shouldSetPrimary && index === 0 && createdMedia.data?.data?.gallery) {
-              await api.post(`/api/construction/projects/${targetProjectId}/gallery/${createdMedia.data.data.gallery.id}/set-primary`)
-            }
-          }
+          await syncMediaRelations({
+            api,
+            uploadMedia,
+            endpoint: `/api/construction/projects/${targetProjectId}/gallery`,
+            relationKey: 'projectId',
+            uploadOptions: { department: 'CONSTRUCTION', entityType: 'project' },
+            entityId: targetProjectId,
+            existingMedia: existingGallery
+              .filter((item) => !deletedGalleryIds.includes(item.id))
+              .map((item) => ({ ...item, isPrimary: item.id === galleryPrimaryId })),
+            pendingMedia: galleryFiles,
+            deletedMediaIds: deletedGalleryIds,
+            primaryMode: 'set-primary',
+          })
         } finally {
           setGalleryLoading(false)
         }
@@ -139,6 +140,8 @@ export function ProjectFormPage() {
       const result = response.data?.data
       const project = result?.project || result || null
       setGalleryFiles([])
+      setDeletedGalleryIds([])
+      setGalleryPrimaryId(null)
       setGalleryError('')
       navigate(project?.id ? `/construction/projects/${project.id}` : '/construction/projects')
     },
@@ -172,6 +175,24 @@ export function ProjectFormPage() {
     setValues((current) => ({ ...current, [field]: value }))
     setErrors((current) => ({ ...current, [field]: undefined }))
     setSubmitError('')
+  }
+
+  const handleSetPrimaryGallery = (mediaId) => {
+    const isPending = galleryFiles.some((item) => item.id === mediaId)
+    setGalleryPrimaryId(isPending ? mediaId : mediaId)
+    setGalleryFiles((current) => current.map((item) => ({ ...item, isPrimary: isPending && item.id === mediaId })))
+  }
+
+  const handleDeleteExistingGallery = (mediaId) => {
+    const remaining = existingGallery.filter((item) => item.id !== mediaId && !deletedGalleryIds.includes(item.id))
+    const wasPrimary = galleryPrimaryId === mediaId
+    setExistingGallery((current) => current.filter((item) => item.id !== mediaId))
+    setDeletedGalleryIds((current) => [...new Set([...current, mediaId])])
+    if (wasPrimary) {
+      const nextPrimary = remaining[0]?.id || galleryFiles[0]?.id || null
+      setGalleryPrimaryId(nextPrimary)
+      setGalleryFiles((current) => current.map((item) => ({ ...item, isPrimary: item.id === nextPrimary })))
+    }
   }
 
   const handleSubmit = (event) => {
@@ -245,13 +266,15 @@ export function ProjectFormPage() {
             label="Galerie du projet"
             existingMedia={existingGallery.map((item) => ({
               id: item.id,
-              isPrimary: item.order === 0,
-              url: item.media?.secureUrl || item.media?.url,
+              isPrimary: item.id === galleryPrimaryId,
+              url: getMediaUrl(item.media, { variant: 'thumbnail' }),
               caption: item.caption,
               order: item.order,
             }))}
             pendingFiles={galleryFiles}
             onPendingChange={setGalleryFiles}
+            onSetPrimary={handleSetPrimaryGallery}
+            onDeleteExisting={isEditing ? handleDeleteExistingGallery : null}
             disabled={mutation.isPending || galleryLoading}
             isUploading={galleryLoading}
             uploadProgressText="Téléversement des photos en cours…"

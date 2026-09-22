@@ -1,7 +1,7 @@
 const rawApiUrl = (import.meta.env?.VITE_API_URL || '').trim()
 const API_URL = rawApiUrl ? rawApiUrl.replace(/\/+$/, '').replace(/\/api$/, '') : ''
 
-const normalizeMediaValue = (value) => {
+export function normalizeMediaValue(value) {
   if (!value) return ''
   if (typeof value === 'string') return value.trim()
   if (typeof value === 'object') {
@@ -10,10 +10,6 @@ const normalizeMediaValue = (value) => {
   return ''
 }
 
-/**
- * Resolves a media URL while preserving Cloudinary URLs and legacy relative URLs.
- * Supports absolute URLs, relative URLs, data URLs, and object URLs.
- */
 const MEDIA_VARIANTS = {
   thumbnail: { width: 240, height: 180, crop: 'fill' },
   card: { width: 640, height: 400, crop: 'fill' },
@@ -49,7 +45,7 @@ const optimizeCloudinaryUrl = (url, options = {}) => {
 
 export function resolveMediaUrl(value, options = {}) {
   const url = normalizeMediaValue(value)
-  if (!url) return ''
+  if (!url || typeof url !== 'string') return ''
 
   if (
     url.startsWith('http://') ||
@@ -97,16 +93,4 @@ export function getPrimaryMedia(mediaList) {
 
 export function getMediaList(mediaList) {
   return getOrderedMediaList(mediaList).map((entry) => entry.media)
-}
-
-export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-export const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
-export const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB
-
-export function formatFileSize(bytes) {
-  if (bytes === undefined || bytes === null || isNaN(bytes)) return '0 B'
-  const num = Number(bytes)
-  if (num < 1024) return `${num} B`
-  if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} Ko`
-  return `${(num / (1024 * 1024)).toFixed(1)} Mo`
 }

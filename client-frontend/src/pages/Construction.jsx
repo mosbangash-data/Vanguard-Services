@@ -18,6 +18,7 @@ import { LoadingState, ErrorState, EmptyState } from '../components/StateView'
 import { api } from '../api/client'
 import { useFetch } from '../hooks/useFetch'
 import { translateError } from '../utils/errors'
+import { getMediaUrl, getPrimaryMedia } from '../utils/media'
 
 export default function Construction() {
   const { t } = useLanguage()
@@ -115,7 +116,8 @@ export default function Construction() {
   }
 
   const getProjectImage = (project) => {
-    const url = project.gallery?.[0]?.media?.secureUrl || project.gallery?.[0]?.media?.url
+    const primary = getPrimaryMedia(project?.gallery?.map((entry) => entry?.media || entry) || [])
+    const url = getMediaUrl(primary, { variant: 'card' })
     return url || '/assets/construction/construction-card.jpg'
   }
 

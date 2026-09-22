@@ -17,7 +17,7 @@ import { api } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { useLanguage } from '../../i18n/useLanguage'
-import { resolveMediaUrl } from '../../utils/media'
+import { getMediaUrl, getPrimaryMedia } from '../../utils/media'
 import {
   PageHeader,
   Card,
@@ -223,15 +223,19 @@ export function ProjectListPage() {
                           flexShrink: 0,
                           overflow: 'hidden'
                         }}>
-                          {(project.gallery?.[0]?.media?.secureUrl || project.gallery?.[0]?.media?.url) ? (
-                            <img
-                              src={resolveMediaUrl(project.gallery[0].media.secureUrl || project.gallery[0].media.url)}
-                              alt={project.title || ''}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <HardHat size={18} />
-                          )}
+                          {(() => {
+                            const primary = getPrimaryMedia(project.gallery?.map((entry) => entry?.media || entry) || [])
+                            const imageUrl = getMediaUrl(primary, { variant: 'thumbnail' })
+                            return imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={project.title || ''}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <HardHat size={18} />
+                            )
+                          })()}
                         </div>
                         <div>
                           <strong style={{ fontSize: '0.9rem', color: '#0F172A' }}>

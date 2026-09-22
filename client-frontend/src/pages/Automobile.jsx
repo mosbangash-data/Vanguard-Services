@@ -9,6 +9,7 @@ import { useFetch } from '../hooks/useFetch'
 import { LoadingState, ErrorState, EmptyState } from '../components/StateView'
 import { translateError } from '../utils/errors'
 import { AUTOMOBILE_WHATSAPP } from '../config/contact'
+import { getMediaUrl, getPrimaryMedia } from '../utils/media'
 
 const STATUS_LABELS = {
   AVAILABLE: 'available',
@@ -63,8 +64,9 @@ export default function Automobile() {
   }
 
   const getVehicleImage = (vehicle) => {
-    const primary = vehicle.media?.find((m) => m.isPrimary) || vehicle.media?.[0]
-    return primary?.media?.secureUrl || primary?.media?.url || '/assets/automobile/automobile-card.jpg'
+    const primary = getPrimaryMedia(vehicle?.media)
+    const url = getMediaUrl(primary, { variant: 'card' })
+    return url || '/assets/automobile/automobile-card.jpg'
   }
 
   const getWhatsAppUrl = (vehicle) => {

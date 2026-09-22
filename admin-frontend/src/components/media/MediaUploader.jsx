@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { UploadCloud, Image as ImageIcon, Star, Trash2, Plus, AlertCircle, Check, Loader2, X } from 'lucide-react'
-import { resolveMediaUrl, ALLOWED_IMAGE_TYPES, ALLOWED_IMAGE_EXTENSIONS, MAX_IMAGE_SIZE, formatFileSize } from '../../utils/media'
+import { getMediaUrl, ALLOWED_IMAGE_TYPES, ALLOWED_IMAGE_EXTENSIONS, MAX_IMAGE_SIZE, formatFileSize } from '../../utils/media'
 
 export function MediaUploader({
   existingMedia = [],
@@ -272,7 +272,7 @@ export function MediaUploader({
         >
           {/* Existing Photos */}
           {existingMedia.map((mediaItem) => {
-            const url = resolveMediaUrl(mediaItem.media?.secureUrl || mediaItem.media?.url || mediaItem.secureUrl || mediaItem.url)
+            const url = getMediaUrl(mediaItem.media || mediaItem, { variant: 'thumbnail' })
             const isPrimary = Boolean(mediaItem.isPrimary)
 
             return (

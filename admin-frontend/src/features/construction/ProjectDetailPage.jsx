@@ -5,7 +5,7 @@ import { api, uploadMedia } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { MediaUploader } from '../../components/media/MediaUploader'
-import { resolveMediaUrl } from '../../utils/media'
+import { getMediaUrl } from '../../utils/media'
 import { ErrorState } from '../../components/ui'
 
 const get = async (path) => (await api.get(path)).data?.data
@@ -83,7 +83,7 @@ export function ProjectDetailPage() {
 
   const existingMedia = galleryList.map((item) => ({
     id: item.id,
-    url: resolveMediaUrl(item.media?.secureUrl || item.media?.url),
+    url: getMediaUrl(item.media, { variant: 'detail' }),
     isPrimary: item.order === 0,
     caption: item.caption,
     order: item.order,

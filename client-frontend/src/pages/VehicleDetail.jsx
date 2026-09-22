@@ -6,6 +6,7 @@ import { api } from '../api/client'
 import { useFetch } from '../hooks/useFetch'
 import { LoadingState, ErrorState } from '../components/StateView'
 import { translateError } from '../utils/errors'
+import { MediaGallery } from '../components/media/MediaGallery'
 
 const STATUS_LABELS = {
   AVAILABLE: 'available',
@@ -34,11 +35,6 @@ export default function VehicleDetail() {
     return 'badge-danger'
   }
   const formatPrice = (p) => new Intl.NumberFormat('fr-FR').format(Number(p))
-  const getImages = (v) => {
-    const media = v?.media || []
-    return media.length ? media.map((m) => m.media?.secureUrl || m.media?.url).filter(Boolean) : ['/assets/automobile/automobile-card.jpg']
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
@@ -67,8 +63,6 @@ export default function VehicleDetail() {
   if (error) return <ErrorState message={translateError(error, t)} onRetry={execute} />
   if (!vehicle) return <ErrorState message={t('states.error')} onRetry={execute} />
 
-  const images = getImages(vehicle)
-
   return (
     <div className="vehicle-detail">
       <section className="section">
@@ -80,19 +74,20 @@ export default function VehicleDetail() {
 
           <div className="vehicle-detail-grid">
             <div className="vehicle-gallery">
-              <div className="vehicle-gallery-main">
-                <img src={images[0]} alt={`${vehicle.brand} ${vehicle.model}`} width="800" height="500" />
-                <span className={`badge ${getStatusClass(vehicle.status)} vehicle-gallery-status`}>
-                  {getStatusLabel(vehicle.status)}
-                </span>
-              </div>
-              {images.length > 1 && (
-                <div className="vehicle-gallery-thumbs">
-                  {images.map((img, index) => (
-                    <img key={index} src={img} alt={`${vehicle.brand} ${vehicle.model} — view ${index + 1}`} loading="lazy" width="120" height="80" />
-                  ))}
-                </div>
-              )}
+              <MediaGallery
+                items={vehicle.media}
+                altPrefix={`${vehicle.brand} ${vehicle.model}`}
+                fallback={
+                  <div className="vehicle-gallery-empty" style={{ width: '100%', height: '100%', minHeight: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9', color: '#64748B' }}>
+                    <span>Aucune image</span>
+                  </div>
+                }
+                objectFit="cover"
+                className="vehicle-gallery-wrapper"
+              />
+              <span className={`badge ${getStatusClass(vehicle.status)} vehicle-gallery-status`}>
+                {getStatusLabel(vehicle.status)}
+              </span>
             </div>
 
             <div className="vehicle-info">

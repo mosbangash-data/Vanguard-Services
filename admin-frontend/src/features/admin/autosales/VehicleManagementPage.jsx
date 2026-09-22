@@ -43,7 +43,8 @@ import {
   EmptyState,
   MediaUploader,
 } from '../../../components/ui'
-import { resolveMediaUrl } from '../../../utils/media'
+import { getMediaUrl, getPrimaryMedia } from '../../../utils/media'
+import { syncMediaRelations } from '../../../utils/mediaSync'
 
 const STATUS_OPTIONS = ['AVAILABLE', 'RESERVED', 'SOLD', 'IN_MAINTENANCE']
 const CURRENCY_OPTIONS = ['USD', 'CDF']
@@ -103,7 +104,7 @@ export function VehicleManagementPage() {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [currencyFilter, setCurrencyFilter] = useState('ALL')
 
-  const [formState, setFormState] = useState(null) // null | { mode: 'create' | 'edit', values, id, pendingMedia, existingMedia }
+  const [formState, setFormState] = useState(null) // null | { mode: 'create' | 'edit', values, id, pendingMedia, existingMedia, deletedMediaIds }
   const [serverError, setServerError] = useState('')
   const [deletingVehicle, setDeletingVehicle] = useState(null)
   const [statusChangingVehicle, setStatusChangingVehicle] = useState(null)
@@ -147,7 +148,7 @@ export function VehicleManagementPage() {
 
   // Save Mutation
   const saveMutation = useMutation({
-    mutationFn: async ({ payload, pendingMedia }) => {
+    mutationFn: async ({ payload, pendingMedia, existingMedia, deletedMediaIds }) => {
       let response
       if (formState.mode === 'create') {
         response = await api.post('/api/vehicles', payload)
@@ -158,67 +159,29 @@ export function VehicleManagementPage() {
       const result = response.data?.data || response.data
       const vehicle = result?.vehicle || result?.bus || result
       const vehicleId = vehicle?.id || formState.id
-      if (!vehicleId || !pendingMedia.length) return { response, failedMedia: [] }
+      if (!vehicleId) return { response, vehicleId }
 
-      const failedMedia = []
-      const uploadedMedia = []
-      const existingCount = formState.existingMedia?.length || 0
-      for (const [index, pending] of pendingMedia.entries()) {
-        try {
-          const media = await uploadMedia(pending.file, {
-            department: 'AUTO_SALES',
-            entityType: 'vehicle',
-            entityId: vehicleId,
-          })
+      await syncMediaRelations({
+        api,
+        uploadMedia,
+        endpoint: '/api/vehicle-media',
+        relationKey: 'vehicleId',
+        uploadOptions: { department: 'AUTO_SALES', entityType: 'vehicle' },
+        entityId: vehicleId,
+        existingMedia,
+        pendingMedia,
+        deletedMediaIds,
+      })
 
-          const associationResponse = await api.post('/api/vehicle-media', {
-            vehicleId,
-            mediaId: media.id,
-            isPrimary: Boolean(pending.isPrimary && existingCount === 0 && index === 0),
-            order: existingCount + index,
-          })
-          uploadedMedia.push(associationResponse.data?.data?.vehicleMedia || {
-            id: media.id,
-            media,
-            isPrimary: Boolean(pending.isPrimary && existingCount === 0 && index === 0),
-            order: existingCount + index,
-          })
-        } catch (error) {
-          failedMedia.push({
-            ...pending,
-            error: error?.response?.data?.message || error?.message || 'Échec de l’association de la photo.',
-          })
-        }
-      }
-
-      return { response, failedMedia, uploadedMedia, vehicleId }
+      return { response, vehicleId }
     },
-    onSuccess: async ({ failedMedia = [], uploadedMedia = [], vehicleId }) => {
+    onSuccess: async ({ vehicleId }) => {
       queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'], refetchType: 'none' })
       queryClient.invalidateQueries({ queryKey: ['autosales-dashboard-vehicles'] })
 
       const refreshResult = await vehiclesQuery.refetch()
       if (refreshResult.error) {
-        setFormState((current) => current ? {
-          ...current,
-          mode: 'edit',
-          id: current.id || vehicleId,
-          existingMedia: [...(current.existingMedia || []), ...uploadedMedia],
-          pendingMedia: failedMedia,
-        } : current)
         setServerError('Véhicule et photos enregistrés, mais le rechargement du véhicule a échoué. Réessayez le chargement de la liste.')
-        return
-      }
-
-      if (failedMedia.length > 0) {
-        setFormState((current) => current ? {
-          ...current,
-          mode: 'edit',
-          id: current.id || vehicleId,
-          existingMedia: [...(current.existingMedia || []), ...uploadedMedia],
-          pendingMedia: failedMedia,
-        } : current)
-        setServerError(`${failedMedia.length} image(s) n’ont pas pu être enregistrée(s). Corrigez le problème puis réessayez.`)
         return
       }
       setServerError('')
@@ -257,7 +220,7 @@ export function VehicleManagementPage() {
 
   const openCreateForm = () => {
     setServerError('')
-    setFormState({ mode: 'create', values: { ...EMPTY_FORM }, pendingMedia: [], existingMedia: [] })
+    setFormState({ mode: 'create', values: { ...EMPTY_FORM }, pendingMedia: [], existingMedia: [], deletedMediaIds: [] })
   }
 
   const openEditForm = (vehicle) => {
@@ -267,6 +230,7 @@ export function VehicleManagementPage() {
       id: vehicle.id,
       pendingMedia: [],
       existingMedia: vehicle.media || [],
+      deletedMediaIds: [],
       values: {
         brand: vehicle.brand || '',
         model: vehicle.model || '',
@@ -279,6 +243,38 @@ export function VehicleManagementPage() {
         color: vehicle.color || '',
         description: vehicle.description || '',
       },
+    })
+  }
+
+  const handleSetPrimaryMedia = (mediaId) => {
+    setFormState((current) => {
+      if (!current) return current
+      const isPending = current.pendingMedia.some((item) => item.id === mediaId)
+      return {
+        ...current,
+        existingMedia: current.existingMedia.map((item) => ({ ...item, isPrimary: !isPending && item.id === mediaId })),
+        pendingMedia: current.pendingMedia.map((item) => ({ ...item, isPrimary: isPending && item.id === mediaId })),
+      }
+    })
+  }
+
+  const handleDeleteExistingMedia = (mediaId) => {
+    setFormState((current) => {
+      if (!current) return current
+      const deleted = current.existingMedia.find((item) => item.id === mediaId)
+      const existingMedia = current.existingMedia.filter((item) => item.id !== mediaId)
+      const pendingMedia = [...current.pendingMedia]
+      if (deleted?.isPrimary && existingMedia.length === 0 && pendingMedia.length > 0) {
+        pendingMedia[0] = { ...pendingMedia[0], isPrimary: true }
+      } else if (deleted?.isPrimary && existingMedia.length > 0) {
+        existingMedia[0] = { ...existingMedia[0], isPrimary: true }
+      }
+      return {
+        ...current,
+        existingMedia,
+        pendingMedia,
+        deletedMediaIds: [...new Set([...(current.deletedMediaIds || []), mediaId])],
+      }
     })
   }
 
@@ -307,7 +303,12 @@ export function VehicleManagementPage() {
     }
     if (formState.mode === 'create') payload.departmentId = departmentQuery.data.id
 
-    saveMutation.mutate({ payload, pendingMedia: formState.pendingMedia || [] })
+    saveMutation.mutate({
+      payload,
+      pendingMedia: formState.pendingMedia || [],
+      existingMedia: formState.existingMedia || [],
+      deletedMediaIds: formState.deletedMediaIds || [],
+    })
   }
 
   if (!canView) {
@@ -428,7 +429,7 @@ export function VehicleManagementPage() {
               <tbody>
                 {filteredVehicles.map((vehicle) => {
                   const primary = vehicle.media?.find((m) => m.isPrimary)?.media
-                  const primaryMedia = primary?.secureUrl || primary?.url
+                  const primaryMedia = getMediaUrl(primary, { variant: 'thumbnail' })
 
                   return (
                     <tr
@@ -450,7 +451,7 @@ export function VehicleManagementPage() {
                             flexShrink: 0
                           }}>
                             {primaryMedia ? (
-                              <img src={resolveMediaUrl(primaryMedia)} alt={vehicle.brand} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={primaryMedia} alt={vehicle.brand} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               <CarFront size={20} color="#64748B" />
                             )}
@@ -647,7 +648,8 @@ export function VehicleManagementPage() {
                     setFormState((current) => current ? { ...current, pendingMedia } : current)
                     setServerError('')
                   }}
-                  onDeleteExisting={null}
+                  onSetPrimary={handleSetPrimaryMedia}
+                  onDeleteExisting={handleDeleteExistingMedia}
                   disabled={saveMutation.isPending}
                   isUploading={saveMutation.isPending}
                   uploadProgressText="Enregistrement du véhicule et téléversement des photos…"
@@ -758,7 +760,7 @@ export function VehicleDetailPage() {
         originalName: uploadedMedia.originalName,
         mimeType: uploadedMedia.mimeType,
         size: uploadedMedia.size,
-        url: uploadedMedia.secureUrl || uploadedMedia.url,
+        url: uploadedMedia.url,
         isPrimary,
         order,
       })
@@ -816,8 +818,8 @@ export function VehicleDetailPage() {
   }
 
   const vehicle = data
-  const primary = vehicle.media?.find((m) => m.isPrimary)
-  const primaryMedia = resolveMediaUrl(primary?.media?.secureUrl || primary?.media?.url || vehicle.imageUrl)
+  const primary = getPrimaryMedia(vehicle.media)
+  const primaryMedia = getMediaUrl(primary || vehicle.imageUrl, { variant: 'detail' })
 
   return (
     <div className="page vanguard-vehicle-detail-page">
