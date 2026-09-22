@@ -50,6 +50,8 @@ export const optimizeCloudinaryUrl = (url, options = {}) => {
   return url.replace('/upload/', `/upload/${transformation}/`)
 }
 
+const firstMediaUrl = (...values) => values.find((value) => typeof value === 'string' && value.trim())?.trim() || ''
+
 /**
  * Normalizes any media representation into a standardized frontend contract:
  * {
@@ -124,21 +126,30 @@ export function normalizeMedia(input) {
     : 0
   const caption = input.caption || inner?.caption || null
 
-  const url = (
-    inner?.secureUrl ||
-    inner?.url ||
-    input.secureUrl ||
-    input.url ||
-    input.previewUrl ||
-    inner?.previewUrl ||
-    inner?.src ||
-    inner?.path ||
-    inner?.imageUrl ||
-    input.imageUrl ||
-    ''
-  ).trim()
+  const url = firstMediaUrl(
+    inner?.secureUrl,
+    inner?.secure_url,
+    inner?.url,
+    input.secureUrl,
+    input.secure_url,
+    input.url,
+    inner?.previewUrl,
+    input.previewUrl,
+    inner?.src,
+    inner?.path,
+    inner?.imageUrl,
+    input.imageUrl,
+  )
 
-  const secureUrl = (inner?.secureUrl || inner?.url || input.secureUrl || input.url || url || '').trim()
+  const secureUrl = firstMediaUrl(
+    inner?.secureUrl,
+    inner?.secure_url,
+    input.secureUrl,
+    input.secure_url,
+    inner?.url,
+    input.url,
+    url,
+  )
   const publicId = inner?.publicId || input.publicId || null
   const resourceType = inner?.resourceType || input.resourceType || 'image'
   const mimeType = inner?.mimeType || input.mimeType || null
@@ -207,6 +218,9 @@ export function resolveMediaUrl(value, options = {}) {
   ) {
     return optimizeCloudinaryUrl(url, options)
   }
+
+  // A bare filename is metadata, never an image source.
+  if (!url.startsWith('/')) return ''
 
   const cleanPath = url.startsWith('/') ? url : `/${url}`
   return API_URL ? `${API_URL}${cleanPath}` : cleanPath

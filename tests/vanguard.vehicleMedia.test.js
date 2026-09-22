@@ -108,16 +108,29 @@ test('vehicle media CRUD flows for auto sales', async () => {
   mediaId = createMedia.data.data.vehicleMedia.id;
   assert.ok(mediaId, 'Created vehicle media should have an id');
   assert.equal(createMedia.data.data.vehicleMedia.isPrimary, true);
+  assert.ok(createMedia.data.data.vehicleMedia.media, 'Created vehicle media should include its media');
+  assert.ok(createMedia.data.data.vehicleMedia.media.url, 'Created media should include its URL');
+  assert.match(createMedia.data.data.vehicleMedia.media.url, /^https:\/\/res\.cloudinary\.com\//);
 
   const listResponse = await request('GET', `/api/vehicle-media/vehicle/${vehicleId}`, null, adminToken);
   assert.equal(listResponse.status, 200);
   assert.ok(Array.isArray(listResponse.data.data.items));
   assert.equal(listResponse.data.data.items.length, 1);
   assert.equal(listResponse.data.data.items[0].id, mediaId);
+  assert.equal(listResponse.data.data.items[0].media.url, sourceMedia.url);
+  assert.match(listResponse.data.data.items[0].media.url, /^https:\/\/res\.cloudinary\.com\//);
 
   const getResponse = await request('GET', `/api/vehicle-media/${mediaId}`, null, adminToken);
   assert.equal(getResponse.status, 200);
   assert.equal(getResponse.data.data.vehicleMedia.id, mediaId);
+  assert.equal(getResponse.data.data.vehicleMedia.media.url, sourceMedia.url);
+
+  const vehicleResponse = await request('GET', `/api/vehicles/${vehicleId}`, null, adminToken);
+  assert.equal(vehicleResponse.status, 200);
+  const vehicleMedia = vehicleResponse.data.data.vehicle.media.find((item) => item.id === mediaId);
+  assert.ok(vehicleMedia, 'Vehicle response should include the linked media');
+  assert.equal(vehicleMedia.media.url, sourceMedia.url);
+  assert.match(vehicleMedia.media.url, /^https:\/\/res\.cloudinary\.com\//);
 
   const updateResponse = await request('PUT', `/api/vehicle-media/${mediaId}`, {
     caption: 'Front exterior updated',
