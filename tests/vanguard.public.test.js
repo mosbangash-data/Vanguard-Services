@@ -65,6 +65,84 @@ test('GET /api/public/trips — recherche publique sans JWT', async () => {
   assert.ok(res.data.data.limit >= 1);
 });
 
+test('GET /api/public/trips — voyage futur visible et filtres indépendants', async () => {
+  const depsRes = await request('GET', '/api/departments', null, adminToken);
+  assert.equal(depsRes.status, 200);
+  const department = depsRes.data.data.items.find((item) => item.type === 'VANGUARD_COACH');
+  assert.ok(department, 'Coach department should exist');
+
+  const routeRes = await request('POST', '/api/destinations', {
+    departmentId: department.id,
+    code: `PUB-${Date.now()}`,
+    departureCity: 'Goma',
+    arrivalCity: 'Dar Es Salaam',
+  }, adminToken);
+  assert.equal(routeRes.status, 201);
+  const routeId = routeRes.data.data.route.id;
+
+  const busRes = await request('POST', '/api/buses', {
+    departmentId: department.id,
+    plateNumber: `PUB-${Date.now()}`,
+    brand: 'Mercedes',
+    model: 'Tourismo',
+    seats: 20,
+  }, adminToken);
+  assert.equal(busRes.status, 201);
+  const busId = busRes.data.data.bus.id;
+
+  const scheduleRes = await request('POST', '/api/schedules', {
+    departmentId: department.id,
+    routeId,
+    busId,
+    departureTime: '08:00',
+    returnTime: '14:00',
+    availableDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+    price: '21.50',
+  }, adminToken);
+  assert.equal(scheduleRes.status, 201);
+  const scheduleId = scheduleRes.data.data.schedule.id;
+
+  const now = new Date();
+  const futureDeparture = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString();
+  const futureArrival = new Date(now.getTime() + 40 * 60 * 60 * 1000).toISOString();
+  const pastDeparture = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
+  const pastArrival = new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString();
+
+  const futureTripRes = await request('POST', '/api/trips', {
+    scheduleId,
+    departureAt: futureDeparture,
+    arrivalAt: futureArrival,
+  }, adminToken);
+  assert.equal(futureTripRes.status, 201);
+  const futureTripId = futureTripRes.data.data.trip.id;
+
+  const pastTripRes = await request('POST', '/api/trips', {
+    scheduleId,
+    departureAt: pastDeparture,
+    arrivalAt: pastArrival,
+  }, adminToken);
+  assert.equal(pastTripRes.status, 201);
+
+  const allTripsRes = await request('GET', '/api/public/trips');
+  assert.equal(allTripsRes.status, 200);
+  const allTripIds = (allTripsRes.data.data.items || []).map((trip) => trip.id);
+  assert.ok(allTripIds.includes(futureTripId), 'future trip should be returned');
+  assert.ok(!allTripIds.includes(pastTripRes.data.data.trip.id), 'past trip should be excluded');
+
+  const date = futureDeparture.slice(0, 10);
+  const byDepartureRes = await request('GET', `/api/public/trips?departure=Goma`);
+  assert.equal(byDepartureRes.status, 200);
+  assert.ok((byDepartureRes.data.data.items || []).some((trip) => trip.id === futureTripId));
+
+  const byDateRes = await request('GET', `/api/public/trips?date=${date}`);
+  assert.equal(byDateRes.status, 200);
+  assert.ok((byDateRes.data.data.items || []).some((trip) => trip.id === futureTripId));
+
+  const byCombinedRes = await request('GET', `/api/public/trips?departure=Goma&date=${date}`);
+  assert.equal(byCombinedRes.status, 200);
+  assert.ok((byCombinedRes.data.data.items || []).some((trip) => trip.id === futureTripId));
+});
+
 test('GET /api/public/trips — filtre par date invalide', async () => {
   const res = await request('GET', '/api/public/trips?date=invalid-date');
   assert.equal(res.status, 400);

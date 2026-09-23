@@ -16,6 +16,37 @@ const normalizeLimit = (value) => {
   return Math.min(parsed, 50);
 };
 
+const normalizePublicDateRange = (dateString) => {
+  const value = normalizeString(dateString);
+  if (!value) return null;
+
+  const match = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (!match) {
+    throw new AppError('date must be a valid YYYY-MM-DD value', 400);
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  const start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  const next = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0));
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(next.getTime())) {
+    throw new AppError('date must be a valid YYYY-MM-DD value', 400);
+  }
+
+  return { gte: start, lt: next };
+};
+
+const isPublicTripEligible = (trip, now = new Date()) => {
+  if (!trip) return false;
+  if (trip.status !== 'SCHEDULED') return false;
+  if (!trip.departureAt || new Date(trip.departureAt) <= now) return false;
+  if (!trip.schedule) return false;
+  if (trip.schedule.status !== 'ACTIVE') return false;
+  if (!trip.schedule.route || trip.schedule.route.status !== 'ACTIVE') return false;
+  if (!trip.schedule.bus || trip.schedule.bus.status !== 'ACTIVE') return false;
+  return true;
+};
+
 const getCoachDepartment = async () => {
   const department = await prisma.department.findUnique({ where: { type: 'VANGUARD_COACH' } });
   if (!department) throw new AppError('Vanguard Coach department not found', 404);
@@ -36,15 +67,18 @@ const listPublicTrips = async (query = {}) => {
 
   const departure = normalizeString(query.departure);
   const arrival = normalizeString(query.arrival);
-  const date = normalizeString(query.date);
+  const dateRange = normalizePublicDateRange(query.date);
+  const now = new Date();
 
   const where = {
     schedule: {
       departmentId: department.id,
       status: 'ACTIVE',
       route: { status: 'ACTIVE' },
+      bus: { status: 'ACTIVE' },
     },
     status: 'SCHEDULED',
+    departureAt: { gt: now },
   };
 
   if (departure) {
@@ -53,16 +87,8 @@ const listPublicTrips = async (query = {}) => {
   if (arrival) {
     where.schedule.route.arrivalCity = { contains: arrival, mode: 'insensitive' };
   }
-  if (date) {
-    const parsedDate = new Date(date);
-    if (Number.isNaN(parsedDate.getTime())) {
-      throw new AppError('date must be a valid ISO date', 400);
-    }
-    const start = new Date(parsedDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(parsedDate);
-    end.setHours(23, 59, 59, 999);
-    where.departureAt = { gte: start, lte: end };
+  if (dateRange) {
+    where.departureAt = { ...dateRange, gt: now };
   }
 
   const [items, total] = await Promise.all([
@@ -139,8 +165,9 @@ const getPublicTripSeats = async (tripId) => {
   });
 
   if (!trip) throw new AppError('Trip not found', 404);
-  if (trip.status !== 'SCHEDULED') throw new AppError('Trip is not available', 409);
-  if (trip.schedule?.status !== 'ACTIVE') throw new AppError('Trip is not available', 409);
+  if (!isPublicTripEligible(trip, new Date())) {
+    throw new AppError('Trip is not available', 409);
+  }
 
   const bus = trip.schedule?.bus;
   if (!bus) throw new AppError('Bus not found', 404);
@@ -197,11 +224,12 @@ const createPublicReservation = async (data) => {
 
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
-    include: { schedule: { include: { bus: true } } },
+    include: { schedule: { include: { bus: true, route: true } } },
   });
   if (!trip) throw new AppError('Trip not found', 404);
-  if (trip.status !== 'SCHEDULED') throw new AppError('Trip is not available', 409);
-  if (trip.schedule?.status !== 'ACTIVE') throw new AppError('Trip is not available', 409);
+  if (!isPublicTripEligible(trip, new Date())) {
+    throw new AppError('Trip is not available', 409);
+  }
 
   const bus = trip.schedule?.bus;
   if (!bus) throw new AppError('Bus not found', 404);
@@ -211,30 +239,32 @@ const createPublicReservation = async (data) => {
     throw new AppError('Invalid seat number', 400);
   }
 
-  // Vérifier la disponibilité du siège de manière transactionnelle pour éviter les doubles réservations
+  const sealedSeatNumber = String(seatNumber);
+
   const reservation = await prisma.$transaction(async (tx) => {
-    const existing = await tx.reservation.findFirst({
-      where: { tripId, seatNumber: String(seatNumber), status: { in: ['PENDING', 'CONFIRMED'] } },
-    });
-    if (existing) throw new AppError('Seat already reserved', 409);
+    try {
+      const totalAmount = String(trip.schedule.price ?? '0.00');
+      const reservationCode = `RSV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
-    // Le prix provient du backend, jamais du frontend
-    const totalAmount = String(trip.schedule.price ?? '0.00');
-    const reservationCode = `RSV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-
-    return tx.reservation.create({
-      data: {
-        reservationCode,
-        tripId,
-        customerName: normalizeString(customerName),
-        customerPhone: normalizeString(customerPhone),
-        customerEmail: customerEmail ? normalizeString(customerEmail) : null,
-        seatNumber: String(seatNumber),
-        totalAmount,
-        status: 'PENDING',
-        createdByUserId: null, // Réservation publique sans compte
-      },
-    });
+      return await tx.reservation.create({
+        data: {
+          reservationCode,
+          tripId,
+          customerName: normalizeString(customerName),
+          customerPhone: normalizeString(customerPhone),
+          customerEmail: customerEmail ? normalizeString(customerEmail) : null,
+          seatNumber: sealedSeatNumber,
+          totalAmount,
+          status: 'PENDING',
+          createdByUserId: null,
+        },
+      });
+    } catch (error) {
+      if (error?.code === 'P2002') {
+        throw new AppError('Seat already reserved', 409);
+      }
+      throw error;
+    }
   });
 
   return {

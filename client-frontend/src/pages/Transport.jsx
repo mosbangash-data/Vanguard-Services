@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Search,
@@ -93,14 +93,32 @@ export default function Transport() {
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentError, setPaymentError] = useState(null)
 
-  const loadTrips = async (filters = {}) => {
+  const loadAvailableTrips = async (limit = 20) => {
+    setSearching(true)
+    setSearchError(null)
+    try {
+      const result = await api.searchTrips({ limit })
+      setTrips(result?.items || [])
+      setStep(1)
+      return result?.items || []
+    } catch (err) {
+      setSearchError(translateError(err, t))
+      setTrips([])
+      setStep(1)
+      return []
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const searchTrips = async (filters = {}) => {
     setSearching(true)
     setSearchError(null)
     try {
       const result = await api.searchTrips({
-        departure: filters.from || search.from || undefined,
-        arrival: filters.to || search.to || undefined,
-        date: filters.date || search.date || undefined,
+        departure: filters.from || undefined,
+        arrival: filters.to || undefined,
+        date: filters.date || undefined,
       })
       setTrips(result?.items || [])
       setStep(1)
@@ -116,12 +134,12 @@ export default function Transport() {
   }
 
   useEffect(() => {
-    void loadTrips()
+    void loadAvailableTrips()
   }, [])
 
   const handleSearch = async (e) => {
     e.preventDefault()
-    await loadTrips({
+    await searchTrips({
       from: search.from,
       to: search.to,
       date: search.date,

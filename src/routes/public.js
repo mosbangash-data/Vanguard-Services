@@ -22,13 +22,20 @@ const publicPostLimiter = rateLimit({
   },
 });
 
+const setNoStoreHeaders = (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+};
+
 // ===== TRANSPORT PUBLIC =====
 
 // GET /api/public/trips?departure=&arrival=&date=&page=&limit=
-router.get('/trips', publicController.listPublicTrips);
+router.get('/trips', setNoStoreHeaders, publicController.listPublicTrips);
 
 // GET /api/public/trips/:tripId/seats
-router.get('/trips/:tripId/seats', publicController.getPublicTripSeats);
+router.get('/trips/:tripId/seats', setNoStoreHeaders, publicController.getPublicTripSeats);
 
 // POST /api/public/reservations
 router.post('/reservations', publicPostLimiter, validatePublicReservationCreate, publicController.createPublicReservation);
