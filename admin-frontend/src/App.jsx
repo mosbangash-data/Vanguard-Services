@@ -28,6 +28,7 @@ import { CustomerRequestsPage, CustomerRequestDetailPage } from './features/cons
 import { QuoteRequestsPage, QuoteRequestDetailPage } from './features/construction/QuoteRequestsPage'
 import { ResourcePage } from './features/resources/ResourcePage'
 import { CoachOperationsPage } from './features/admin/coach/CoachOperationsPage'
+import { AgentDashboard } from './features/admin/coach/AgentDashboard'
 import { AgenciesManagementPage } from './features/admin/coach/AgenciesManagementPage'
 import { AgencyDetailPage } from './features/admin/coach/AgencyDetailPage'
 import { TicketScanner } from './features/admin/coach/TicketScanner'
@@ -40,10 +41,16 @@ import { AutoSalesInquiryPage, AutoSalesReservationPage, AutoSalesPaymentPage, A
 import { VehicleManagementPage, VehicleDetailPage } from './features/admin/autosales/VehicleManagementPage'
 import { VehicleTemplatesPage } from './features/admin/autosales/VehicleTemplatesPage'
 import { resourceByPath, resourceGroups } from './features/resources/resourceConfig'
+import { useAuth } from './features/auth/authContext'
 
 function ResourceRoute({ path }) {
   const resource = resourceByPath[path]
   return <ResourcePage resource={resource} />
+}
+
+function CoachHome() {
+  const { user } = useAuth()
+  return user?.role === 'AGENT' ? <AgentDashboard /> : <CoachOperationsPage />
 }
 
 function renderDepartmentRoutes({ base, department, title, resources, DashboardComponent = DashboardPage }) {
@@ -127,7 +134,7 @@ export default function App() {
             </Route>
 
             {/* Department Specific Spaces */}
-            {renderDepartmentRoutes({ base: '/transport', department: 'VANGUARD_COACH', title: 'Vanguard Coach', resources: resourceGroups.transport, DashboardComponent: CoachOperationsPage })}
+            {renderDepartmentRoutes({ base: '/transport', department: 'VANGUARD_COACH', title: 'Vanguard Coach', resources: resourceGroups.transport, DashboardComponent: CoachHome })}
             {renderDepartmentRoutes({ base: '/construction', department: 'CONSTRUCTION', title: 'Construction', resources: resourceGroups.construction, DashboardComponent: ConstructionDashboardPage })}
             {renderDepartmentRoutes({ base: '/automobile', department: 'AUTO_SALES', title: 'AutoSales', resources: resourceGroups.automobile, DashboardComponent: AutoSalesDashboardPage })}
           </Route>

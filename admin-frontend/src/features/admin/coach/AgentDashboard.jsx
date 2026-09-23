@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { CalendarDays, CheckCircle2, CreditCard, Package, QrCode, Ticket, UserRoundPlus } from 'lucide-react'
 import { useAuth } from '../../auth/authContext'
-import { useLanguage } from '../../../i18n'
+import { useLanguage } from '../../../i18n/useLanguage'
 import { hasPermission } from '../../auth/permissions'
 import { api } from '../../../services/api'
 import { TicketScanner } from './TicketScanner'
@@ -11,227 +13,116 @@ export function AgentDashboard() {
   const { lang, t } = useLanguage()
   const [showScanner, setShowScanner] = useState(false)
 
-  // Données trips pour l'agent
-  const { data: tripsData, isPending: tripsPending, isError: tripsError } = useQuery({
-    queryKey: ['agent-trips'],
+  const canViewTrips = hasPermission(user, 'VIEW_TRIP')
+  const canViewReservations = hasPermission(user, 'VIEW_RESERVATION')
+  const canViewPayments = hasPermission(user, 'VIEW_PAYMENT')
+  const canCreateReservations = hasPermission(user, 'CREATE_RESERVATION')
+  const canCreateParcels = hasPermission(user, 'CREATE_PARCEL')
+  const canViewParcels = hasPermission(user, 'VIEW_PARCEL')
+  const canScanTickets = hasPermission(user, 'SCAN_TICKET')
+
+  const tripsQuery = useQuery({
+    queryKey: ['agent-workspace-trips', user?.id],
     queryFn: async () => {
-      const res = await api.get('/api/trips', { params: { department: 'VANGUARD_COACH' } })
+      const res = await api.get('/api/trips', { params: { page: 1, limit: 100 } })
       if (!res.data?.success) throw new Error('Erreur trips')
       return res.data.data?.items || res.data.data || []
     },
-    enabled: !!user,
+    enabled: !!user && canViewTrips,
   })
 
-  // Données reservations pour l'agent
-  const { data: reservationsData, isPending: reservationsPending, isError: reservationsError } = useQuery({
-    queryKey: ['agent-reservations'],
+  const reservationsQuery = useQuery({
+    queryKey: ['agent-workspace-reservations', user?.id],
     queryFn: async () => {
-      const res = await api.get('/api/reservations', { params: { department: 'VANGUARD_COACH' } })
+      const res = await api.get('/api/reservations', { params: { page: 1, limit: 100 } })
       if (!res.data?.success) throw new Error('Erreur reservations')
       return res.data.data?.items || []
     },
-    enabled: !!user,
+    enabled: !!user && canViewReservations,
   })
 
-  // Données paiements si permission VIEW_PAYMENT
-  const hasViewPayment = hasPermission(user, 'VIEW_PAYMENT')
-  const { data: paymentsData, isPending: paymentsPending, isError: paymentsError } = useQuery({
-    queryKey: ['agent-payments'],
+  const paymentsQuery = useQuery({
+    queryKey: ['agent-workspace-payments', user?.id],
     queryFn: async () => {
-      if (!hasViewPayment) return { payments: [] }
-      const res = await api.get('/api/reservation-payments', { params: { department: 'VANGUARD_COACH', status: 'PENDING' } })
+      const res = await api.get('/api/reservation-payments', { params: { status: 'PENDING', page: 1, limit: 100 } })
       if (!res.data?.success) throw new Error('Erreur paiements')
       return res.data.data || { payments: [] }
     },
-    enabled: !!user && hasViewPayment,
+    enabled: !!user && canViewPayments,
   })
 
-  // Normalisation des listes
-  const tripsList = Array.isArray(tripsData) ? tripsData : (tripsData?.items || [])
-  const reservationsList = Array.isArray(reservationsData) ? reservationsData : (reservationsData?.items || [])
-  const paymentsList = paymentsData?.payments || (Array.isArray(paymentsData) ? paymentsData : [])
+  const trips = tripsQuery.data || []
+  const reservations = reservationsQuery.data || []
+  const payments = paymentsQuery.data?.payments || []
+  const today = new Date()
+  const todayTrips = useMemo(() => trips.filter((trip) => {
+    const date = new Date(trip.departureAt)
+    return date.toDateString() === today.toDateString()
+  }).sort((left, right) => new Date(left.departureAt) - new Date(right.departureAt)), [trips])
+  const pendingReservations = reservations.filter((reservation) => reservation.status === 'PENDING')
+  const nextTrip = todayTrips.find((trip) => new Date(trip.departureAt) >= new Date())
+  const formatTime = (value) => new Date(value).toLocaleTimeString(lang === 'en' ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const formatStatus = (status) => t(`status.${String(status || '').toLowerCase()}`) || status
+  const isLoading = (canViewTrips && tripsQuery.isPending)
+    || (canViewReservations && reservationsQuery.isPending)
+    || (canViewPayments && paymentsQuery.isPending)
+  const hasError = (canViewTrips && tripsQuery.isError)
+    || (canViewReservations && reservationsQuery.isError)
+    || (canViewPayments && paymentsQuery.isError)
 
-  // États
-  const emptyState = t('dashboard.emptyState') || 'Aucune donnée disponible'
-  const errorState = t('dashboard.errorState') || 'Impossible de charger les données'
+  const quickActions = [
+    canScanTickets && { label: t('agent.scanTicket'), icon: QrCode, action: () => setShowScanner(true) },
+    canCreateReservations && { label: 'Nouvelle réservation', icon: UserRoundPlus, to: '/transport/reservations' },
+    canViewPayments && { label: 'Traiter les paiements', icon: CreditCard, to: '/transport/payments' },
+    canCreateParcels && { label: 'Enregistrer un colis', icon: Package, to: '/transport/parcels' },
+  ].filter(Boolean)
 
-  const isPending = tripsPending || reservationsPending || (hasViewPayment && paymentsPending)
-  const isError = tripsError || reservationsError || (hasViewPayment && paymentsError)
-
-  if (isPending) return <section className="page"><p>{t('dashboard.loading')}…</p></section>
-  if (isError) return <section className="page"><p className="error">{errorState}</p></section>
   if (!user) return null
-
-  // Permissions Agent
-  const hasViewTrip = hasPermission(user, 'VIEW_TRIP')
-  const hasViewReservation = hasPermission(user, 'VIEW_RESERVATION')
-
-  // Helper format status
-  const formatStatus = (status) => t(`status.${status.toLowerCase()}`) || status
-
-  // En-tête Agent
-  const header = (
-    <div className="agent-header">
-      <h1>{t('agent.dashboardTitle')}</h1>
-      {user?.firstName && <p>{t('agent.welcome', { name: user.firstName })}</p>}
-    </div>
-  )
-
-  // Actions rapides
-  const quickActions = (
-    <div className="agent-actions">
-      <h2>{t('agent.quickActions')}</h2>
-      <div className="agent-actions__grid">
-        <button type="button" className="button" onClick={() => setShowScanner(true)}>
-          {t('agent.scanTicket')}
-        </button>
-        <a href="/transport/tickets" className="button secondary">
-          {t('agent.viewTicket')}
-        </a>
-      </div>
-    </div>
-  )
-
-  // Statistiques Agent - simples et utiles
-  const indicatorsSection = tripsList ? (
-    <div className="agent-indicators">
-      <div className="indicator-card">
-        <div className="indicator-icon">{t('icons.trips')}</div>
-        <div>
-          <strong>{t('agent.todayTrips')}</strong>
-          <span>{tripsList.length}</span>
-        </div>
-      </div>
-      <div className="indicator-card">
-        <div className="indicator-icon">{t('icons.reservations')}</div>
-        <div>
-          <strong>{t('agent.todayReservations')}</strong>
-          <span>{reservationsList.length}</span>
-        </div>
-      </div>
-      <div className="indicator-card">
-        <div className="indicator-icon">{t('icons.passengers')}</div>
-        <div>
-          <span>{reservationsList.length}</span>
-        </div>
-      </div>
-      {hasViewPayment && (
-        <div className="indicator-card">
-          <div className="indicator-icon">{t('icons.payment')}</div>
-          <div>
-            <span>{t('agent.paymentsPending')}</span>
-            <span>{paymentsList.length}</span>
-          </div>
-        </div>
-      )}
-    </div>
-  ) : (
-    <p>{emptyState}</p>
-  )
-
-  // Voyages du jour
-  const tripsSection = hasViewTrip ? (
-    tripsPending ? (
-      <p>{t('dashboard.loading')}…</p>
-    ) : tripsList.length === 0 ? (
-      <p>{emptyState}</p>
-    ) : (
-      <div className="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>{t('time')}</th>
-              <th>{t('departure')}</th>
-              <th>{t('destination')}</th>
-              <th>{t('bus')}</th>
-              <th>{t('seats')}</th>
-              <th>{t('statusLabel')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tripsList.map((trip) => (
-              <tr key={trip.id}>
-                <td>{new Date(trip.departureAt).toLocaleTimeString(lang === 'en' ? 'en-US' : 'fr-FR')}</td>
-                <td>{trip.schedule?.route?.departureCity || trip.schedule?.departureTime || '—'}</td>
-                <td>{trip.schedule?.route?.arrivalCity || '—'}</td>
-                <td>{trip.schedule?.bus?.plateNumber || '—'}</td>
-                <td>{trip.schedule?.bus?.seats || '—'}</td>
-                <td>
-                  <span className={`status-${(trip.status || '').toLowerCase()}`}>
-                    {formatStatus(trip.status || 'SCHEDULED')}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
-  ) : (
-    <p>{t('dashboard.emptyState') || 'Accès refusé : permissions insuffisantes'}</p>
-  )
-
-  // Reservations à traiter
-  const reservationsSection = hasViewReservation ? (
-    reservationsPending ? (
-      <p>{t('dashboard.loading')}…</p>
-    ) : reservationsList.length === 0 ? (
-      <p>{emptyState}</p>
-    ) : (
-      <div className="recent-reservations">
-        {reservationsList.map((res) => (
-          <div key={res.id} className="reservation-item">
-            <span>{res.reservationCode || res.code || res.id}</span>
-            <span>{t('passenger')}: {res.customerName || res.passengerName || '—'}</span>
-            <span>{t('trip')}: {res.tripId || '—'}</span>
-            <span>{t('date')}: {res.createdAt ? new Date(res.createdAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR') : '—'}</span>
-            <span>{t('seat')}: {res.seatNumber || '—'}</span>
-            <span className={`status-${(res.status || '').toLowerCase()}`}>
-              {formatStatus(res.status || 'PENDING')}
-            </span>
-          </div>
-        ))}
-      </div>
-    )
-  ) : (
-    <p>{t('dashboard.emptyState') || 'Accès refusé : permissions insuffisantes'}</p>
-  )
-
-  // Paiements à traiter (uniquement si permission VIEW_PAYMENT)
-  const paymentsSection = hasViewPayment ? (
-    paymentsPending ? (
-      <p>{t('dashboard.loading')}…</p>
-    ) : paymentsList.length === 0 ? (
-      <p>{emptyState}</p>
-    ) : (
-      <div className="payments-section">
-        <h2>{t('agent.paymentsTitle')}</h2>
-        {paymentsList.length > 0 ? (
-          paymentsList.map((pay) => (
-            <div key={pay.id} className="payment-item">
-              <span>{t('amount')}: {pay.amount || '—'} {pay.currency || 'USD'}</span>
-              <span>{t('reservation')}: {pay.reservation?.reservationCode || pay.reservationId || '—'}</span>
-              <span>{t('passenger')}: {pay.reservation?.customerName || pay.passengerName || '—'}</span>
-              <span className={`status-${(pay.status || '').toLowerCase()}`}>
-                {formatStatus(pay.status || 'PENDING')}
-              </span>
-            </div>
-          ))
-        ) : (
-          <p>{t('agent.noPayments')}</p>
-        )}
-      </div>
-    )
-  ) : null
-
   return (
-    <section className="page">
-      {header}
-      {quickActions}
-      {indicatorsSection}
-      {tripsSection}
-      {reservationsSection}
-      {paymentsSection}
+    <section className="page agent-workspace">
+      <div className="agent-header">
+        <div>
+          <p className="eyebrow">VANGUARD COACH / POSTE OPERATIONNEL</p>
+          <h1>{t('agent.dashboardTitle')}</h1>
+          <p>{t('agent.welcome', { name: user.firstName })} · Suivez les opérations de votre journée depuis un seul espace.</p>
+        </div>
+        <span className="badge active">AGENT ACTIF</span>
+      </div>
+
+      <section className="agent-actions">
+        <div className="section-heading"><div><h2>{t('agent.quickActions')}</h2><p>Les tâches les plus fréquentes de votre poste.</p></div></div>
+        <div className="agent-actions__grid">
+          {quickActions.map(({ label, icon: Icon, to, action }) => to ? <Link key={label} to={to} className="button"><Icon size={16} />{label}</Link> : <button key={label} type="button" className="button" onClick={action}><Icon size={16} />{label}</button>)}
+        </div>
+      </section>
+
+      {isLoading && <div className="state-container">Chargement de votre activité…</div>}
+      {hasError && <div className="state-container"><p className="error">Certaines données n’ont pas pu être chargées.</p></div>}
+
+      {!isLoading && !hasError && <>
+        <div className="dashboard-stats-grid">
+          <article className="stat-card"><CalendarDays size={22} /><div><span>Voyages aujourd’hui</span><strong>{todayTrips.length}</strong></div></article>
+          <article className="stat-card"><Ticket size={22} /><div><span>Réservations à traiter</span><strong>{pendingReservations.length}</strong></div></article>
+          <article className="stat-card"><CreditCard size={22} /><div><span>Paiements en attente</span><strong>{payments.length}</strong></div></article>
+          <article className="stat-card"><CheckCircle2 size={22} /><div><span>Prochain départ</span><strong>{nextTrip ? formatTime(nextTrip.departureAt) : '—'}</strong></div></article>
+        </div>
+
+        <div className="dashboard-content-grid">
+          <section className="dashboard-panel">
+            <div className="section-heading"><div><h2>Prochains départs</h2><p>Préparez l’accueil et l’embarquement.</p></div><Link to="/transport/trips" className="button secondary sm">Voir les voyages</Link></div>
+            {todayTrips.length === 0 ? <p className="empty">Aucun départ prévu aujourd’hui.</p> : <div className="table-responsive"><table className="data-table"><thead><tr><th>Heure</th><th>Trajet</th><th>Bus</th><th>Statut</th></tr></thead><tbody>{todayTrips.slice(0, 6).map((trip) => <tr key={trip.id}><td><strong>{formatTime(trip.departureAt)}</strong></td><td>{trip.schedule?.route?.departureCity || '—'} → {trip.schedule?.route?.arrivalCity || '—'}</td><td>{trip.schedule?.bus?.plateNumber || '—'}</td><td><span className={`badge ${trip.status === 'IN_PROGRESS' ? 'warning' : 'info'}`}>{formatStatus(trip.status)}</span></td></tr>)}</tbody></table></div>}
+          </section>
+          <section className="dashboard-panel">
+            <div className="section-heading"><div><h2>À traiter maintenant</h2><p>Priorités opérationnelles de votre agence.</p></div></div>
+            <div className="agent-task-list">
+              {canViewPayments && <Link to="/transport/payments" className="agent-task"><CreditCard size={18} /><span><strong>{payments.length} paiement(s)</strong><small>À vérifier avant émission du billet</small></span><span className="task-arrow">→</span></Link>}
+              {canViewReservations && <Link to="/transport/reservations" className="agent-task"><Ticket size={18} /><span><strong>{pendingReservations.length} réservation(s)</strong><small>Demandes en attente de traitement</small></span><span className="task-arrow">→</span></Link>}
+              {canViewParcels && <Link to="/transport/parcels" className="agent-task"><Package size={18} /><span><strong>Gestion des colis</strong><small>Enregistrer, suivre ou faire évoluer un colis</small></span><span className="task-arrow">→</span></Link>}
+              {!canViewPayments && !canViewReservations && !canViewParcels && <p className="empty">Aucune action opérationnelle disponible pour votre rôle.</p>}
+            </div>
+          </section>
+        </div>
+      </>}
       {showScanner && <TicketScanner onClose={() => setShowScanner(false)} />}
     </section>
   )
