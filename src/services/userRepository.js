@@ -10,6 +10,7 @@ const userRelations = {
       },
     },
     department: true,
+    agency: true,
   },
 };
 

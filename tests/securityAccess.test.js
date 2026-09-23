@@ -23,6 +23,31 @@ test('an old JWT is refused when the account is no longer active', async () => {
   authService.getUserForAuth = original;
 });
 
+test('authenticated users receive their agency from the persisted user relation', async () => {
+  const original = authService.getUserForAuth;
+  authService.getUserForAuth = async () => ({
+    id: 'agent-1',
+    email: 'agent@example.com',
+    status: 'ACTIVE',
+    roleId: 'role-1',
+    role: { name: 'AGENT', permissions: [{ permission: { name: 'VIEW_PARCEL' } }] },
+    department: { id: 'coach-department', type: 'VANGUARD_COACH', name: 'Coach' },
+    agency: { id: 'agency-a', code: 'A', name: 'Agency A', departmentId: 'coach-department' },
+  });
+
+  const token = jwt.sign({ sub: 'agent-1' }, env.jwtSecret, { expiresIn: '1h' });
+  const user = await buildUserFromToken(token);
+
+  assert.deepEqual(user.agency, {
+    id: 'agency-a',
+    code: 'A',
+    name: 'Agency A',
+    departmentId: 'coach-department',
+  });
+  assert.deepEqual(user.permissions, ['VIEW_PARCEL']);
+  authService.getUserForAuth = original;
+});
+
 test('parcels allow Transport administration and reject Construction and Automobile', async () => {
   const originalFindMany = prisma.parcel.findMany;
   const originalCount = prisma.parcel.count;

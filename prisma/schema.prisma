@@ -290,6 +290,7 @@ model Agency {
   updatedAt    DateTime @updatedAt
 
   department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  users              User[]
   originParcels      Parcel[]   @relation("OriginAgency")
   destinationParcels Parcel[]   @relation("DestinationAgency")
   payments           Payment[]
@@ -384,11 +385,13 @@ model User {
   firstLogin   Boolean    @default(true)
   roleId       String
   departmentId String?
+  agencyId     String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   role                            Role                             @relation(fields: [roleId], references: [id], onDelete: Restrict)
   department                      Department?                      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  agency                          Agency?                          @relation(fields: [agencyId], references: [id], onDelete: SetNull)
   preferences                     UserPreference[]
   uploadedMedia                   Media[]                          @relation("UploadedMedia")
   assignedRequests                CustomerRequest[]                @relation("AssignedRequests")

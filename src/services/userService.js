@@ -141,7 +141,7 @@ const getUserById = async (userId, currentUser) => {
 };
 
 const createUser = async (data, currentUser) => {
-  const { firstName, lastName, phone, email, roleId, departmentId } = data;
+  const { firstName, lastName, phone, email, roleId, departmentId, agencyId } = data;
   if (!firstName || !lastName || !email || !roleId || !departmentId) {
     throw new AppError('firstName, lastName, email, roleId and departmentId are required', 400);
   }
@@ -154,6 +154,13 @@ const createUser = async (data, currentUser) => {
   const department = await prisma.department.findUnique({ where: { id: departmentId } });
   if (!department) {
     throw new AppError('Department not found', 404);
+  }
+  let agency = null;
+  if (agencyId) {
+    agency = await prisma.agency.findUnique({ where: { id: agencyId } });
+    if (!agency || agency.departmentId !== department.id) {
+      throw new AppError('Agency does not belong to the selected department', 400);
+    }
   }
   await assertManageableUser(null, currentUser, { creating: true, requestedDepartmentId: department.id, requestedRole: role });
 
@@ -174,6 +181,7 @@ const createUser = async (data, currentUser) => {
     firstLogin: true,
     roleId,
     departmentId,
+    agencyId: agency?.id || null,
     status: 'ACTIVE',
   });
 

@@ -66,6 +66,14 @@ const buildUserResponse = async (user) => {
           name: user.department.name,
         }
       : null,
+    agency: user.agency
+      ? {
+          id: user.agency.id,
+          code: user.agency.code,
+          name: user.agency.name,
+          departmentId: user.agency.departmentId,
+        }
+      : null,
     permissions,
   };
 };

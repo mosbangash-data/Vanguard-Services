@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 class AppError extends Error {
   constructor(message, statusCode = 500) {
     super(message);
@@ -19,19 +21,27 @@ const errorHandler = (err, req, res, next) => {
   const publicMessage = err.isOperational
     ? message
     : 'Une erreur interne est survenue. Veuillez réessayer.';
+  const errorId = crypto.randomUUID();
 
   if (process.env.NODE_ENV !== 'production') {
     console.error('[api-error]', {
+      errorId,
       name: err.name,
       message,
+      code: err.code,
+      meta: err.meta,
+      stack: err.stack,
       statusCode,
     });
+  } else {
+    console.error('[api-error]', { errorId, name: err.name, code: err.code, statusCode });
   }
 
   if (isApiRequest(req)) {
     return res.status(statusCode).json({
       success: false,
       message: publicMessage,
+      errorId,
     });
   }
 
