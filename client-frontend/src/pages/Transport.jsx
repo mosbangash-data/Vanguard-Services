@@ -54,6 +54,17 @@ const formatTime = (time) => time || '—'
 const formatAmount = (amount, currency = 'USD') =>
   `${new Intl.NumberFormat('fr-FR').format(Number(amount))} ${currency}`
 
+const getReservationOutstandingAmount = (reservation) => {
+  if (!reservation) return 0
+  const totalAmount = Number(reservation.totalAmount ?? 0)
+  const payments = Array.isArray(reservation.payments) ? reservation.payments : []
+  const validatedAmount = payments
+    .filter((payment) => payment?.status === 'VERIFIED' || payment?.status === 'COMPLETED')
+    .reduce((sum, payment) => sum + Number(payment?.amount ?? 0), 0)
+
+  return Math.max(totalAmount - validatedAmount, 0)
+}
+
 export default function Transport() {
   const { t } = useLanguage()
   const revealRef = useReveal()
@@ -189,9 +200,10 @@ export default function Transport() {
       const resData = result?.reservation || null
       setBooking(resData)
       if (resData) {
+        const dueAmount = getReservationOutstandingAmount(resData)
         setPayment((prev) => ({
           ...prev,
-          amount: resData.totalAmount || (selectedTrip?.schedule?.price != null ? selectedTrip.schedule.price : selectedTrip?.price) || '',
+          amount: dueAmount > 0 ? String(dueAmount) : '0',
           phoneNumber: passenger.phone || prev.phoneNumber,
         }))
       }
@@ -213,9 +225,10 @@ export default function Transport() {
       const resData = result?.reservation || null
       setLookupResult(resData)
       if (resData) {
+        const dueAmount = getReservationOutstandingAmount(resData)
         setPayment((prev) => ({
           ...prev,
-          amount: resData.totalAmount || '',
+          amount: dueAmount > 0 ? String(dueAmount) : '0',
           phoneNumber: resData.customerPhone || prev.phoneNumber,
         }))
       }
@@ -229,13 +242,33 @@ export default function Transport() {
   const handlePayment = async (e) => {
     e.preventDefault()
     if (!booking && !lookupResult) return
-    const reservationId = booking?.id || lookupResult?.id
+
+    const reservation = booking || lookupResult
+    const reservationId = reservation?.id
+    const dueAmount = getReservationOutstandingAmount(reservation)
+    const submittedAmount = Number(payment.amount)
+
+    if (!reservationId) {
+      setPaymentError('Aucune réservation active n a été trouvée pour ce paiement.')
+      return
+    }
+
+    if (!Number.isFinite(submittedAmount) || submittedAmount <= 0) {
+      setPaymentError('Le montant du paiement doit être supérieur à zéro.')
+      return
+    }
+
+    if (dueAmount > 0 && Math.abs(submittedAmount - dueAmount) > 0.0001) {
+      setPaymentError(`Le montant exact à payer est ${dueAmount.toFixed(2)} USD selon le solde restant.`)
+      return
+    }
+
     setPaymentLoading(true)
     setPaymentError(null)
     setPaymentResult(null)
     try {
       const payload = {
-        amount: Number(payment.amount),
+        amount: submittedAmount,
         method: payment.method,
         reference: payment.reference?.trim() || null,
         comment: payment.comment?.trim() || null,
@@ -688,10 +721,12 @@ export default function Transport() {
                       </h4>
                       <div className="notice notice-info">
                         <Info size={18} aria-hidden="true" />
+                        <span>{paymentResult.message || (paymentResult.payment.method === 'MOBILE_MONEY' ? t('transportPage.paymentMobileInProgress') : t('transportPage.paymentPendingNote'))}</span>
+                      </div>
+                      <div className="notice notice-info mt-4">
+                        <Info size={18} aria-hidden="true" />
                         <span>
-                          {paymentResult.payment.method === 'MOBILE_MONEY'
-                            ? t('transportPage.paymentMobileInProgress')
-                            : t('transportPage.paymentPendingNote')}
+                          Statut backend: {paymentResult.payment.status} • Montant déclaré: {formatAmount(paymentResult.payment.amount, paymentResult.payment.currency || 'USD')}
                         </span>
                       </div>
                     </div>
@@ -815,6 +850,14 @@ export default function Transport() {
                         />
                       </div>
                       {paymentError && <div className="notice notice-error">{paymentError}</div>}
+                      <div className="notice notice-info mt-4">
+                        <Info size={18} aria-hidden="true" />
+                        <span>
+                          {payment.method === 'MOBILE_MONEY'
+                            ? `Montant dû exact: ${getReservationOutstandingAmount(booking || lookupResult).toFixed(2)} USD`
+                            : `Montant dû exact: ${getReservationOutstandingAmount(booking || lookupResult).toFixed(2)} USD`}
+                        </span>
+                      </div>
                       <button type="submit" className="btn btn-outline" disabled={paymentLoading}>
                         <CreditCard size={18} aria-hidden="true" />
                         {paymentLoading ? t('transportPage.paymentSending') : t('transportPage.paymentSubmit')}

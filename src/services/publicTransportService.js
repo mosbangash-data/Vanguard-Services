@@ -231,6 +231,16 @@ const createPublicReservation = async (data) => {
     throw new AppError('Trip is not available', 409);
   }
 
+  const agencyId = trip.schedule?.agencyId ? String(trip.schedule.agencyId).trim() : '';
+  if (!agencyId) {
+    throw new AppError('This trip is not assigned to any agency. Reservation cannot be created.', 400);
+  }
+
+  const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
+  if (!agency) {
+    throw new AppError('This trip has an invalid agency assignment. Reservation cannot be created.', 400);
+  }
+
   const bus = trip.schedule?.bus;
   if (!bus) throw new AppError('Bus not found', 404);
 
@@ -250,6 +260,7 @@ const createPublicReservation = async (data) => {
         data: {
           reservationCode,
           tripId,
+          agencyId,
           customerName: normalizeString(customerName),
           customerPhone: normalizeString(customerPhone),
           customerEmail: customerEmail ? normalizeString(customerEmail) : null,
@@ -275,6 +286,7 @@ const createPublicReservation = async (data) => {
       seatNumber: reservation.seatNumber,
       totalAmount: reservation.totalAmount,
       tripId: reservation.tripId,
+      agencyId: reservation.agencyId,
     },
   };
 };
@@ -316,6 +328,7 @@ const getPublicReservationByCode = async (code) => {
       status: reservation.status,
       seatNumber: reservation.seatNumber,
       totalAmount: reservation.totalAmount,
+      agencyId: reservation.agencyId,
       customerName: reservation.customerName,
       customerPhone: reservation.customerPhone,
       customerEmail: reservation.customerEmail,
@@ -361,6 +374,9 @@ const createPublicReservationPayment = async (reservationId, data) => {
   if (!reservation) throw new AppError('Reservation not found', 404);
   if (!['PENDING', 'CONFIRMED'].includes(reservation.status)) {
     throw new AppError('Reservation is not in a payable state', 409);
+  }
+  if (!reservation.agencyId) {
+    throw new AppError('This reservation is not associated with any agency. Cash payment cannot be recorded.', 400);
   }
 
   const totalRequiredCents = Math.round(Number(reservation.totalAmount || 0) * 100);
@@ -460,6 +476,7 @@ const createPublicReservationPayment = async (reservationId, data) => {
     const payment = await prisma.payment.create({
       data: {
         reservationId: reservation.id,
+        agencyId: reservation.agencyId,
         amount: amountNum.toFixed(2),
         currency,
         channel,
@@ -477,6 +494,7 @@ const createPublicReservationPayment = async (reservationId, data) => {
     return {
       payment: {
         id: payment.id,
+        agencyId: payment.agencyId,
         amount: payment.amount,
         currency: payment.currency,
         method: payment.method,
@@ -494,6 +512,7 @@ const createPublicReservationPayment = async (reservationId, data) => {
   const payment = await prisma.payment.create({
     data: {
       reservationId: reservation.id,
+      agencyId: reservation.agencyId,
       amount: amountNum.toFixed(2),
       currency,
       channel,
@@ -509,6 +528,7 @@ const createPublicReservationPayment = async (reservationId, data) => {
   return {
     payment: {
       id: payment.id,
+      agencyId: payment.agencyId,
       amount: payment.amount,
       currency: payment.currency,
       method: payment.method,

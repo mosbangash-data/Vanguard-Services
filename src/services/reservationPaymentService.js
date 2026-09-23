@@ -291,6 +291,24 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
   assertAgencyAccess(currentUser, reservation.agencyId);
   ensurePayableReservation(reservation);
 
+  if (!payment.agencyId || !reservation.agencyId) {
+    throw new AppError('Payment and reservation must be associated with an agency before validation.', 400);
+  }
+  if (payment.agencyId !== reservation.agencyId) {
+    throw new AppError('Payment agency does not match reservation agency.', 403);
+  }
+  if (payment.channel !== 'AGENCY' || payment.method !== 'CASH') {
+    throw new AppError('This endpoint only validates agency cash payments.', 409);
+  }
+  if (currentUser.role === 'AGENT') {
+    if (!currentUser.agencyId) {
+      throw new AppError('Agent agency assignment is required', 403);
+    }
+    if (currentUser.agencyId !== payment.agencyId) {
+      throw new AppError('Access denied: payment belongs to another agency', 403);
+    }
+  }
+
   const validatedPaidCents = sumValidatedPayments(reservation.payments);
   const totalAmountCents = parseMoneyToCents(reservation.totalAmount);
   const paymentCents = parseMoneyToCents(payment.amount);
@@ -299,24 +317,12 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
     throw new AppError('Payment amount exceeds remaining reservation balance', 400);
   }
 
-  const departmentId = reservation.trip.schedule.departmentId;
-  let resolvedAgencyId = options.agencyId || null;
-  if (resolvedAgencyId) {
-    const agency = await prisma.agency.findUnique({ where: { id: resolvedAgencyId } });
-    if (!agency || agency.departmentId !== departmentId) {
-      throw new AppError('Invalid agency for this reservation department', 400);
-    }
-  } else if (currentUser.role === 'AGENT') {
-    resolvedAgencyId = getUserAgencyId(currentUser);
-  } else {
-    const defaultAgency = await prisma.agency.findFirst({
-      where: { departmentId, isActive: true },
-    });
-    resolvedAgencyId = defaultAgency?.id || null;
+  const resolvedAgencyId = payment.agencyId || reservation.agencyId;
+  if (!resolvedAgencyId) {
+    throw new AppError('Payment is not associated with a valid agency.', 400);
   }
 
   const ticketResult = await prisma.$transaction(async (tx) => {
-    // The conditional update makes validation safe when two agents submit at once.
     const changed = await tx.payment.updateMany({
       where: { id: paymentId, status: 'PENDING' },
       data: {
