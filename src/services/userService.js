@@ -187,7 +187,11 @@ const createUser = async (data, currentUser) => {
 
   await auditService.log('create_user', currentUser.id, { targetUserId: user.id, departmentId: department.id });
 
-  return { user: { id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email, status: user.status, role: user.role.name, department: user.department ? { type: user.department.type, name: user.department.name } : null }, firstLogin: true };
+  return {
+    user: { id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email, status: user.status, role: user.role.name, department: user.department ? { type: user.department.type, name: user.department.name } : null },
+    firstLogin: true,
+    temporaryPassword,
+  };
 };
 
 const updateUser = async (userId, data, currentUser) => {
@@ -247,7 +251,10 @@ const resetUserPassword = async (userId, currentUser) => {
 
   await auditService.log('reset_password', currentUser.id, { targetUserId: userId });
 
-  return { user: { id: updatedUser.id, firstName: updatedUser.firstName, lastName: updatedUser.lastName, email: updatedUser.email, firstLogin: updatedUser.firstLogin, role: updatedUser.role.name, department: updatedUser.department ? { type: updatedUser.department.type, name: updatedUser.department.name } : null } };
+  return {
+    user: { id: updatedUser.id, firstName: updatedUser.firstName, lastName: updatedUser.lastName, email: updatedUser.email, firstLogin: updatedUser.firstLogin, role: updatedUser.role.name, department: updatedUser.department ? { type: updatedUser.department.type, name: updatedUser.department.name } : null },
+    temporaryPassword,
+  };
 };
 
 const deleteUser = async (userId, currentUser) => {

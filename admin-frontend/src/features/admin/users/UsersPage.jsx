@@ -48,6 +48,7 @@ export function UsersPage() {
   const [viewingUser, setViewingUser] = useState(null)
   const [passwordResetUser, setPasswordResetUser] = useState(null)
   const [tempPassword, setTempPassword] = useState('')
+  const [generatedPasswordUser, setGeneratedPasswordUser] = useState(null)
 
   // Form States
   const [createForm, setCreateForm] = useState({
@@ -100,7 +101,11 @@ export function UsersPage() {
       setIsCreateOpen(false)
       setCreateForm({ firstName: '', lastName: '', email: '', phone: '', roleId: '', departmentId: '' })
       setFormError('')
-      alert('Utilisateur créé avec succès. Un parcours sécurisé de définition du mot de passe est requis.')
+      setGeneratedPasswordUser({
+        name: `${data?.data?.user?.firstName || ''} ${data?.data?.user?.lastName || ''}`.trim(),
+        email: data?.data?.user?.email || '',
+        password: data?.data?.temporaryPassword || '',
+      })
     },
     onError: (err) => {
       setFormError(err?.response?.data?.message || 'Échec de la création de l’utilisateur.')
@@ -141,9 +146,8 @@ export function UsersPage() {
       const response = await api.patch(`/api/users/${id}/password-reset`, {})
       return response.data
     },
-    onSuccess: () => {
-      setTempPassword('')
-      alert('Mot de passe réinitialisé. Un parcours sécurisé de définition du mot de passe est requis.')
+    onSuccess: (data) => {
+      setTempPassword(data?.data?.temporaryPassword || '')
     },
     onError: (err) => {
       alert(err?.response?.data?.message || 'Échec de la réinitialisation du mot de passe.')
@@ -600,6 +604,36 @@ export function UsersPage() {
                   {resetPasswordMutation.isPending ? 'Réinitialisation...' : 'Confirmer la réinitialisation'}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {generatedPasswordUser && (
+        <div className="modal-backdrop">
+          <div className="modal-dialog">
+            <div className="modal-header">
+              <h3 className="modal-title">Utilisateur créé</h3>
+              <button type="button" className="modal-close" onClick={() => setGeneratedPasswordUser(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                Le compte de <strong>{generatedPasswordUser.name}</strong> ({generatedPasswordUser.email}) a été créé.
+              </p>
+              <div className="alert alert-success" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <strong>Mot de passe temporaire :</strong>
+                <code style={{ fontSize: '1.1rem', marginTop: '6px' }}>{generatedPasswordUser.password || 'Indisponible'}</code>
+                <span style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                  Communiquez-le à l’utilisateur de manière sécurisée. Il devra le modifier à sa première connexion.
+                </span>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="button" onClick={() => setGeneratedPasswordUser(null)}>
+                Fermer
+              </button>
             </div>
           </div>
         </div>
