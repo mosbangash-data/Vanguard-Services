@@ -4,6 +4,8 @@ const { AppError } = require('./errorHandler');
 const env = require('../config/env');
 const prisma = require('../config/prisma');
 
+const { syncRolePermissionsForRole } = require('../services/rbacService');
+
 const normalizePermissionNames = (user) => {
   const permissionNames = [];
   const directPermissions = Array.isArray(user?.role?.permissions) ? user.role.permissions : [];
@@ -19,6 +21,10 @@ const normalizePermissionNames = (user) => {
 };
 
 const hydratePermissionsFromRole = async (user) => {
+  if (user?.role?.name) {
+    await syncRolePermissionsForRole(user.role.name);
+  }
+
   const normalized = normalizePermissionNames(user);
   if (normalized.length > 0) {
     return normalized;

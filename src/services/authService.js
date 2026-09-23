@@ -11,14 +11,14 @@ const JWT_SECRET = env.jwtSecret;
 const JWT_EXPIRES_IN = env.jwtExpiresIn;
 
 const normalizeIdentifier = (value) => (typeof value === 'string' ? value.trim() : '');
-
-const isRoleDepartmentCompatible = (roleName, departmentType) => (
-  roleName === 'SUPER_ADMIN'
-  || (roleName === 'SERVICE_ADMIN' && ['VANGUARD_COACH', 'CONSTRUCTION', 'AUTO_SALES'].includes(departmentType))
-  || (['MANAGER', 'AGENT'].includes(roleName) && departmentType === 'VANGUARD_COACH')
-);
+const { isRoleDepartmentCompatible } = require('../config/rbac');
+const { syncRolePermissionsForRole } = require('./rbacService');
 
 const resolvePermissionNames = async (user) => {
+  if (user?.role?.name) {
+    await syncRolePermissionsForRole(user.role.name);
+  }
+
   const permissionNames = [];
   const directPermissions = Array.isArray(user?.role?.permissions) ? user.role.permissions : [];
 
