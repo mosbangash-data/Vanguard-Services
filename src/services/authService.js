@@ -59,6 +59,7 @@ const buildUserResponse = async (user) => {
     lastName: user.lastName,
     role: user.role?.name || null,
     firstLogin: user.firstLogin ?? false,
+    departmentId: user.department?.id || null,
     department: user.department
       ? {
           id: user.department.id,
@@ -66,6 +67,7 @@ const buildUserResponse = async (user) => {
           name: user.department.name,
         }
       : null,
+    agencyId: user.agency?.id || user.agencyId || null,
     agency: user.agency
       ? {
           id: user.agency.id,

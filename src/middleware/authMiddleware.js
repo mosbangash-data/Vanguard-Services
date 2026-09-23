@@ -46,11 +46,11 @@ const buildUserFromToken = async (token) => {
   }
 
   const permissions = await hydratePermissionsFromRole(user);
-
-  return {
+  const payload = {
     id: user.id,
     email: user.email,
     role: user.role?.name || null,
+    departmentId: user.department?.id || null,
     department: user.department
       ? {
           id: user.department.id,
@@ -58,6 +58,7 @@ const buildUserFromToken = async (token) => {
           name: user.department.name,
         }
       : null,
+    agencyId: user.agency?.id || user.agencyId || null,
     agency: user.agency
       ? {
           id: user.agency.id,
@@ -68,6 +69,16 @@ const buildUserFromToken = async (token) => {
       : null,
     permissions,
   };
+
+  console.info('[auth:user]', {
+    userId: payload.id,
+    role: payload.role,
+    department: payload.department?.type || null,
+    agencyId: payload.agencyId || null,
+    permissionCount: payload.permissions.length,
+  });
+
+  return payload;
 };
 
 const authenticateToken = async (req, res, next) => {

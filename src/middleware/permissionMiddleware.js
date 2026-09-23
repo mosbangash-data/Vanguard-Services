@@ -12,8 +12,18 @@ const requireRole = (...allowedRoles) => (req, res, next) => {
 
 const requirePermission = (...requiredPermissions) => (req, res, next) => {
   const userPermissions = req.user?.permissions || [];
-
   const hasAllPermissions = requiredPermissions.every((permission) => userPermissions.includes(permission));
+
+  console.info('[permission:check]', {
+    userId: req.user?.id || null,
+    role: req.user?.role || null,
+    department: req.user?.department?.type || null,
+    agencyId: req.user?.agencyId || req.user?.agency?.id || null,
+    requiredPermissions: requiredPermissions,
+    grantedPermissions: userPermissions,
+    hasAllPermissions,
+    endpoint: req.originalUrl || req.path || null,
+  });
 
   if (!hasAllPermissions) {
     return next(new AppError('Insufficient permissions', 403));
