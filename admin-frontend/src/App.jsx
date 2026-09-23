@@ -63,6 +63,7 @@ function renderDepartmentRoutes({ base, department, title, resources, DashboardC
         {department === 'VANGUARD_COACH' && <Route path="/transport/agencies" element={<AgenciesManagementPage />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/agencies/:id" element={<AgencyDetailPage />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/scanner" element={<TicketScanner />} />}
+        {department === 'VANGUARD_COACH' && <Route path="/transport/operations" element={<CoachOperationsPage />} />}
 
         {/* Automobile dedicated routes */}
         {department === 'AUTO_SALES' && <Route path="/automobile/vehicles" element={<VehicleManagementPage />} />}

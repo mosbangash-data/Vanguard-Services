@@ -19,6 +19,28 @@ const requireCoachAdmin = (user) => {
   }
 };
 
+const getUserAgencyId = (user) => user?.agencyId || user?.agency?.id || null;
+
+const requireCoachOperational = (user, permission = null) => {
+  requireDepartmentType(user, 'VANGUARD_COACH');
+  if (permission && !user.permissions?.includes(permission)) {
+    throw new AppError('Insufficient permissions', 403);
+  }
+  if (user.role === 'AGENT' && !getUserAgencyId(user)) {
+    throw new AppError('Agent agency assignment is required', 403);
+  }
+};
+
+const assertAgencyAccess = (user, agencyId) => {
+  requireDepartmentType(user, 'VANGUARD_COACH');
+  if (user.role !== 'SUPER_ADMIN' && user.role !== 'SERVICE_ADMIN' && user.role !== 'MANAGER') {
+    const userAgencyId = getUserAgencyId(user);
+    if (!userAgencyId || !agencyId || userAgencyId !== agencyId) {
+      throw new AppError('Access denied: resource belongs to another agency', 403);
+    }
+  }
+};
+
 const requireAutomobileAdmin = (user) => {
   requireDepartmentType(user, 'AUTO_SALES');
   if (!['SUPER_ADMIN', 'SERVICE_ADMIN'].includes(user.role)) {
@@ -73,6 +95,9 @@ module.exports = {
   requireAuthenticatedUser,
   requireDepartmentType,
   requireCoachAdmin,
+  requireCoachOperational,
+  getUserAgencyId,
+  assertAgencyAccess,
   requireAutomobileAdmin,
   requireConstructionAdmin,
   getScopedDepartmentId,

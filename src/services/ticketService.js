@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
-const { assertDepartmentIdForUser } = require('./departmentAccessService');
+const { getUserAgencyId, assertAgencyAccess, assertDepartmentIdForUser } = require('./departmentAccessService');
 
 const TICKET_STATUS_VALID = 'VALID';
 const VALIDATED_PAYMENT_STATUSES = ['VERIFIED', 'COMPLETED'];
@@ -83,7 +83,7 @@ const getReservationWithDetails = async (reservationId) => {
   });
 };
 
-const getTicketByCode = async (ticketCode) => {
+const getTicketByCode = async (ticketCode, currentUser = null) => {
   const ticket = await prisma.ticket.findUnique({
     where: { ticketCode },
     select: {
@@ -138,6 +138,7 @@ const getTicketByCode = async (ticketCode) => {
     },
   });
   if (!ticket) throw new AppError('Ticket not found', 404);
+  if (currentUser) assertAgencyAccess(currentUser, ticket.reservation?.agencyId);
   return ticket;
 };
 
@@ -154,8 +155,11 @@ const listTickets = async ({ search = '', status, page = 1, limit = 50 } = {}, c
   const take = Math.min(Math.max(Number(limit) || 50, 1), 100);
   const skip = Math.max((Number(page) || 1) - 1, 0) * take;
   const term = String(search).trim();
+  const reservationScope = currentUser.role === 'AGENT'
+    ? { agencyId: getUserAgencyId(currentUser), trip: { schedule: { departmentId } } }
+    : { trip: { schedule: { departmentId } } };
   const where = {
-    reservation: { trip: { schedule: { departmentId } } },
+    reservation: reservationScope,
     ...(status ? { status } : {}),
     ...(term ? { OR: [
       { ticketCode: { contains: term, mode: 'insensitive' } },
@@ -178,7 +182,9 @@ const listTicketScans = async ({ ticketCode, page = 1, limit = 50 } = {}, curren
   const skip = Math.max((Number(page) || 1) - 1, 0) * take;
   const where = {
     ticket: {
-      reservation: { trip: { schedule: { departmentId } } },
+      reservation: currentUser.role === 'AGENT'
+        ? { agencyId: getUserAgencyId(currentUser), trip: { schedule: { departmentId } } }
+        : { trip: { schedule: { departmentId } } },
       ...(ticketCode ? { ticketCode } : {}),
     },
   };
@@ -189,8 +195,8 @@ const listTicketScans = async ({ ticketCode, page = 1, limit = 50 } = {}, curren
   return { scans, total, page: Number(page) || 1 };
 };
 
-const getTicketPrintContext = async (ticketCode, actorId = null) => {
-  const ticket = await getTicketByCode(ticketCode);
+const getTicketPrintContext = async (ticketCode, actorId = null, currentUser = null) => {
+  const ticket = await getTicketByCode(ticketCode, currentUser);
 
   // Récupérer la devise depuis ServiceSettings du département
   let currency = 'USD';
@@ -329,6 +335,7 @@ const scanTicketByQrCode = async (rawQrCode, currentUser) => {
     };
   }
   await assertDepartmentIdForUser(currentUser, ticket.reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
+  assertAgencyAccess(currentUser, ticket.reservation.agencyId);
 
   const expectedQrCode = buildQrCode(ticketCode);
   const rawFromClient = typeof rawQrCode === 'string' ? rawQrCode.trim() : '';

@@ -19,9 +19,11 @@ const getReservationPaymentById = async (id) => prisma.payment.findUnique({
   include: { reservation: true },
 });
 
-const listCoachReservationPayments = async ({ departmentId, status, skip = 0, take = 50 }) => {
+const listCoachReservationPayments = async ({ departmentId, agencyId, status, skip = 0, take = 50 }) => {
   const where = {
-    reservation: { trip: { schedule: { departmentId } } },
+    reservation: agencyId
+      ? { agencyId, trip: { schedule: { departmentId } } }
+      : { trip: { schedule: { departmentId } } },
     ...(status ? { status } : {}),
   };
   const [items, total] = await Promise.all([

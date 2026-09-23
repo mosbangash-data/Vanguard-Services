@@ -1,7 +1,7 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
-const { requireCoachAdmin, assertDepartmentIdForUser } = require('./departmentAccessService');
+const { requireCoachAdmin, requireCoachOperational, getUserAgencyId, assertAgencyAccess, assertDepartmentIdForUser } = require('./departmentAccessService');
 
 const normalizePage = (value) => {
   const parsed = Number(value);
@@ -16,13 +16,14 @@ const normalizeLimit = (value) => {
 };
 
 const listTrips = async (query = {}, currentUser) => {
-  requireCoachAdmin(currentUser);
+  requireCoachOperational(currentUser, 'VIEW_TRIP');
   const page = normalizePage(query.page);
   const limit = normalizeLimit(query.limit);
   const skip = (page - 1) * limit;
 
   const where = {};
   if (currentUser.role !== 'SUPER_ADMIN') where.schedule = { department: { type: 'VANGUARD_COACH' } };
+  if (currentUser.role === 'AGENT') where.schedule.agencyId = getUserAgencyId(currentUser);
   if (query.scheduleId) where.scheduleId = query.scheduleId;
   if (query.status) where.status = query.status;
 
@@ -48,10 +49,11 @@ const listTrips = async (query = {}, currentUser) => {
 };
 
 const getTripById = async (id, currentUser) => {
-  requireCoachAdmin(currentUser);
+  requireCoachOperational(currentUser, 'VIEW_TRIP');
   const trip = await prisma.trip.findUnique({ where: { id }, include: { schedule: true } });
   if (!trip) throw new AppError('Trip not found', 404);
   await assertDepartmentIdForUser(currentUser, trip.schedule.departmentId, 'VANGUARD_COACH');
+  if (currentUser.role === 'AGENT') assertAgencyAccess(currentUser, trip.schedule.agencyId);
   return { trip };
 };
 

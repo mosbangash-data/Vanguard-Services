@@ -162,6 +162,9 @@ const createUser = async (data, currentUser) => {
       throw new AppError('Agency does not belong to the selected department', 400);
     }
   }
+  if (role.name === 'AGENT' && !agency) {
+    throw new AppError('An agency is required for AGENT users', 400);
+  }
   await assertManageableUser(null, currentUser, { creating: true, requestedDepartmentId: department.id, requestedRole: role });
 
   const existingUser = await userRepository.findByEmail(email.toLowerCase().trim());

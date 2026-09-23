@@ -51,6 +51,7 @@ const createSchedule = async (data, currentUser) => {
   const departureTime = typeof data?.departureTime === 'string' ? data.departureTime.trim() : '';
   const availableDays = Array.isArray(data?.availableDays) ? data.availableDays : [];
   const price = data?.price !== undefined ? data.price : null;
+  const agencyId = typeof data?.agencyId === 'string' ? data.agencyId : null;
 
   if (!departmentId || !routeId || !busId || !departureTime || availableDays.length === 0 || price === null) throw new AppError('departmentId, routeId, busId, departureTime, availableDays and price are required', 400);
 
@@ -59,8 +60,12 @@ const createSchedule = async (data, currentUser) => {
   const bus = await prisma.bus.findUnique({ where: { id: busId } });
   if (!bus) throw new AppError('Bus not found', 404);
   if (route.departmentId !== departmentId || bus.departmentId !== departmentId) throw new AppError('Route and bus must belong to the selected department', 400);
+  if (agencyId) {
+    const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
+    if (!agency || agency.departmentId !== departmentId) throw new AppError('Agency must belong to the selected department', 400);
+  }
 
-  const schedule = await prisma.schedule.create({ data: { departmentId, routeId, busId, departureTime, returnTime: data.returnTime || null, availableDays, price: price.toString() } });
+  const schedule = await prisma.schedule.create({ data: { departmentId, agencyId, routeId, busId, departureTime, returnTime: data.returnTime || null, availableDays, price: price.toString() } });
   await auditService.log('create_schedule', currentUser.id, { targetScheduleId: schedule.id });
   return { schedule };
 };
@@ -77,6 +82,11 @@ const updateSchedule = async (id, data, currentUser) => {
   if (data?.availableDays !== undefined) updatePayload.availableDays = Array.isArray(data.availableDays) ? data.availableDays : schedule.availableDays;
   if (data?.price !== undefined) updatePayload.price = data.price.toString();
   if (data?.status !== undefined) updatePayload.status = data.status;
+  if (data?.agencyId !== undefined) {
+    const agency = data.agencyId ? await prisma.agency.findUnique({ where: { id: data.agencyId } }) : null;
+    if (data.agencyId && (!agency || agency.departmentId !== schedule.departmentId)) throw new AppError('Agency must belong to the schedule department', 400);
+    updatePayload.agencyId = agency?.id || null;
+  }
 
   const updated = await prisma.schedule.update({ where: { id }, data: updatePayload });
   await auditService.log('update_schedule', currentUser.id, { targetScheduleId: id });

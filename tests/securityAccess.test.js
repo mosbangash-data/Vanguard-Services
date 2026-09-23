@@ -6,6 +6,7 @@ const prisma = require('../src/config/prisma');
 const authService = require('../src/services/authService');
 const { buildUserFromToken } = require('../src/middleware/authMiddleware');
 const parcelService = require('../src/services/parcelService');
+const tripService = require('../src/services/tripService');
 const seatService = require('../src/services/seatService');
 const auditService = require('../src/services/auditService');
 const notificationService = require('../src/services/notificationService');
@@ -58,6 +59,32 @@ test('parcels allow Transport administration and reject Construction and Automob
   await assert.rejects(() => parcelService.listParcels({}, autoAdmin), { statusCode: 403 });
   prisma.parcel.findMany = originalFindMany;
   prisma.parcel.count = originalCount;
+});
+
+test('Coach agents can read only trips assigned to their agency', async () => {
+  const originalFindMany = prisma.trip.findMany;
+  const originalCount = prisma.trip.count;
+  let where;
+  prisma.trip.findMany = async (args) => { where = args.where; return []; };
+  prisma.trip.count = async () => 0;
+
+  await assert.doesNotReject(() => tripService.listTrips({}, {
+    id: 'agent-1',
+    role: 'AGENT',
+    agencyId: 'agency-a',
+    department: { type: 'VANGUARD_COACH' },
+    permissions: ['VIEW_TRIP'],
+  }));
+  assert.deepEqual(where.schedule.agencyId, 'agency-a');
+  await assert.rejects(() => tripService.listTrips({}, {
+    id: 'agent-2',
+    role: 'AGENT',
+    department: { type: 'VANGUARD_COACH' },
+    permissions: ['VIEW_TRIP'],
+  }), { statusCode: 403 });
+
+  prisma.trip.findMany = originalFindMany;
+  prisma.trip.count = originalCount;
 });
 
 test('seats allow Transport and reject Construction and Automobile', async () => {

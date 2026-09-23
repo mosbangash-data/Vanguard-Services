@@ -303,6 +303,13 @@ async function main() {
   const coachDept = await prisma.department.findUnique({ where: { type: 'VANGUARD_COACH' } });
   const autoDept = await prisma.department.findUnique({ where: { type: 'AUTO_SALES' } });
   const constructionDept = await prisma.department.findUnique({ where: { type: 'CONSTRUCTION' } });
+  const coachAgency = coachDept
+    ? await prisma.agency.upsert({
+        where: { code: 'COACH-MAIN' },
+        update: { departmentId: coachDept.id, isActive: true },
+        create: { code: 'COACH-MAIN', name: 'Agence principale Coach', city: 'Kinshasa', departmentId: coachDept.id },
+      })
+    : null;
 
   // 1. Super Admin
   if (coachDept && superAdminRole) {
@@ -314,6 +321,7 @@ async function main() {
         lastName: 'Admin',
         roleId: superAdminRole.id,
         departmentId: coachDept.id,
+        agencyId: coachAgency?.id || null,
         status: 'ACTIVE',
         firstLogin: false,
       },
@@ -325,6 +333,7 @@ async function main() {
         phone: '+33000000000',
         roleId: superAdminRole.id,
         departmentId: coachDept.id,
+        agencyId: coachAgency?.id || null,
         status: 'ACTIVE',
         firstLogin: false,
       },
@@ -343,6 +352,7 @@ async function main() {
         lastName: 'Admin',
         roleId: serviceAdminRole.id,
         departmentId: coachDept.id,
+        agencyId: coachAgency?.id || null,
         status: 'ACTIVE',
         firstLogin: false,
       },
@@ -354,6 +364,7 @@ async function main() {
         phone: '+33000000002',
         roleId: serviceAdminRole.id,
         departmentId: coachDept.id,
+        agencyId: coachAgency?.id || null,
         status: 'ACTIVE',
         firstLogin: false,
       },
@@ -401,6 +412,7 @@ async function main() {
         lastName: 'Agent',
         roleId: agentRole.id,
         departmentId: coachDept.id,
+        agencyId: coachAgency?.id || null,
         status: 'ACTIVE',
         firstLogin: false,
       },
@@ -412,6 +424,7 @@ async function main() {
         phone: '+33000000005',
         roleId: agentRole.id,
         departmentId: coachDept.id,
+        agencyId: coachAgency?.id || null,
         status: 'ACTIVE',
         firstLogin: false,
       },

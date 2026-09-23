@@ -34,6 +34,11 @@ async function fetchDepartments() {
   return response.data?.data?.items || response.data?.data || []
 }
 
+async function fetchAgencies() {
+  const response = await api.get('/api/agencies?limit=100')
+  return response.data?.data?.items || response.data?.data || []
+}
+
 export function UsersPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
@@ -58,6 +63,7 @@ export function UsersPage() {
     phone: '',
     roleId: '',
     departmentId: '',
+    agencyId: '',
   })
   const [editForm, setEditForm] = useState({
     firstName: '',
@@ -90,6 +96,11 @@ export function UsersPage() {
     queryFn: fetchDepartments,
   })
 
+  const agenciesQuery = useQuery({
+    queryKey: ['admin-agencies-list'],
+    queryFn: fetchAgencies,
+  })
+
   // Mutations
   const createUserMutation = useMutation({
     mutationFn: async (data) => {
@@ -99,7 +110,7 @@ export function UsersPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
       setIsCreateOpen(false)
-      setCreateForm({ firstName: '', lastName: '', email: '', phone: '', roleId: '', departmentId: '' })
+      setCreateForm({ firstName: '', lastName: '', email: '', phone: '', roleId: '', departmentId: '', agencyId: '' })
       setFormError('')
       setGeneratedPasswordUser({
         name: `${data?.data?.user?.firstName || ''} ${data?.data?.user?.lastName || ''}`.trim(),
@@ -159,11 +170,13 @@ export function UsersPage() {
   const totalPages = Math.ceil(totalUsers / 15) || 1
   const rolesList = rolesQuery.data || []
   const deptsList = deptsQuery.data || []
+  const agenciesList = agenciesQuery.data || []
 
   const handleCreateSubmit = (e) => {
     e.preventDefault()
     setFormError('')
-    if (!createForm.firstName || !createForm.lastName || !createForm.email || !createForm.roleId || !createForm.departmentId) {
+    const selectedRole = rolesList.find((role) => role.id === createForm.roleId)?.name
+    if (!createForm.firstName || !createForm.lastName || !createForm.email || !createForm.roleId || !createForm.departmentId || (selectedRole === 'AGENT' && !createForm.agencyId)) {
       setFormError('Veuillez remplir tous les champs obligatoires.')
       return
     }
@@ -464,6 +477,22 @@ export function UsersPage() {
                     ))}
                   </select>
                 </div>
+                {rolesList.find((role) => role.id === createForm.roleId)?.name === 'AGENT' && (
+                  <div className="form-group">
+                    <label className="form-label">Agence *</label>
+                    <select
+                      className="form-control"
+                      required
+                      value={createForm.agencyId}
+                      onChange={(e) => setCreateForm({ ...createForm, agencyId: e.target.value })}
+                    >
+                      <option value="">Sélectionnez une agence</option>
+                      {agenciesList.map((agency) => (
+                        <option key={agency.id} value={agency.id}>{agency.name} ({agency.code})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setIsCreateOpen(false)}>

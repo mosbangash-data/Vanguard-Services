@@ -291,6 +291,8 @@ model Agency {
 
   department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   users              User[]
+  schedules          Schedule[]
+  reservations       Reservation[]
   originParcels      Parcel[]   @relation("OriginAgency")
   destinationParcels Parcel[]   @relation("DestinationAgency")
   payments           Payment[]
@@ -562,6 +564,7 @@ model Schedule {
   departmentId  String
   routeId       String
   busId         String
+  agencyId      String?
   departureTime String
   returnTime    String?
   availableDays String[]
@@ -572,7 +575,10 @@ model Schedule {
 
   route Route  @relation(fields: [routeId], references: [id], onDelete: Cascade)
   bus   Bus    @relation(fields: [busId], references: [id], onDelete: Cascade)
+  agency Agency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
   trips Trip[]
+
+  @@index([agencyId])
 }
 
 model Trip {
@@ -592,6 +598,7 @@ model Reservation {
   id              String            @id @default(cuid())
   reservationCode String            @unique
   tripId          String
+  agencyId        String?
   customerName    String
   customerPhone   String
   customerEmail   String?
@@ -603,6 +610,7 @@ model Reservation {
   updatedAt       DateTime          @updatedAt
 
   trip          Trip                      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  agency        Agency?                   @relation(fields: [agencyId], references: [id], onDelete: SetNull)
   createdBy     User?                     @relation("CreatedReservations", fields: [createdByUserId], references: [id], onDelete: SetNull)
   payments      Payment[]
   tickets       Ticket[]

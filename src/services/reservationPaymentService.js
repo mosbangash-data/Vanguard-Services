@@ -3,7 +3,7 @@ const auditService = require('./auditService');
 const reservationPaymentRepository = require('../repositories/reservationPaymentRepository');
 const prisma = require('../config/prisma');
 const ticketService = require('./ticketService');
-const { assertDepartmentIdForUser } = require('./departmentAccessService');
+const { getUserAgencyId, assertAgencyAccess, assertDepartmentIdForUser } = require('./departmentAccessService');
 
 const PAYMENT_VALIDATED_STATUSES = ['VERIFIED', 'COMPLETED'];
 const RESERVATION_PAYABLE_STATUSES = ['PENDING', 'CONFIRMED'];
@@ -141,6 +141,7 @@ const createReservationPayment = async (data, currentUser) => {
     status: 'PENDING',
     reference: data.reference ? String(data.reference).trim() : null,
     comment: data.comment ? String(data.comment).trim() : null,
+    agencyId: currentUser.role === 'AGENT' ? getUserAgencyId(currentUser) : null,
   };
 
   const payment = await prisma.$transaction(async (tx) => tx.payment.create({ data: paymentData }));
@@ -162,6 +163,7 @@ const listReservationPayments = async (reservationId, currentUser) => {
 
   const reservation = await getReservationWithTrip(reservationId);
   await assertReservationDepartmentAccess(reservation, currentUser);
+  assertAgencyAccess(currentUser, reservation.agencyId);
   const { items: payments, total } = await reservationPaymentRepository.listReservationPaymentsByReservationId({ reservationId });
 
   return {
@@ -179,9 +181,9 @@ const listPendingReservationPayments = async ({ status = 'PENDING', page = 1, li
   await assertDepartmentIdForUser(currentUser, department.id, 'VANGUARD_COACH');
   const take = Math.min(Math.max(Number(limit) || 50, 1), 100);
   const skip = Math.max((Number(page) || 1) - 1, 0) * take;
-  const validStatuses = ['PENDING', 'VERIFIED', 'REJECTED', 'COMPLETED'];
+  const validStatuses = ['PENDING', 'PROCESSING', 'VERIFIED', 'COMPLETED', 'FAILED', 'CANCELLED', 'REFUNDED', 'REJECTED'];
   if (!validStatuses.includes(status)) throw new AppError('Invalid payment status', 400);
-  const { items, total } = await reservationPaymentRepository.listCoachReservationPayments({ departmentId: department.id, status, skip, take });
+  const { items, total } = await reservationPaymentRepository.listCoachReservationPayments({ departmentId: department.id, agencyId: currentUser.role === 'AGENT' ? getUserAgencyId(currentUser) : null, status, skip, take });
   return { payments: items.map(formatPayment), total, page: Number(page) || 1, currency: department.settings?.currency || 'USD' };
 };
 
@@ -192,6 +194,7 @@ const getReservationPayment = async (paymentId, currentUser) => {
   const payment = await reservationPaymentRepository.getReservationPaymentById(paymentId);
   if (!payment || !payment.reservation) throw new AppError('Reservation payment not found', 404);
   await assertReservationDepartmentAccess(await getReservationWithTrip(payment.reservationId), currentUser);
+  assertAgencyAccess(currentUser, payment.reservation.agencyId);
 
   return { payment };
 };
@@ -212,6 +215,7 @@ const updateReservationPayment = async (paymentId, data, currentUser) => {
 
   const reservation = await getReservationWithTrip(payment.reservationId);
   await assertReservationDepartmentAccess(reservation, currentUser);
+  assertAgencyAccess(currentUser, reservation.agencyId);
   ensurePayableReservation(reservation);
 
   const updatePayload = {};
@@ -284,6 +288,7 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
 
   const reservation = await getReservationWithTrip(payment.reservationId);
   await assertReservationDepartmentAccess(reservation, currentUser);
+  assertAgencyAccess(currentUser, reservation.agencyId);
   ensurePayableReservation(reservation);
 
   const validatedPaidCents = sumValidatedPayments(reservation.payments);
@@ -301,6 +306,8 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
     if (!agency || agency.departmentId !== departmentId) {
       throw new AppError('Invalid agency for this reservation department', 400);
     }
+  } else if (currentUser.role === 'AGENT') {
+    resolvedAgencyId = getUserAgencyId(currentUser);
   } else {
     const defaultAgency = await prisma.agency.findFirst({
       where: { departmentId, isActive: true },
@@ -361,7 +368,7 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
     await ticketService.notifyCustomerAboutTicket(ticketResult.ticket);
   }
 
-  return { payment: formatPayment(ticketResult.payment), ticket: await ticketService.getTicketByCode(ticketResult.ticket.ticketCode) };
+  return { payment: formatPayment(ticketResult.payment), ticket: await ticketService.getTicketByCode(ticketResult.ticket.ticketCode, currentUser) };
 };
 
 const getReservationPaymentReceipt = async (paymentId, currentUser) => {
@@ -394,6 +401,7 @@ const getReservationPaymentReceipt = async (paymentId, currentUser) => {
   if (!payment.reservation) throw new AppError('Reservation payment relationship is invalid', 400);
 
   await assertReservationDepartmentAccess(payment.reservation, currentUser);
+  assertAgencyAccess(currentUser, payment.reservation.agencyId);
 
   return {
     receiptNumber: `REC-${payment.id.slice(-8).toUpperCase()}-${Date.now().toString().slice(-4)}`,
@@ -435,7 +443,9 @@ const rejectReservationPayment = async (paymentId, currentUser, reason = null) =
 
   const payment = await reservationPaymentRepository.getReservationPaymentById(paymentId);
   ensurePendingPayment(payment);
-  await assertReservationDepartmentAccess(await getReservationWithTrip(payment.reservationId), currentUser);
+  const reservation = await getReservationWithTrip(payment.reservationId);
+  await assertReservationDepartmentAccess(reservation, currentUser);
+  assertAgencyAccess(currentUser, reservation.agencyId);
 
   const updatePayload = {
     status: 'REJECTED',

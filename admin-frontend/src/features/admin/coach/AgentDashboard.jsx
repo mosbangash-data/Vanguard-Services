@@ -72,9 +72,11 @@ export function AgentDashboard() {
 
   const quickActions = [
     canScanTickets && { label: t('agent.scanTicket'), icon: QrCode, action: () => setShowScanner(true) },
-    canCreateReservations && { label: 'Nouvelle réservation', icon: UserRoundPlus, to: '/transport/reservations' },
-    canViewPayments && { label: 'Traiter les paiements', icon: CreditCard, to: '/transport/payments' },
-    canCreateParcels && { label: 'Enregistrer un colis', icon: Package, to: '/transport/parcels' },
+    canCreateReservations && { label: t('agent.newReservation'), icon: UserRoundPlus, to: '/transport/reservations' },
+    canViewPayments && { label: t('agent.processPayments'), icon: CreditCard, to: '/transport/operations' },
+    canCreateParcels && { label: t('agent.registerParcel'), icon: Package, to: '/transport/parcels' },
+    canViewReservations && { label: t('agent.searchReservation'), icon: Ticket, to: '/transport/reservations' },
+    canViewReservations && { label: t('agent.searchTicket'), icon: Ticket, to: '/transport/operations' },
   ].filter(Boolean)
 
   if (!user) return null
@@ -82,43 +84,43 @@ export function AgentDashboard() {
     <section className="page agent-workspace">
       <div className="agent-header">
         <div>
-          <p className="eyebrow">VANGUARD COACH / POSTE OPERATIONNEL</p>
+          <p className="eyebrow">{t('agent.workspaceEyebrow')}</p>
           <h1>{t('agent.dashboardTitle')}</h1>
-          <p>{t('agent.welcome', { name: user.firstName })} · Suivez les opérations de votre journée depuis un seul espace.</p>
+          <p>{t('agent.welcome', { name: user.firstName })} · {t('agent.workspaceIntro')}</p>
         </div>
-        <span className="badge active">AGENT ACTIF</span>
+        <span className="badge active">{t('agent.active')}</span>
       </div>
 
       <section className="agent-actions">
-        <div className="section-heading"><div><h2>{t('agent.quickActions')}</h2><p>Les tâches les plus fréquentes de votre poste.</p></div></div>
+        <div className="section-heading"><div><h2>{t('agent.quickActions')}</h2><p>{t('agent.frequentTasks')}</p></div></div>
         <div className="agent-actions__grid">
           {quickActions.map(({ label, icon: Icon, to, action }) => to ? <Link key={label} to={to} className="button"><Icon size={16} />{label}</Link> : <button key={label} type="button" className="button" onClick={action}><Icon size={16} />{label}</button>)}
         </div>
       </section>
 
-      {isLoading && <div className="state-container">Chargement de votre activité…</div>}
-      {hasError && <div className="state-container"><p className="error">Certaines données n’ont pas pu être chargées.</p></div>}
+      {isLoading && <div className="state-container">{t('agent.loadingWorkspace')}</div>}
+      {hasError && <div className="state-container"><p className="error">{t('agent.workspaceError')}</p></div>}
 
       {!isLoading && !hasError && <>
         <div className="dashboard-stats-grid">
-          <article className="stat-card"><CalendarDays size={22} /><div><span>Voyages aujourd’hui</span><strong>{todayTrips.length}</strong></div></article>
-          <article className="stat-card"><Ticket size={22} /><div><span>Réservations à traiter</span><strong>{pendingReservations.length}</strong></div></article>
-          <article className="stat-card"><CreditCard size={22} /><div><span>Paiements en attente</span><strong>{payments.length}</strong></div></article>
-          <article className="stat-card"><CheckCircle2 size={22} /><div><span>Prochain départ</span><strong>{nextTrip ? formatTime(nextTrip.departureAt) : '—'}</strong></div></article>
+          <article className="stat-card"><CalendarDays size={22} /><div><span>{t('agent.todayTripsLabel')}</span><strong>{todayTrips.length}</strong></div></article>
+          <article className="stat-card"><Ticket size={22} /><div><span>{t('agent.reservationsToProcess')}</span><strong>{pendingReservations.length}</strong></div></article>
+          <article className="stat-card"><CreditCard size={22} /><div><span>{t('agent.paymentsPending')}</span><strong>{payments.length}</strong></div></article>
+          <article className="stat-card"><CheckCircle2 size={22} /><div><span>{t('agent.nextDeparture')}</span><strong>{nextTrip ? formatTime(nextTrip.departureAt) : '—'}</strong></div></article>
         </div>
 
         <div className="dashboard-content-grid">
           <section className="dashboard-panel">
-            <div className="section-heading"><div><h2>Prochains départs</h2><p>Préparez l’accueil et l’embarquement.</p></div><Link to="/transport/trips" className="button secondary sm">Voir les voyages</Link></div>
-            {todayTrips.length === 0 ? <p className="empty">Aucun départ prévu aujourd’hui.</p> : <div className="table-responsive"><table className="data-table"><thead><tr><th>Heure</th><th>Trajet</th><th>Bus</th><th>Statut</th></tr></thead><tbody>{todayTrips.slice(0, 6).map((trip) => <tr key={trip.id}><td><strong>{formatTime(trip.departureAt)}</strong></td><td>{trip.schedule?.route?.departureCity || '—'} → {trip.schedule?.route?.arrivalCity || '—'}</td><td>{trip.schedule?.bus?.plateNumber || '—'}</td><td><span className={`badge ${trip.status === 'IN_PROGRESS' ? 'warning' : 'info'}`}>{formatStatus(trip.status)}</span></td></tr>)}</tbody></table></div>}
+            <div className="section-heading"><div><h2>{t('agent.upcomingDepartures')}</h2><p>{t('agent.prepareBoarding')}</p></div><Link to="/transport/trips" className="button secondary sm">{t('agent.viewTrips')}</Link></div>
+            {todayTrips.length === 0 ? <p className="empty">{t('agent.noDepartures')}</p> : <div className="table-responsive"><table className="data-table"><thead><tr><th>Heure</th><th>Trajet</th><th>Bus</th><th>Occupation</th><th>Statut</th></tr></thead><tbody>{todayTrips.slice(0, 6).map((trip) => { const occupied = reservations.filter((reservation) => reservation.tripId === trip.id && reservation.status !== 'CANCELLED').length; const seats = trip.schedule?.bus?.seats || 0; return <tr key={trip.id}><td><strong>{formatTime(trip.departureAt)}</strong></td><td>{trip.schedule?.route?.departureCity || '—'} → {trip.schedule?.route?.arrivalCity || '—'}</td><td>{trip.schedule?.bus?.plateNumber || '—'}</td><td>{occupied}/{seats || '—'} places</td><td><span className={`badge ${trip.status === 'IN_PROGRESS' ? 'warning' : 'info'}`}>{formatStatus(trip.status)}</span></td></tr> })}</tbody></table></div>}
           </section>
           <section className="dashboard-panel">
-            <div className="section-heading"><div><h2>À traiter maintenant</h2><p>Priorités opérationnelles de votre agence.</p></div></div>
+            <div className="section-heading"><div><h2>{t('agent.processNow')}</h2><p>{t('agent.agencyPriorities')}</p></div></div>
             <div className="agent-task-list">
-              {canViewPayments && <Link to="/transport/payments" className="agent-task"><CreditCard size={18} /><span><strong>{payments.length} paiement(s)</strong><small>À vérifier avant émission du billet</small></span><span className="task-arrow">→</span></Link>}
-              {canViewReservations && <Link to="/transport/reservations" className="agent-task"><Ticket size={18} /><span><strong>{pendingReservations.length} réservation(s)</strong><small>Demandes en attente de traitement</small></span><span className="task-arrow">→</span></Link>}
-              {canViewParcels && <Link to="/transport/parcels" className="agent-task"><Package size={18} /><span><strong>Gestion des colis</strong><small>Enregistrer, suivre ou faire évoluer un colis</small></span><span className="task-arrow">→</span></Link>}
-              {!canViewPayments && !canViewReservations && !canViewParcels && <p className="empty">Aucune action opérationnelle disponible pour votre rôle.</p>}
+              {canViewPayments && <Link to="/transport/operations" className="agent-task"><CreditCard size={18} /><span><strong>{t('agent.paymentCount', { count: payments.length })}</strong><small>{t('agent.paymentHint')}</small></span><span className="task-arrow">→</span></Link>}
+              {canViewReservations && <Link to="/transport/reservations" className="agent-task"><Ticket size={18} /><span><strong>{t('agent.reservationCount', { count: pendingReservations.length })}</strong><small>{t('agent.reservationHint')}</small></span><span className="task-arrow">→</span></Link>}
+              {canViewParcels && <Link to="/transport/parcels" className="agent-task"><Package size={18} /><span><strong>{t('agent.parcelManagement')}</strong><small>{t('agent.parcelHint')}</small></span><span className="task-arrow">→</span></Link>}
+              {!canViewPayments && !canViewReservations && !canViewParcels && <p className="empty">{t('agent.noActions')}</p>}
             </div>
           </section>
         </div>

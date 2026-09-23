@@ -48,7 +48,7 @@ const listTicketScans = async (req, res, next) => {
 
 const getTicket = async (req, res, next) => {
   try {
-    const ticket = await ticketService.getTicketByCode(req.params.ticketCode);
+    const ticket = await ticketService.getTicketByCode(req.params.ticketCode, req.user);
     res.json({ success: true, data: { ticket } });
   } catch (err) {
     next(err);
@@ -75,7 +75,7 @@ const cancelTicket = async (req, res, next) => {
 
 const renderTicketPrint = async (req, res, next) => {
   try {
-    const { ticket, currency } = await ticketService.getTicketPrintContext(req.params.ticketCode, req.user?.id || null);
+    const { ticket, currency } = await ticketService.getTicketPrintContext(req.params.ticketCode, req.user?.id || null, req.user);
 
     const route = ticket.reservation.trip.schedule.route;
     const trip = ticket.reservation.trip;

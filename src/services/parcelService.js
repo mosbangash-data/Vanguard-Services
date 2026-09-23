@@ -35,6 +35,9 @@ const assertParcelAgencyAccess = (currentUser, parcel, action = 'view') => {
 
   const userAgencyId = currentUser.agencyId || currentUser.agency?.id;
   if (!userAgencyId) {
+    if (currentUser.role === 'AGENT') {
+      throw new AppError('Agent agency assignment is required', 403);
+    }
     return;
   }
 
@@ -75,6 +78,9 @@ const listParcels = async (query = {}, currentUser) => {
 
   // Agency isolation for local agents
   const userAgencyId = currentUser.agencyId || currentUser.agency?.id;
+  if (currentUser.role === 'AGENT' && !userAgencyId) {
+    throw new AppError('Agent agency assignment is required', 403);
+  }
   if (userAgencyId && currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SERVICE_ADMIN') {
     where.OR = [
       { originAgencyId: userAgencyId },

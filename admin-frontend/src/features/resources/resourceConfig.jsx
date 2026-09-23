@@ -217,6 +217,14 @@ export const resourceGroups = {
       ],
       fields: [
         {
+          name: 'agencyId',
+          label: 'Agence opérationnelle',
+          type: 'select',
+          optionsUrl: '/api/agencies',
+          optionsMapper: (item) => ({ value: item.id, label: `${item.name} • ${item.code}` }),
+          placeholder: 'Affecter à une agence',
+        },
+        {
           name: 'routeId',
           label: 'Trajet / Destination',
           type: 'select',
@@ -269,7 +277,7 @@ export const resourceGroups = {
 
     resource('/transport/trips', 'Voyages', '/api/trips', {
       singularLabel: 'Voyage',
-      roles: ['SUPER_ADMIN', 'SERVICE_ADMIN'],
+      permission: 'VIEW_TRIP',
       columns: [
         { key: 'schedule', label: 'Trajet', render: (t) => t.schedule?.route ? `${t.schedule.route.departureCity} → ${t.schedule.route.arrivalCity}` : t.schedule?.departureTime ? `Départ ${t.schedule.departureTime}` : '—' },
         { key: 'departureAt', label: 'Départ', type: 'datetime' },
@@ -316,7 +324,10 @@ export const resourceGroups = {
         { key: 'reservationCode', label: 'Code' },
         { key: 'customerName', label: 'Passager' },
         { key: 'customerPhone', label: 'Téléphone' },
+        { key: 'trip', label: 'Trajet', render: (r) => r.trip?.schedule?.route ? `${r.trip.schedule.route.departureCity} → ${r.trip.schedule.route.arrivalCity}` : '—' },
         { key: 'seatNumber', label: 'Siège', render: (r) => r.seatNumber ? `N° ${r.seatNumber}` : '—' },
+        { key: 'paymentStatus', label: 'Paiement', render: (r) => r.payments?.length ? r.payments.map((payment) => payment.status).join(', ') : 'Non payé' },
+        { key: 'ticketCode', label: 'Billet', render: (r) => r.tickets?.[0]?.ticketCode || '—' },
         { key: 'status', label: 'Statut', badge: true, badgeMap: { PENDING: { variant: 'warning', label: 'En attente' }, CONFIRMED: { variant: 'active', label: 'Confirmée' }, CANCELLED: { variant: 'danger', label: 'Annulée' }, COMPLETED: { variant: 'success', label: 'Terminée' } } },
         { key: 'totalAmount', label: 'Montant', render: (r) => `${r.totalAmount || r.amount || 0} ${r.currency || 'USD'}` },
         { key: 'createdAt', label: 'Date', type: 'datetime' },
