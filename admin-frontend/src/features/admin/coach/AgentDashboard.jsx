@@ -9,6 +9,8 @@ import { api } from '../../../services/api'
 import { Button, EmptyState, ErrorState, LoadingState, StatCard, StatusBadge } from '../../../components/ui'
 import { TicketScanner } from './TicketScanner'
 
+const BUILD_VERSION = typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : 'development'
+
 const queryKey = (id) => ['agent-dashboard', id]
 const errorMessage = (error) => {
   if (error?.response?.status === 401) return 'Votre session a expire. Connectez-vous a nouveau.'
@@ -101,5 +103,5 @@ export function AgentDashboard() {
   if (query.isPending) return <section className="page agent-workspace"><LoadingState message="Chargement de votre espace de travail..." /></section>
   if (query.isError) return <section className="page agent-workspace"><ErrorState title="Espace Agent indisponible" message={errorMessage(query.error)} onRetry={query.refetch} /></section>
   const data = query.data
-  return <section className="page agent-workspace"><div className="agent-header"><div><p className="eyebrow">VANGUARD COACH / POSTE OPERATIONNEL</p><h1>Espace Agent</h1><p>Bonjour {user.firstName}. Les informations proviennent du backend.</p></div><span className="badge active">Session active</span></div><AgentQuickActions user={user} onScan={() => setShowScanner(true)} /><AgentOverview data={data} /><AgentDepartures data={data} lang={lang} /><AgentReservations reservations={data.reservations || []} lang={lang} /><AgentPayments payments={data.payments || { pending: [], validatedToday: [] }} userId={user.id} lang={lang} /><AgentTicketControl data={data} lang={lang} onScan={() => setShowScanner(true)} /><AgentParcels parcels={data.parcels || { registered: 0, inTransit: 0, arrived: 0, readyForPickup: 0 }} />{showScanner && <TicketScanner onClose={() => setShowScanner(false)} onSuccess={() => client.invalidateQueries({ queryKey: queryKey(user.id) })} />}</section>
+  return <section className="page agent-workspace"><div className="agent-header"><div><p className="eyebrow">VANGUARD COACH / POSTE OPERATIONNEL</p><h1>Espace Agent</h1><p>Bonjour {user.firstName}. Les informations proviennent du backend.</p></div><div className="agent-header-actions"><span className="badge active">Session active</span><span className="badge neutral">Build: {BUILD_VERSION.slice(0, 8)}</span></div></div><AgentQuickActions user={user} onScan={() => setShowScanner(true)} /><AgentOverview data={data} /><AgentDepartures data={data} lang={lang} /><AgentReservations reservations={data.reservations || []} lang={lang} /><AgentPayments payments={data.payments || { pending: [], validatedToday: [] }} userId={user.id} lang={lang} /><AgentTicketControl data={data} lang={lang} onScan={() => setShowScanner(true)} /><AgentParcels parcels={data.parcels || { registered: 0, inTransit: 0, arrived: 0, readyForPickup: 0 }} />{showScanner && <TicketScanner onClose={() => setShowScanner(false)} onSuccess={() => client.invalidateQueries({ queryKey: queryKey(user.id) })} />}</section>
 }

@@ -1,3 +1,5 @@
+import { getDestination as resolveDestination } from './routeRules.mjs'
+
 const SESSION_KEY = 'vanguard.admin.session'
 
 export const saveSession = ({ token, user }) => {
@@ -16,12 +18,4 @@ export const getSession = () => {
 export const getToken = () => getSession()?.token || null
 export const clearSession = () => localStorage.removeItem(SESSION_KEY)
 
-export const getDestination = (user) => {
-  if (user?.role === 'SUPER_ADMIN') return '/admin'
-  switch (user?.department?.type) {
-    case 'VANGUARD_COACH': return '/transport'
-    case 'CONSTRUCTION': return '/construction'
-    case 'AUTO_SALES': return '/automobile'
-    default: return '/admin/login'
-  }
-}
+export const getDestination = (user) => resolveDestination(user) || '/admin/login'

@@ -42,6 +42,7 @@ import { VehicleManagementPage, VehicleDetailPage } from './features/admin/autos
 import { VehicleTemplatesPage } from './features/admin/autosales/VehicleTemplatesPage'
 import { resourceByPath, resourceGroups } from './features/resources/resourceConfig'
 import { useAuth } from './features/auth/authContext'
+import { getDestination } from './features/auth/session'
 
 function ResourceRoute({ path }) {
   const resource = resourceByPath[path]
@@ -49,11 +50,38 @@ function ResourceRoute({ path }) {
 }
 import { ManagerDashboard } from './features/admin/coach/ManagerDashboard'
 
-function CoachHome() {
+function TransportDashboardRouter() {
   const { user } = useAuth()
-  if (user?.role === 'AGENT') return <AgentDashboard />
-  if (user?.role === 'MANAGER') return <ManagerDashboard />
-  return <CoachOperationsPage />
+
+  if (!user) return null
+
+  if (user.department?.type !== 'VANGUARD_COACH' && user.role !== 'SUPER_ADMIN') {
+    return <Navigate to="/403" replace />
+  }
+
+  switch (user.role) {
+    case 'AGENT':
+      return <AgentDashboard />
+    case 'SERVICE_ADMIN':
+    case 'MANAGER':
+      return <ManagerDashboard />
+    case 'SUPER_ADMIN':
+      return <CoachOperationsPage />
+    default:
+      return <Navigate to="/403" replace />
+  }
+}
+
+function CoachAgentRoute() {
+  const { user } = useAuth()
+
+  if (!user) return null
+
+  if (user.role !== 'AGENT' || user.department?.type !== 'VANGUARD_COACH') {
+    return <Navigate to={user ? getDestination(user) : '/admin/login'} replace />
+  }
+
+  return <AgentDashboard />
 }
 
 function renderDepartmentRoutes({ base, department, title, resources, DashboardComponent = DashboardPage }) {
@@ -63,6 +91,7 @@ function renderDepartmentRoutes({ base, department, title, resources, DashboardC
         <Route path={base} element={<DashboardComponent />} />
         
         {/* Transport / Coach dedicated routes */}
+        {department === 'VANGUARD_COACH' && <Route path="/transport/agent" element={<CoachAgentRoute />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/agencies" element={<AgenciesManagementPage />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/agencies/:id" element={<AgencyDetailPage />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/scanner" element={<TicketScanner />} />}
@@ -138,7 +167,7 @@ export default function App() {
             </Route>
 
             {/* Department Specific Spaces */}
-            {renderDepartmentRoutes({ base: '/transport', department: 'VANGUARD_COACH', title: 'Vanguard Coach', resources: resourceGroups.transport, DashboardComponent: CoachHome })}
+            {renderDepartmentRoutes({ base: '/transport', department: 'VANGUARD_COACH', title: 'Vanguard Coach', resources: resourceGroups.transport, DashboardComponent: TransportDashboardRouter })}
             {renderDepartmentRoutes({ base: '/construction', department: 'CONSTRUCTION', title: 'Construction', resources: resourceGroups.construction, DashboardComponent: ConstructionDashboardPage })}
             {renderDepartmentRoutes({ base: '/automobile', department: 'AUTO_SALES', title: 'AutoSales', resources: resourceGroups.automobile, DashboardComponent: AutoSalesDashboardPage })}
           </Route>

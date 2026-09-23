@@ -1,9 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
+const BUILD_VERSION = process.env.GIT_COMMIT || process.env.VITE_BUILD_VERSION || 'development'
+
 export default defineConfig({
   base: '/admin/',
+  define: {
+    __BUILD_VERSION__: JSON.stringify(BUILD_VERSION),
+  },
   plugins: [react()],
   server: {
     proxy: {
