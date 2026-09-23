@@ -102,6 +102,15 @@ const listPublicTrips = async (query = {}) => {
           include: {
             route: true,
             bus: true,
+            agency: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                city: true,
+                phone: true,
+              },
+            },
           },
         },
       },
@@ -159,6 +168,7 @@ const getPublicTripSeats = async (tripId) => {
         include: {
           bus: true,
           route: true,
+          agency: true,
         },
       },
     },
@@ -217,14 +227,15 @@ const getPublicTripSeats = async (tripId) => {
 
 const createPublicReservation = async (data) => {
   const { tripId, customerName, customerPhone, customerEmail, seatNumber } = data;
+  const normalizedSeatNumber = seatNumber === undefined || seatNumber === null ? '' : String(seatNumber).trim();
 
-  if (!tripId || !customerName || !customerPhone || !seatNumber) {
+  if (!tripId || !customerName || !customerPhone || !normalizedSeatNumber) {
     throw new AppError('tripId, customerName, customerPhone and seatNumber are required', 400);
   }
 
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
-    include: { schedule: { include: { bus: true, route: true } } },
+    include: { schedule: { include: { bus: true, route: true, agency: true } } },
   });
   if (!trip) throw new AppError('Trip not found', 404);
   if (!isPublicTripEligible(trip, new Date())) {
@@ -244,12 +255,12 @@ const createPublicReservation = async (data) => {
   const bus = trip.schedule?.bus;
   if (!bus) throw new AppError('Bus not found', 404);
 
-  const num = Number(seatNumber);
+  const num = Number(normalizedSeatNumber);
   if (!Number.isFinite(num) || num < 1 || num > (bus.seats || 0)) {
     throw new AppError('Invalid seat number', 400);
   }
 
-  const sealedSeatNumber = String(seatNumber);
+  const sealedSeatNumber = String(normalizedSeatNumber);
 
   const reservation = await prisma.$transaction(async (tx) => {
     try {

@@ -11,7 +11,7 @@ const validatePublicReservationCreate = (req, res, next) => {
   const tripId = normalizeString(body.tripId);
   const customerName = normalizeString(body.customerName);
   const customerPhone = normalizeString(body.customerPhone);
-  const seatNumber = normalizeString(body.seatNumber);
+  const seatNumber = normalizeString(body.seatNumber === undefined || body.seatNumber === null ? '' : String(body.seatNumber));
   const customerEmail = normalizeString(body.customerEmail);
 
   if (!tripId) {

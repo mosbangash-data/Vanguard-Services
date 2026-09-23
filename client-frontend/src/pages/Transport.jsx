@@ -192,7 +192,7 @@ export default function Transport() {
     try {
       const result = await api.createReservation({
         tripId: selectedTrip.id,
-        seatNumber: selectedSeat,
+        seatNumber: String(selectedSeat),
         customerName: passenger.name,
         customerPhone: passenger.phone,
         customerEmail: passenger.email || null,
