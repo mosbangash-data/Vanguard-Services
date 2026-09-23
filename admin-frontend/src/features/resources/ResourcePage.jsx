@@ -7,6 +7,7 @@ import { createResource, deleteResource, listResource, patchResource, updateReso
 import { DynamicResourceForm } from './DynamicResourceForm'
 import { api, uploadMedia } from '../../services/api'
 import { syncMediaRelations } from '../../utils/mediaSync'
+import { normalizeListResponse, getRelationValue } from '../../utils/apiResponse'
 import {
   Button,
   StatusBadge,
@@ -25,15 +26,7 @@ const errorMessage = (error) =>
   error?.message ||
   'L’opération a échoué. Vérifiez les données saisies.'
 
-const toList = (data) => {
-  if (!data) return []
-  if (Array.isArray(data)) return data
-  if (Array.isArray(data?.items)) return data.items
-  if (Array.isArray(data?.data)) return data.data
-  if (Array.isArray(data?.data?.items)) return data.data.items
-  const found = Object.values(data).find(Array.isArray)
-  return Array.isArray(found) ? found : []
-}
+const toList = (data) => normalizeListResponse(data)
 
 const getId = (item) => item.id || item._id || item.code || item.ticketCode
 
@@ -47,10 +40,11 @@ const formatCellValue = (value, colKey = '') => {
   if (SENSITIVE_RESOURCE_KEYS.has(String(colKey).toLowerCase())) return '—'
   if (value === null || value === undefined || value === '') return '—'
   if (typeof value === 'boolean') return value ? 'Oui' : 'Non'
-  if (Array.isArray(value)) return value.length ? value.join(', ') : '—'
+  if (Array.isArray(value)) return value.length ? value.map((item) => getRelationValue(item)).filter(Boolean).join(', ') : '—'
   if (typeof value === 'object') {
-    const label = value.name || value.title || value.label || value.code || value.type || value.plateNumber
-    return label ? String(label) : '—'
+    const label = getRelationValue(value)
+    if (!label) return '—'
+    return String(label)
   }
   return String(value)
 }
@@ -274,11 +268,12 @@ export function ResourcePage({ resource }) {
     const val = item[col.key]
 
     if (col.badge) {
-      if (col.badgeMap && col.badgeMap[val] !== undefined) {
-        const b = col.badgeMap[val]
+      const normalizedValue = typeof val === 'object' ? getRelationValue(val) : val
+      if (col.badgeMap && col.badgeMap[normalizedValue] !== undefined) {
+        const b = col.badgeMap[normalizedValue]
         return <StatusBadge status={b.label} variant={b.variant} />
       }
-      return <StatusBadge status={String(val)} />
+      return <StatusBadge status={normalizedValue === undefined || normalizedValue === null || normalizedValue === '' ? '—' : String(normalizedValue)} />
     }
 
     if (col.type === 'date') {

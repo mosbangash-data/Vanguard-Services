@@ -1,6 +1,7 @@
 import { api } from '../../services/api'
+import { unwrapApiResponse } from '../../utils/apiResponse'
 
-const unwrap = (response) => response.data?.data ?? response.data
+const unwrap = (response) => unwrapApiResponse(response)
 export async function listResource(endpoint, params) { return unwrap(await api.get(endpoint, { params })) }
 export async function createResource(endpoint, data) { return unwrap(await api.post(endpoint, data)) }
 export async function updateResource(endpoint, id, data) { return unwrap(await api.put(`${endpoint}/${id}`, data)) }

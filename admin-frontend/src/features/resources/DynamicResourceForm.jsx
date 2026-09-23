@@ -4,15 +4,10 @@ import { api } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { FormField, Input, Select, Textarea, Button, Modal } from '../../components/ui'
 import { MediaUploader } from '../../components/media/MediaUploader'
+import { normalizeListResponse, unwrapApiResponse, getRelationValue } from '../../utils/apiResponse'
 import { AlertCircle, Check, Save, X, Loader2 } from 'lucide-react'
 
-const toOptionsList = (payload) => {
-  if (Array.isArray(payload)) return payload
-  if (Array.isArray(payload?.items)) return payload.items
-  if (Array.isArray(payload?.data)) return payload.data
-  if (Array.isArray(payload?.data?.items)) return payload.data.items
-  return []
-}
+const toOptionsList = (payload) => normalizeListResponse(payload)
 
 // Relational select field that loads options asynchronously only when optionsUrl is provided
 function RelationalSelectField({ field, value, onChange, disabled, hasError, inputId }) {
@@ -20,7 +15,7 @@ function RelationalSelectField({ field, value, onChange, disabled, hasError, inp
     queryKey: ['resource-options', field.optionsUrl],
     queryFn: async () => {
       const response = await api.get(field.optionsUrl, { params: { limit: 100 } })
-      const raw = toOptionsList(response.data?.data ?? response.data)
+      const raw = toOptionsList(unwrapApiResponse(response))
       if (typeof field.optionsMapper === 'function') {
         return raw.map(field.optionsMapper)
       }
@@ -236,6 +231,14 @@ export function DynamicResourceForm({
   const { user } = useAuth()
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
 
+  const title = mode === 'create'
+    ? `Nouveau ${resource.singularLabel || resource.label}`
+    : `Modifier ${resource.singularLabel || resource.label}`
+
+  const subtitle = mode === 'create'
+    ? `Remplissez les informations ci-dessous pour ajouter un nouvel enregistrement.`
+    : `Mettez à jour les informations de cet enregistrement.`
+
   // Fetch departments to auto-resolve departmentId for transport resources when SuperAdmin
   const { data: departments = [] } = useQuery({
     queryKey: ['departments-lookup'],
@@ -266,6 +269,21 @@ export function DynamicResourceForm({
     deleted: [],
   })
 
+  const fields = resource.fields || []
+  if (!fields.length) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title={title} subtitle={subtitle} size="lg">
+        <div className="form-alert-info" role="status">
+          <AlertCircle size={18} className="alert-icon" />
+          <div className="alert-content">
+            <strong>Configuration du formulaire indisponible</strong>
+            <p>Aucune configuration de champ n’a été définie pour cette ressource. Le formulaire ne peut pas être affiché.</p>
+          </div>
+        </div>
+      </Modal>
+    )
+  }
+
   // Initialize form state
   useEffect(() => {
     if (!isOpen) return
@@ -276,6 +294,9 @@ export function DynamicResourceForm({
     fields.forEach((field) => {
       if (initialData && initialData[field.name] !== undefined && initialData[field.name] !== null) {
         let val = initialData[field.name]
+        if (field.type === 'select' && typeof val === 'object') {
+          val = getRelationValue(val)
+        }
         // Handle datetime-local format if date object or string
         if (field.type === 'datetime-local' && val) {
           try {
@@ -383,7 +404,6 @@ export function DynamicResourceForm({
 
   const validate = () => {
     const nextErrors = {}
-    const fields = resource.fields || []
 
     fields.forEach((field) => {
       const val = formData[field.name]
@@ -463,14 +483,6 @@ export function DynamicResourceForm({
     onSubmit(payload)
   }
 
-  const title = mode === 'create'
-    ? `Nouveau ${resource.singularLabel || resource.label}`
-    : `Modifier ${resource.singularLabel || resource.label}`
-
-  const subtitle = mode === 'create'
-    ? `Remplissez les informations ci-dessous pour ajouter un nouvel enregistrement.`
-    : `Mettez à jour les informations de cet enregistrement.`
-
   return (
     <Modal
       isOpen={isOpen}
@@ -499,7 +511,7 @@ export function DynamicResourceForm({
         )}
 
         <div className="resource-form-grid">
-          {(resource.fields || []).map((field) => (
+          {fields.map((field) => (
             <DynamicField
               key={field.name}
               field={field}
