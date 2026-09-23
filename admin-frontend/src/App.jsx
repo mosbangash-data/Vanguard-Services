@@ -47,10 +47,13 @@ function ResourceRoute({ path }) {
   const resource = resourceByPath[path]
   return <ResourcePage resource={resource} />
 }
+import { ManagerDashboard } from './features/admin/coach/ManagerDashboard'
 
 function CoachHome() {
   const { user } = useAuth()
-  return user?.role === 'AGENT' ? <AgentDashboard /> : <CoachOperationsPage />
+  if (user?.role === 'AGENT') return <AgentDashboard />
+  if (user?.role === 'MANAGER') return <ManagerDashboard />
+  return <CoachOperationsPage />
 }
 
 function renderDepartmentRoutes({ base, department, title, resources, DashboardComponent = DashboardPage }) {

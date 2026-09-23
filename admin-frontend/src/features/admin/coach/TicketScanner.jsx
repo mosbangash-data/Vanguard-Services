@@ -3,7 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode'
 import { useLanguage } from '../../../i18n/useLanguage'
 import { api } from '../../../services/api'
 
-export function TicketScanner({ onClose }) {
+export function TicketScanner({ onClose, onSuccess }) {
   const { t } = useLanguage()
   const scannerRef = useRef(null)
   const isProcessingRef = useRef(false)
@@ -77,6 +77,7 @@ export function TicketScanner({ onClose }) {
     try {
       const res = await api.post('/api/tickets/scan', { qrCode: code })
       setResult(res.data)
+      onSuccess?.(res.data)
     } catch (err) {
       setError(err.response?.data?.message || t('scan.invalid'))
     } finally {

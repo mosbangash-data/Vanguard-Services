@@ -1213,6 +1213,86 @@ select.form-control {
   margin-bottom: 20px;
 }
 
+.agent-section {
+  margin-bottom: 20px;
+}
+
+.agent-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 520px;
+  margin-bottom: 16px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-white);
+}
+
+.agent-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.agent-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.agent-payment-summary {
+  margin: 0 0 12px;
+  color: var(--color-medium-gray);
+  font-size: 0.86rem;
+}
+
+.agent-subsection {
+  margin-top: 20px;
+}
+
+.agent-subsection h3 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+}
+
+.agent-parcel-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agent-parcel-grid > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.agent-parcel-grid strong {
+  font-size: 1.4rem;
+}
+
+.agent-parcel-grid span {
+  color: var(--color-medium-gray);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 640px) {
+  .agent-parcel-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .agent-inline-actions {
+    min-width: 130px;
+  }
+}
+
 .agent-actions h2 {
   margin: 0 0 12px 0;
   font-size: 1rem;

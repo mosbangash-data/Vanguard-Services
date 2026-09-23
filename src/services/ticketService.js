@@ -100,6 +100,7 @@ const getTicketByCode = async (ticketCode, currentUser = null) => {
         select: {
           id: true,
           reservationCode: true,
+          agencyId: true,
           customerName: true,
           customerPhone: true,
           customerEmail: true,
