@@ -15,6 +15,38 @@ const normalizeLimit = (value) => {
   return Math.min(parsed, 100);
 };
 
+const listPublicAgencies = async (query = {}) => {
+  const department = await prisma.department.findUnique({ where: { type: 'VANGUARD_COACH' } });
+  if (!department) throw new AppError('Vanguard Coach department not found', 404);
+
+  const page = normalizePage(query.page);
+  const limit = normalizeLimit(query.limit);
+  const skip = (page - 1) * limit;
+
+  const where = { departmentId: department.id, isActive: true };
+  if (typeof query.search === 'string' && query.search.trim()) {
+    const search = query.search.trim();
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { code: { contains: search, mode: 'insensitive' } },
+      { city: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.agency.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, code: true, city: true },
+    }),
+    prisma.agency.count({ where }),
+  ]);
+
+  return { items, page, limit, total };
+};
+
 const listAgencies = async (query = {}, currentUser) => {
   requireCoachAdmin(currentUser);
 
@@ -139,6 +171,7 @@ const deleteAgency = async (agencyId, currentUser) => {
 };
 
 module.exports = {
+  listPublicAgencies,
   listAgencies,
   getAgencyById,
   createAgency,

@@ -63,9 +63,12 @@ test('vanguard trips CRUD', async () => {
   const departureAt = new Date(now.getTime() + 24 * 3600 * 1000).toISOString();
   const arrivalAt = new Date(now.getTime() + 26 * 3600 * 1000).toISOString();
 
-  const create = await request('POST', '/api/trips', { scheduleId, departureAt, arrivalAt }, adminToken);
+  const create = await request('POST', '/api/trips', { scheduleId, date: '2026-10-15', arrivalAt }, adminToken);
   assert.equal(create.status, 201);
   const tripId = create.data.data.trip.id;
+  assert.equal(new Date(create.data.data.trip.departureAt).toISOString().slice(0, 10), '2026-10-15');
+  assert.equal(new Date(create.data.data.trip.departureAt).getHours(), 8);
+  assert.equal(new Date(create.data.data.trip.departureAt).getMinutes(), 0);
 
   const getOne = await request('GET', `/api/trips/${tripId}`, null, adminToken);
   assert.equal(getOne.status, 200);

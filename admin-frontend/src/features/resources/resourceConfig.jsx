@@ -298,8 +298,8 @@ export const resourceGroups = {
           }),
           placeholder: 'Sélectionner l’horaire',
         },
-        { name: 'departureAt', label: 'Date et heure de départ', type: 'datetime-local', required: true },
-        { name: 'arrivalAt', label: 'Date et heure estimée d’arrivée', type: 'datetime-local', required: true },
+        { name: 'date', label: 'Date du voyage', type: 'date', required: true },
+        { name: 'arrivalAt', label: 'Date et heure estimée d’arrivée (si elle est connue)', type: 'datetime-local' },
         {
           name: 'status',
           label: 'Statut du voyage',
@@ -382,7 +382,7 @@ export const resourceGroups = {
         },
         { name: 'amount', label: 'Montant', type: 'number', required: true, placeholder: 'Ex: 35.00', step: '0.01', min: 0 },
         { name: 'currency', label: 'Devise', type: 'select', defaultValue: 'USD', options: [{ value: 'USD', label: 'USD ($)' }, { value: 'CDF', label: 'CDF (FC)' }] },
-        { name: 'channel', label: 'Mode de paiement', type: 'select', defaultValue: 'AGENCY', options: [{ value: 'AGENCY', label: 'En agence' }, { value: 'ONLINE', label: 'En ligne' }] },
+        { name: 'channel', label: 'Mode de paiement', type: 'select', defaultValue: 'AGENCY', options: [{ value: 'AGENCY', label: 'En agence' }] },
         { name: 'method', label: 'Méthode', type: 'text', placeholder: 'Ex: Cash, MoMo, Airtel Money' },
         { name: 'status', label: 'Statut du paiement', type: 'select', defaultValue: 'PENDING', options: [
           { value: 'PENDING', label: 'En attente' },

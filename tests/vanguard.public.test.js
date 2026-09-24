@@ -54,6 +54,14 @@ test.after(async () => {
 
 // ===== TRANSPORT PUBLIC =====
 
+test('GET /api/public/agencies — liste publique des agences actives', async () => {
+  const res = await request('GET', '/api/public/agencies');
+  assert.equal(res.status, 200);
+  assert.equal(res.data.success, true);
+  assert.ok(Array.isArray(res.data.data.items));
+  assert.ok(res.data.data.items.every((agency) => agency.isActive === undefined || agency.isActive === true));
+});
+
 test('GET /api/public/trips — recherche publique sans JWT', async () => {
   const res = await request('GET', '/api/public/trips');
   assert.equal(res.status, 200);

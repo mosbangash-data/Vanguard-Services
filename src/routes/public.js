@@ -31,6 +31,9 @@ const setNoStoreHeaders = (req, res, next) => {
 
 // ===== TRANSPORT PUBLIC =====
 
+// GET /api/public/agencies
+router.get('/agencies', setNoStoreHeaders, publicController.listPublicAgencies);
+
 // GET /api/public/trips?departure=&arrival=&date=&page=&limit=
 router.get('/trips', setNoStoreHeaders, publicController.listPublicTrips);
 

@@ -2,8 +2,18 @@ const publicTransportService = require('../services/publicTransportService');
 const publicConstructionService = require('../services/publicConstructionService');
 const publicAutomobileService = require('../services/publicAutomobileService');
 const publicWebsiteService = require('../services/publicWebsiteService');
+const agencyService = require('../services/agencyService');
 
 // ===== TRANSPORT PUBLIC =====
+
+const listPublicAgencies = async (req, res, next) => {
+  try {
+    const result = await agencyService.listPublicAgencies(req.query);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
 
 const listPublicTrips = async (req, res, next) => {
   try {
@@ -111,6 +121,7 @@ const getPublicWebsiteSettings = async (req, res, next) => {
 };
 
 module.exports = {
+  listPublicAgencies,
   listPublicTrips,
   getPublicTripSeats,
   createPublicReservation,
