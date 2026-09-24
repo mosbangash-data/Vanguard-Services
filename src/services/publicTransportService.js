@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const { mbiyoPayProvider } = require('./payment');
@@ -244,11 +245,20 @@ const createPublicReservation = async (data) => {
 
   const agencyId = trip.schedule?.agencyId ? String(trip.schedule.agencyId).trim() : '';
   if (!agencyId) {
+    console.error('[public-reservation-error]', {
+      errorId: crypto.randomUUID(),
+      message: 'This trip is not assigned to any agency. Reservation cannot be created.',
+      statusCode: 400,
+      tripId,
+      scheduleId: trip.scheduleId,
+      agencyId: null,
+      departmentId: trip.schedule?.departmentId || null,
+    });
     throw new AppError('This trip is not assigned to any agency. Reservation cannot be created.', 400);
   }
 
   const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
-  if (!agency) {
+  if (!agency || !agency.isActive) {
     throw new AppError('This trip has an invalid agency assignment. Reservation cannot be created.', 400);
   }
 
