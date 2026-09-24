@@ -169,6 +169,24 @@ export const api = {
   createReservationPayment: (reservationId, payload) =>
     apiClient.post(`/api/public/reservations/${reservationId}/payments`, payload).then(unwrap),
 
+  /**
+   * Récupérer les agences publiques disponibles.
+   */
+  listPublicAgencies: (params = {}) =>
+    apiClient.get('/api/public/agencies', { params }).then(unwrap),
+
+  /**
+   * Enregistrer / calculer le prix d'un colis en ligne.
+   */
+  createPublicParcel: (payload) =>
+    apiClient.post('/api/public/parcels', payload).then(unwrap),
+
+  /**
+   * Suivre un colis par son code de suivi.
+   */
+  getPublicParcel: (trackingCode) =>
+    apiClient.get(`/api/public/parcels/${trackingCode}`).then(unwrap),
+
   // ===== BILLET =====
   /**
    * Récupérer un billet par son code.

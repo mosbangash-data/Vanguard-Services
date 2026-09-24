@@ -15,21 +15,39 @@ const listReservations = async (query = {}, currentUser) => {
   const limit = Number(query.limit) > 0 ? Math.min(Number(query.limit), 100) : 20;
   const skip = (page - 1) * limit;
 
-  const where = {};
-  if (currentUser.role !== 'SUPER_ADMIN') where.trip = { schedule: { department: { type: 'VANGUARD_COACH' } } };
-  if (currentUser.role === 'AGENT') where.agencyId = getUserAgencyId(currentUser);
-  if (query.tripId) where.tripId = query.tripId;
-  if (query.customerPhone) where.customerPhone = query.customerPhone;
+  const coachDept = await prisma.department.findUnique({ where: { type: 'VANGUARD_COACH' }, select: { id: true } });
+  const andClauses = [];
+
+  if (currentUser.role !== 'SUPER_ADMIN' && coachDept) {
+    andClauses.push({ trip: { schedule: { departmentId: coachDept.id } } });
+  }
+
+  if (currentUser.role === 'AGENT') {
+    const agentAgencyId = getUserAgencyId(currentUser);
+    andClauses.push({
+      OR: [
+        { agencyId: agentAgencyId },
+        { trip: { schedule: { agencyId: agentAgencyId } } },
+      ],
+    });
+  }
+
+  if (query.tripId) andClauses.push({ tripId: query.tripId });
+  if (query.customerPhone) andClauses.push({ customerPhone: query.customerPhone });
   if (query.search) {
     const search = String(query.search).trim();
     if (search) {
-      where.OR = [
-        { reservationCode: { contains: search, mode: 'insensitive' } },
-        { customerName: { contains: search, mode: 'insensitive' } },
-        { customerPhone: { contains: search } },
-      ];
+      andClauses.push({
+        OR: [
+          { reservationCode: { contains: search, mode: 'insensitive' } },
+          { customerName: { contains: search, mode: 'insensitive' } },
+          { customerPhone: { contains: search } },
+        ],
+      });
     }
   }
+
+  const where = andClauses.length > 0 ? { AND: andClauses } : {};
 
   const [items, total] = await Promise.all([
     prisma.reservation.findMany({
@@ -61,7 +79,8 @@ const getReservationById = async (id, currentUser) => {
   });
   if (!reservation) throw new AppError('Reservation not found', 404);
   await assertDepartmentIdForUser(currentUser, reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
-  assertAgencyAccess(currentUser, reservation.agencyId);
+  const effectiveAgencyId = reservation.agencyId || reservation.trip?.schedule?.agencyId;
+  assertAgencyAccess(currentUser, effectiveAgencyId);
   return { reservation };
 };
 
@@ -88,8 +107,22 @@ const createReservation = async (data, currentUser) => {
   const reservationCode = `RSV-${Date.now()}`;
   const totalAmount = String(trip.schedule.price ?? '0.00');
 
-  if (currentUser.role === 'AGENT' && trip.schedule.agencyId !== agencyId) throw new AppError('Trip does not belong to your agency', 403);
-  const reservation = await prisma.reservation.create({ data: { reservationCode, tripId, agencyId, customerName, customerPhone, customerEmail, seatNumber: String(seatNumber), totalAmount, createdByUserId: currentUser.id } });
+  if (currentUser.role === 'AGENT' && trip.schedule.agencyId && trip.schedule.agencyId !== agencyId) {
+    throw new AppError('Trip does not belong to your agency', 403);
+  }
+  const reservation = await prisma.reservation.create({
+    data: {
+      reservationCode,
+      tripId,
+      agencyId: agencyId || trip.schedule.agencyId || null,
+      customerName,
+      customerPhone,
+      customerEmail,
+      seatNumber: String(seatNumber),
+      totalAmount,
+      createdByUserId: currentUser.id,
+    },
+  });
   await auditService.log('create_reservation', currentUser.id, { targetReservationId: reservation.id });
   return { reservation };
 };
@@ -99,7 +132,8 @@ const updateReservation = async (id, data, currentUser) => {
   const reservation = await prisma.reservation.findUnique({ where: { id }, include: { trip: { include: { schedule: true } } } });
   if (!reservation) throw new AppError('Reservation not found', 404);
   await assertDepartmentIdForUser(currentUser, reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
-  assertAgencyAccess(currentUser, reservation.agencyId);
+  const effectiveAgencyId = reservation.agencyId || reservation.trip?.schedule?.agencyId;
+  assertAgencyAccess(currentUser, effectiveAgencyId);
   const payload = {};
   if (data.status) payload.status = data.status;
   if (data.customerName) payload.customerName = data.customerName;
@@ -116,7 +150,8 @@ const deleteReservation = async (id, currentUser) => {
   const reservation = await prisma.reservation.findUnique({ where: { id }, include: { trip: { include: { schedule: true } } } });
   if (!reservation) throw new AppError('Reservation not found', 404);
   await assertDepartmentIdForUser(currentUser, reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
-  assertAgencyAccess(currentUser, reservation.agencyId);
+  const effectiveAgencyId = reservation.agencyId || reservation.trip?.schedule?.agencyId;
+  assertAgencyAccess(currentUser, effectiveAgencyId);
   await prisma.reservation.delete({ where: { id } });
   await auditService.log('delete_reservation', currentUser.id, { targetReservationId: id });
   return { success: true };

@@ -20,10 +20,21 @@ const endOfDay = (date) => new Date(startOfDay(date).getTime() + DAY_MS);
 
 const hasPermission = (user, permission) => user.permissions?.includes(permission);
 
-const buildReservationScope = (departmentId, currentUser) => ({
-  trip: { schedule: { departmentId } },
-  ...(currentUser.role === 'AGENT' ? { agencyId: getUserAgencyId(currentUser) } : {}),
-});
+const buildReservationScope = (departmentId, currentUser) => {
+  if (currentUser.role === 'AGENT') {
+    const agentAgencyId = getUserAgencyId(currentUser);
+    return {
+      trip: { schedule: { departmentId } },
+      OR: [
+        { agencyId: agentAgencyId },
+        { trip: { schedule: { agencyId: agentAgencyId } } },
+      ],
+    };
+  }
+  return {
+    trip: { schedule: { departmentId } },
+  };
+};
 
 const buildTicketScope = (departmentId, currentUser) => ({
   reservation: buildReservationScope(departmentId, currentUser),
@@ -71,12 +82,23 @@ const getAgentDashboard = async (currentUser) => {
   const todayStart = startOfDay(now);
   const tomorrowStart = endOfDay(now);
   const reservationScope = buildReservationScope(departmentId, currentUser);
+  const agentAgencyId = currentUser.role === 'AGENT' ? getUserAgencyId(currentUser) : null;
   const tripScope = {
     schedule: {
       departmentId,
-      ...(currentUser.role === 'AGENT' ? { agencyId: getUserAgencyId(currentUser) } : {}),
+      ...(agentAgencyId ? { agencyId: agentAgencyId } : {}),
     },
   };
+
+  const paymentAgencyFilter = agentAgencyId
+    ? {
+      OR: [
+        { agencyId: agentAgencyId },
+        { reservation: { agencyId: agentAgencyId } },
+        { reservation: { trip: { schedule: { agencyId: agentAgencyId } } } },
+      ],
+    }
+    : {};
 
   const [todayTrips, upcomingTrips, reservations, todayReservationCount, pendingPayments, validatedToday, pendingTickets, recentScans, parcelCounts] = await Promise.all([
     hasPermission(currentUser, 'VIEW_TRIP')
@@ -111,13 +133,17 @@ const getAgentDashboard = async (currentUser) => {
         where: {
           ...reservationScope,
           status: { not: 'CANCELLED' },
-          trip: { ...reservationScope.trip, departureAt: { gte: todayStart, lt: tomorrowStart } },
+          trip: { schedule: { departmentId }, departureAt: { gte: todayStart, lt: tomorrowStart } },
         },
       })
       : 0,
     hasPermission(currentUser, 'VIEW_PAYMENT')
       ? prisma.payment.findMany({
-        where: { reservation: reservationScope, status: 'PENDING' },
+        where: {
+          reservation: { trip: { schedule: { departmentId } } },
+          ...paymentAgencyFilter,
+          status: 'PENDING',
+        },
         orderBy: { createdAt: 'asc' },
         take: 100,
         include: { reservation: { include: { trip: { include: { schedule: { include: { route: true } } } } } } },
@@ -125,7 +151,12 @@ const getAgentDashboard = async (currentUser) => {
       : [],
     hasPermission(currentUser, 'VIEW_PAYMENT')
       ? prisma.payment.findMany({
-        where: { reservation: reservationScope, status: { in: VALIDATED_PAYMENT_STATUSES }, validatedAt: { gte: todayStart, lt: tomorrowStart } },
+        where: {
+          reservation: { trip: { schedule: { departmentId } } },
+          ...paymentAgencyFilter,
+          status: { in: VALIDATED_PAYMENT_STATUSES },
+          validatedAt: { gte: todayStart, lt: tomorrowStart },
+        },
         orderBy: { validatedAt: 'desc' },
         take: 100,
         include: {
@@ -141,7 +172,7 @@ const getAgentDashboard = async (currentUser) => {
           status: 'VALID',
           reservation: {
             ...reservationScope,
-            trip: { ...reservationScope.trip, departureAt: { gte: todayStart, lt: tomorrowStart } },
+            trip: { schedule: { departmentId }, departureAt: { gte: todayStart, lt: tomorrowStart } },
           },
         },
         orderBy: { issuedAt: 'asc' },

@@ -20,12 +20,25 @@ const getReservationPaymentById = async (id) => prisma.payment.findUnique({
 });
 
 const listCoachReservationPayments = async ({ departmentId, agencyId, status, skip = 0, take = 50 }) => {
-  const where = {
-    reservation: agencyId
-      ? { agencyId, trip: { schedule: { departmentId } } }
-      : { trip: { schedule: { departmentId } } },
-    ...(status ? { status } : {}),
-  };
+  const andClauses = [
+    { reservation: { trip: { schedule: { departmentId } } } },
+  ];
+
+  if (agencyId) {
+    andClauses.push({
+      OR: [
+        { agencyId },
+        { reservation: { agencyId } },
+        { reservation: { trip: { schedule: { agencyId } } } },
+      ],
+    });
+  }
+
+  if (status) {
+    andClauses.push({ status });
+  }
+
+  const where = { AND: andClauses };
   const [items, total] = await Promise.all([
     prisma.payment.findMany({
       where,

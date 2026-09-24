@@ -12,11 +12,11 @@ class AgencyPaymentProvider extends PaymentProvider {
   /**
    * Record a physical agency payment.
    */
-  async initiatePayment(paymentContext) {
-    const { amount, currency, reference, agentId, method } = paymentContext;
+  initiatePayment(paymentContext) {
+    const { amount, currency, reference, agentId, method } = paymentContext || {};
     const agencyReference = reference || `AG-PAY-${Date.now()}-${crypto.randomInt(1000, 9999)}`;
 
-    return {
+    const result = {
       provider: this.name,
       channel: 'AGENCY',
       providerTransactionId: agencyReference,
@@ -27,6 +27,10 @@ class AgencyPaymentProvider extends PaymentProvider {
       receivedByUserId: agentId,
       receivedAt: new Date(),
     };
+
+    const promise = Promise.resolve(result);
+    Object.assign(promise, result);
+    return promise;
   }
 
   async verifyPayment(verificationContext) {

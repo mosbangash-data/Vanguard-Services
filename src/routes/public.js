@@ -54,6 +54,12 @@ router.post(
   publicController.createPublicReservationPayment
 );
 
+// POST /api/public/parcels
+router.post('/parcels', publicPostLimiter, publicController.createPublicParcel);
+
+// GET /api/public/parcels/:trackingCode
+router.get('/parcels/:trackingCode', setNoStoreHeaders, publicController.getPublicParcelByTrackingCode);
+
 // ===== CONSTRUCTION PUBLIC =====
 
 // GET /api/public/construction/projects?page=&limit=

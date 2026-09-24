@@ -141,7 +141,9 @@ const createReservationPayment = async (data, currentUser) => {
     status: 'PENDING',
     reference: data.reference ? String(data.reference).trim() : null,
     comment: data.comment ? String(data.comment).trim() : null,
-    agencyId: currentUser.role === 'AGENT' ? getUserAgencyId(currentUser) : null,
+    agencyId: currentUser.role === 'AGENT'
+      ? getUserAgencyId(currentUser)
+      : (data.agencyId || reservation.agencyId || reservation.trip?.schedule?.agencyId || null),
   };
 
   const payment = await prisma.$transaction(async (tx) => tx.payment.create({ data: paymentData }));
@@ -288,25 +290,28 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
 
   const reservation = await getReservationWithTrip(payment.reservationId);
   await assertReservationDepartmentAccess(reservation, currentUser);
-  assertAgencyAccess(currentUser, reservation.agencyId);
   ensurePayableReservation(reservation);
 
-  if (!payment.agencyId || !reservation.agencyId) {
-    throw new AppError('Payment and reservation must be associated with an agency before validation.', 400);
+  const userAgencyId = getUserAgencyId(currentUser);
+  const resolvedAgencyId = userAgencyId || payment.agencyId || reservation.agencyId || reservation.trip?.schedule?.agencyId;
+  if (!resolvedAgencyId) {
+    throw new AppError('Payment is not associated with a valid agency.', 400);
   }
-  if (payment.agencyId !== reservation.agencyId) {
-    throw new AppError('Payment agency does not match reservation agency.', 403);
-  }
-  if (payment.channel !== 'AGENCY' || payment.method !== 'CASH') {
-    throw new AppError('This endpoint only validates agency cash payments.', 409);
-  }
+
   if (currentUser.role === 'AGENT') {
-    if (!currentUser.agencyId) {
+    if (!userAgencyId) {
       throw new AppError('Agent agency assignment is required', 403);
     }
-    if (currentUser.agencyId !== payment.agencyId) {
+    if (payment.agencyId && payment.agencyId !== userAgencyId) {
       throw new AppError('Access denied: payment belongs to another agency', 403);
     }
+    if (reservation.agencyId && reservation.agencyId !== userAgencyId && reservation.trip?.schedule?.agencyId && reservation.trip.schedule.agencyId !== userAgencyId) {
+      throw new AppError('Access denied: reservation belongs to another agency', 403);
+    }
+  }
+
+  if (payment.method !== 'CASH') {
+    throw new AppError('This endpoint only validates agency cash payments.', 409);
   }
 
   const validatedPaidCents = sumValidatedPayments(reservation.payments);
@@ -317,11 +322,6 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
     throw new AppError('Payment amount exceeds remaining reservation balance', 400);
   }
 
-  const resolvedAgencyId = payment.agencyId || reservation.agencyId;
-  if (!resolvedAgencyId) {
-    throw new AppError('Payment is not associated with a valid agency.', 400);
-  }
-
   const ticketResult = await prisma.$transaction(async (tx) => {
     const changed = await tx.payment.updateMany({
       where: { id: paymentId, status: 'PENDING' },
@@ -330,9 +330,18 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
         validatedById: currentUser.id,
         validatedAt: new Date(),
         agencyId: resolvedAgencyId,
+        channel: 'AGENCY',
+        method: 'CASH',
       },
     });
     if (changed.count !== 1) throw new AppError('Payment has already been processed', 409);
+
+    if (!reservation.agencyId) {
+      await tx.reservation.update({
+        where: { id: reservation.id },
+        data: { agencyId: resolvedAgencyId },
+      });
+    }
 
     await maybeConfirmReservation(tx, reservation, paymentCents);
     const confirmedReservation = await tx.reservation.findUnique({ where: { id: reservation.id }, select: { status: true } });
@@ -407,7 +416,13 @@ const getReservationPaymentReceipt = async (paymentId, currentUser) => {
   if (!payment.reservation) throw new AppError('Reservation payment relationship is invalid', 400);
 
   await assertReservationDepartmentAccess(payment.reservation, currentUser);
-  assertAgencyAccess(currentUser, payment.reservation.agencyId);
+  const receiptAgencyId = payment.agencyId || payment.reservation.agencyId || payment.reservation.trip?.schedule?.agencyId;
+  assertAgencyAccess(currentUser, receiptAgencyId);
+
+  let agencyData = payment.agency;
+  if (!agencyData && receiptAgencyId) {
+    agencyData = await prisma.agency.findUnique({ where: { id: receiptAgencyId } });
+  }
 
   return {
     receiptNumber: `REC-${payment.id.slice(-8).toUpperCase()}-${Date.now().toString().slice(-4)}`,
@@ -421,14 +436,14 @@ const getReservationPaymentReceipt = async (paymentId, currentUser) => {
     method: payment.method,
     channel: payment.channel,
     status: payment.status,
-    agency: payment.agency
+    agency: agencyData
       ? {
-          id: payment.agency.id,
-          name: payment.agency.name,
-          code: payment.agency.code,
-          city: payment.agency.city,
-          address: payment.agency.address,
-          phone: payment.agency.phone,
+          id: agencyData.id,
+          name: agencyData.name,
+          code: agencyData.code,
+          city: agencyData.city,
+          address: agencyData.address,
+          phone: agencyData.phone,
         }
       : null,
     validatedBy: payment.validatedBy
@@ -451,7 +466,8 @@ const rejectReservationPayment = async (paymentId, currentUser, reason = null) =
   ensurePendingPayment(payment);
   const reservation = await getReservationWithTrip(payment.reservationId);
   await assertReservationDepartmentAccess(reservation, currentUser);
-  assertAgencyAccess(currentUser, reservation.agencyId);
+  const effectiveAgencyId = payment.agencyId || reservation.agencyId || reservation.trip?.schedule?.agencyId;
+  assertAgencyAccess(currentUser, effectiveAgencyId);
 
   const updatePayload = {
     status: 'REJECTED',

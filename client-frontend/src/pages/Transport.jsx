@@ -12,6 +12,7 @@ import {
   Info,
   Armchair,
   CreditCard,
+  Package,
 } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageProvider'
 import { useReveal } from '../hooks/useReveal'
@@ -83,6 +84,37 @@ export default function Transport() {
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentError, setPaymentError] = useState(null)
 
+  // Agences pour formulaire colis
+  const [agencies, setAgencies] = useState([])
+  const [agenciesLoading, setAgenciesLoading] = useState(false)
+  const [agenciesError, setAgenciesError] = useState(null)
+
+  // Enregistrement colis
+  const [parcelData, setParcelData] = useState({
+    senderName: '',
+    senderPhone: '',
+    senderEmail: '',
+    recipientName: '',
+    recipientPhone: '',
+    recipientEmail: '',
+    originAgencyId: '',
+    destinationAgencyId: '',
+    weightKg: '1',
+    volumeM3: '0.01',
+    category: 'STANDARD',
+    declaredValue: '',
+    description: '',
+  })
+  const [parcelSubmitting, setParcelSubmitting] = useState(false)
+  const [parcelSubmitError, setParcelSubmitError] = useState(null)
+  const [parcelSubmitResult, setParcelSubmitResult] = useState(null)
+
+  // Suivi de colis
+  const [parcelTrackingCode, setParcelTrackingCode] = useState('')
+  const [parcelTrackingLoading, setParcelTrackingLoading] = useState(false)
+  const [parcelTrackingError, setParcelTrackingError] = useState(null)
+  const [parcelTrackingResult, setParcelTrackingResult] = useState(null)
+
   const loadAvailableTrips = async (limit = 20) => {
     setSearching(true)
     setSearchError(null)
@@ -125,7 +157,58 @@ export default function Transport() {
 
   useEffect(() => {
     void loadAvailableTrips()
+    const loadAgencies = async () => {
+      setAgenciesLoading(true)
+      setAgenciesError(null)
+      try {
+        const res = await api.listPublicAgencies()
+        setAgencies(res?.items || [])
+      } catch (err) {
+        setAgenciesError(translateError(err, t))
+      } finally {
+        setAgenciesLoading(false)
+      }
+    }
+    void loadAgencies()
   }, [])
+
+  const handleParcelSubmit = async (e) => {
+    e.preventDefault()
+    setParcelSubmitError(null)
+    setParcelSubmitResult(null)
+
+    if (parcelData.originAgencyId === parcelData.destinationAgencyId) {
+      setParcelSubmitError(t('transportPage.parcelSameAgencyError'))
+      return
+    }
+
+    setParcelSubmitting(true)
+    try {
+      const res = await api.createPublicParcel(parcelData)
+      setParcelSubmitResult(res?.parcel)
+    } catch (err) {
+      setParcelSubmitError(translateError(err, t))
+    } finally {
+      setParcelSubmitting(false)
+    }
+  }
+
+  const handleParcelTrack = async (e) => {
+    e.preventDefault()
+    setParcelTrackingError(null)
+    setParcelTrackingResult(null)
+    if (!parcelTrackingCode.trim()) return
+
+    setParcelTrackingLoading(true)
+    try {
+      const res = await api.getPublicParcel(parcelTrackingCode.trim())
+      setParcelTrackingResult(res?.parcel)
+    } catch (err) {
+      setParcelTrackingError(translateError(err, t))
+    } finally {
+      setParcelTrackingLoading(false)
+    }
+  }
 
   const handleSearch = async (e) => {
     e.preventDefault()
@@ -892,6 +975,361 @@ export default function Transport() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== EXPÉDITION & SUIVI DE COLIS ===== */}
+      <section className="section bg-surface">
+        <div className="container">
+          <div className="reveal">
+            <SectionHeader
+              center
+              eyebrow={t('transportPage.parcelTitle')}
+              title={t('transportPage.parcelTitle')}
+              subtitle={t('transportPage.parcelSubtitle')}
+            />
+          </div>
+
+          <div className="grid grid-2 reveal reveal-delay-1" style={{ gap: '32px', marginTop: '24px' }}>
+            {/* Formulaire d'enregistrement */}
+            <div className="lookup-card" style={{ maxWidth: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <Package size={24} style={{ color: 'var(--color-primary)' }} />
+                <h3 style={{ margin: 0 }}>{t('transportPage.parcelTitle')}</h3>
+              </div>
+
+              {parcelSubmitError && (
+                <div className="notice notice-error" style={{ marginBottom: '16px' }}>
+                  <Info size={18} aria-hidden="true" />
+                  <span>{parcelSubmitError}</span>
+                </div>
+              )}
+
+              {parcelSubmitResult ? (
+                <div className="reservation-result" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '20px', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#16a34a', marginBottom: '12px' }}>
+                    <CheckCircle2 size={22} />
+                    <h4 style={{ margin: 0 }}>{t('transportPage.parcelSuccess')}</h4>
+                  </div>
+                  <p style={{ fontSize: '14px', marginBottom: '12px' }}>
+                    {t('transportPage.parcelTrackingNotice')}
+                  </p>
+                  <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+                    <div><strong>Code de suivi :</strong> <code style={{ fontSize: '16px', fontWeight: 'bold' }}>{parcelSubmitResult.trackingCode}</code></div>
+                    <div><strong>Prix à régler (CASH) :</strong> {parcelSubmitResult.amount} {parcelSubmitResult.currency || 'USD'}</div>
+                    <div><strong>Origine :</strong> {parcelSubmitResult.originAgency?.name || parcelSubmitResult.originCity}</div>
+                    <div><strong>Destination :</strong> {parcelSubmitResult.destinationAgency?.name || parcelSubmitResult.destinationCity}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setParcelSubmitResult(null)
+                      setParcelData({
+                        senderName: '',
+                        senderPhone: '',
+                        senderEmail: '',
+                        recipientName: '',
+                        recipientPhone: '',
+                        recipientEmail: '',
+                        originAgencyId: '',
+                        destinationAgencyId: '',
+                        weightKg: '1',
+                        volumeM3: '0.01',
+                        category: 'STANDARD',
+                        declaredValue: '',
+                        description: '',
+                      })
+                    }}
+                  >
+                    Enregistrer un autre colis
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleParcelSubmit} className="space-y-4">
+                  <div className="grid grid-2" style={{ gap: '12px' }}>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="parcelOriginAgency">
+                        {t('transportPage.parcelOriginAgency')} <span className="required">*</span>
+                      </label>
+                      <select
+                        id="parcelOriginAgency"
+                        className="form-input"
+                        value={parcelData.originAgencyId}
+                        onChange={(e) => setParcelData({ ...parcelData, originAgencyId: e.target.value })}
+                        required
+                        disabled={agenciesLoading}
+                      >
+                        <option value="">
+                          {agenciesLoading
+                            ? t('states.loading')
+                            : agenciesError
+                            ? 'Erreur agences'
+                            : !agencies.length
+                            ? 'Aucune agence'
+                            : t('transportPage.parcelSelectAgency')}
+                        </option>
+                        {agencies.map((ag) => (
+                          <option key={ag.id} value={ag.id}>
+                            {ag.name} ({ag.code}) • {ag.city || '—'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="parcelDestinationAgency">
+                        {t('transportPage.parcelDestinationAgency')} <span className="required">*</span>
+                      </label>
+                      <select
+                        id="parcelDestinationAgency"
+                        className="form-input"
+                        value={parcelData.destinationAgencyId}
+                        onChange={(e) => setParcelData({ ...parcelData, destinationAgencyId: e.target.value })}
+                        required
+                        disabled={agenciesLoading}
+                      >
+                        <option value="">
+                          {agenciesLoading
+                            ? t('states.loading')
+                            : agenciesError
+                            ? 'Erreur agences'
+                            : !agencies.length
+                            ? 'Aucune agence'
+                            : t('transportPage.parcelSelectAgency')}
+                        </option>
+                        {agencies.map((ag) => (
+                          <option key={ag.id} value={ag.id}>
+                            {ag.name} ({ag.code}) • {ag.city || '—'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-2" style={{ gap: '12px' }}>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="senderName">
+                        {t('transportPage.parcelSenderName')} <span className="required">*</span>
+                      </label>
+                      <input
+                        id="senderName"
+                        type="text"
+                        className="form-input"
+                        value={parcelData.senderName}
+                        onChange={(e) => setParcelData({ ...parcelData, senderName: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="senderPhone">
+                        {t('transportPage.parcelSenderPhone')} <span className="required">*</span>
+                      </label>
+                      <input
+                        id="senderPhone"
+                        type="tel"
+                        className="form-input"
+                        value={parcelData.senderPhone}
+                        onChange={(e) => setParcelData({ ...parcelData, senderPhone: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-2" style={{ gap: '12px' }}>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="recipientName">
+                        {t('transportPage.parcelRecipientName')} <span className="required">*</span>
+                      </label>
+                      <input
+                        id="recipientName"
+                        type="text"
+                        className="form-input"
+                        value={parcelData.recipientName}
+                        onChange={(e) => setParcelData({ ...parcelData, recipientName: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="recipientPhone">
+                        {t('transportPage.parcelRecipientPhone')} <span className="required">*</span>
+                      </label>
+                      <input
+                        id="recipientPhone"
+                        type="tel"
+                        className="form-input"
+                        value={parcelData.recipientPhone}
+                        onChange={(e) => setParcelData({ ...parcelData, recipientPhone: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-3" style={{ gap: '12px' }}>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="parcelWeight">
+                        {t('transportPage.parcelWeight')} <span className="required">*</span>
+                      </label>
+                      <input
+                        id="parcelWeight"
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        className="form-input"
+                        value={parcelData.weightKg}
+                        onChange={(e) => setParcelData({ ...parcelData, weightKg: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="parcelVolume">
+                        {t('transportPage.parcelVolume')}
+                      </label>
+                      <input
+                        id="parcelVolume"
+                        type="number"
+                        min="0.001"
+                        step="0.01"
+                        className="form-input"
+                        value={parcelData.volumeM3}
+                        onChange={(e) => setParcelData({ ...parcelData, volumeM3: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="parcelCategory">
+                        {t('transportPage.parcelCategory')}
+                      </label>
+                      <select
+                        id="parcelCategory"
+                        className="form-input"
+                        value={parcelData.category}
+                        onChange={(e) => setParcelData({ ...parcelData, category: e.target.value })}
+                      >
+                        <option value="STANDARD">Standard</option>
+                        <option value="DOCUMENT">Document</option>
+                        <option value="FRAGILE">Fragile</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="parcelDescription">
+                      {t('transportPage.parcelDescription')}
+                    </label>
+                    <textarea
+                      id="parcelDescription"
+                      rows={2}
+                      className="form-input"
+                      value={parcelData.description}
+                      onChange={(e) => setParcelData({ ...parcelData, description: e.target.value })}
+                      placeholder="Contenu, fragilité..."
+                    />
+                  </div>
+
+                  <div className="notice" style={{ background: '#f8fafc', fontSize: '13px', padding: '10px 14px', borderRadius: '6px' }}>
+                    <strong>Note Vanguard Coach :</strong> Le règlement des colis s’effectue exclusivement en <strong>espèces (CASH)</strong> au guichet de l’agence de départ lors du dépôt physique.
+                  </div>
+
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={parcelSubmitting}>
+                    <Package size={18} aria-hidden="true" />
+                    {parcelSubmitting ? t('states.loading') : t('transportPage.parcelSubmit')}
+                  </button>
+                </form>
+              )}
+            </div>
+
+            {/* Suivi de colis */}
+            <div className="lookup-card" style={{ maxWidth: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <Search size={24} style={{ color: 'var(--color-primary)' }} />
+                <h3 style={{ margin: 0 }}>{t('transportPage.parcelTrackTitle')}</h3>
+              </div>
+
+              <form onSubmit={handleParcelTrack} className="lookup-form" style={{ marginBottom: '20px' }}>
+                <div className="form-group lookup-input">
+                  <label className="form-label" htmlFor="parcelTrackingCode">
+                    Code de suivi <span className="required">*</span>
+                  </label>
+                  <input
+                    id="parcelTrackingCode"
+                    type="text"
+                    className="form-input"
+                    placeholder={t('transportPage.parcelTrackPlaceholder')}
+                    value={parcelTrackingCode}
+                    onChange={(e) => setParcelTrackingCode(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" disabled={parcelTrackingLoading}>
+                  <Search size={18} aria-hidden="true" />
+                  {parcelTrackingLoading ? t('states.loading') : t('transportPage.parcelTrackButton')}
+                </button>
+              </form>
+
+              {parcelTrackingError && (
+                <div className="notice notice-error">
+                  <Info size={18} aria-hidden="true" />
+                  <span>{parcelTrackingError}</span>
+                </div>
+              )}
+
+              {parcelTrackingResult && (
+                <div className="reservation-result">
+                  <h4>Statut du colis</h4>
+                  <div className="summary-grid">
+                    <div className="summary-item">
+                      <span className="summary-label">Code de suivi</span>
+                      <span className="summary-value">{parcelTrackingResult.trackingCode}</span>
+                    </div>
+                    <div className="summary-item">
+                      <span className="summary-label">Statut</span>
+                      <span className="summary-value">
+                        <span className="badge badge-gold">{parcelTrackingResult.status}</span>
+                      </span>
+                    </div>
+                    <div className="summary-item">
+                      <span className="summary-label">Origine</span>
+                      <span className="summary-value">{parcelTrackingResult.originAgency?.name || parcelTrackingResult.originCity}</span>
+                    </div>
+                    <div className="summary-item">
+                      <span className="summary-label">Destination</span>
+                      <span className="summary-value">{parcelTrackingResult.destinationAgency?.name || parcelTrackingResult.destinationCity}</span>
+                    </div>
+                    <div className="summary-item">
+                      <span className="summary-label">Expéditeur</span>
+                      <span className="summary-value">{parcelTrackingResult.senderName}</span>
+                    </div>
+                    <div className="summary-item">
+                      <span className="summary-label">Destinataire</span>
+                      <span className="summary-value">{parcelTrackingResult.recipientName}</span>
+                    </div>
+                    <div className="summary-item">
+                      <span className="summary-label">Poids</span>
+                      <span className="summary-value">{parcelTrackingResult.weightKg} kg</span>
+                    </div>
+                    <div className="summary-item">
+                      <span className="summary-label">Montant</span>
+                      <span className="summary-value">{parcelTrackingResult.amount} {parcelTrackingResult.currency || 'USD'}</span>
+                    </div>
+                  </div>
+
+                  {parcelTrackingResult.statusHistory && parcelTrackingResult.statusHistory.length > 0 && (
+                    <div style={{ marginTop: '20px' }}>
+                      <h4 style={{ marginBottom: '10px' }}>Historique du parcours</h4>
+                      <div className="payments-list">
+                        {parcelTrackingResult.statusHistory.map((h, idx) => (
+                          <div key={idx} className="payment-item">
+                            <span><strong>{h.newStatus}</strong>{h.reason ? ` — ${h.reason}` : ''}</span>
+                            <span style={{ fontSize: '12px', color: '#64748b' }}>{formatDate(h.changedAt)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>

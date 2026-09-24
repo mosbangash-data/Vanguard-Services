@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
+const { generateSecureTrackingCode } = require('../utils/cryptoUtils');
+const { calculateOfficialPrice } = require('./parcelPricingService');
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -487,10 +489,171 @@ const createPublicReservationPayment = async (reservationId, data) => {
   };
 };
 
+const createPublicParcel = async (data) => {
+  const senderName = normalizeString(data.senderName);
+  const senderPhone = normalizeString(data.senderPhone);
+  const senderEmail = data.senderEmail ? normalizeString(data.senderEmail) : null;
+  const recipientName = normalizeString(data.recipientName);
+  const recipientPhone = normalizeString(data.recipientPhone);
+  const recipientEmail = data.recipientEmail ? normalizeString(data.recipientEmail) : null;
+  const originAgencyId = normalizeString(data.originAgencyId);
+  const destinationAgencyId = normalizeString(data.destinationAgencyId);
+
+  if (!senderName || !senderPhone || !recipientName || !recipientPhone) {
+    throw new AppError('senderName, senderPhone, recipientName and recipientPhone are required', 400);
+  }
+  if (!originAgencyId || !destinationAgencyId) {
+    throw new AppError('originAgencyId and destinationAgencyId are required', 400);
+  }
+  if (originAgencyId === destinationAgencyId) {
+    throw new AppError('Origin agency and destination agency cannot be the same', 400);
+  }
+
+  const [originAgency, destinationAgency] = await Promise.all([
+    prisma.agency.findUnique({ where: { id: originAgencyId } }),
+    prisma.agency.findUnique({ where: { id: destinationAgencyId } }),
+  ]);
+
+  if (!originAgency || !originAgency.isActive) {
+    throw new AppError('Origin agency is invalid or inactive', 400);
+  }
+  if (!destinationAgency || !destinationAgency.isActive) {
+    throw new AppError('Destination agency is invalid or inactive', 400);
+  }
+
+  const department = await getCoachDepartment();
+  if (originAgency.departmentId !== department.id || destinationAgency.departmentId !== department.id) {
+    throw new AppError('Agencies must belong to Vanguard Coach', 400);
+  }
+
+  const originCity = originAgency.city || 'Kinshasa';
+  const destinationCity = destinationAgency.city || 'Lubumbashi';
+
+  const pricing = await calculateOfficialPrice({
+    originCity,
+    destinationCity,
+    weightKg: data.weightKg,
+    volumeM3: data.volumeM3,
+    category: data.category,
+    declaredValue: data.declaredValue,
+    departmentId: department.id,
+  });
+
+  const trackingCode = generateSecureTrackingCode();
+  const initialStatus = 'REGISTERED';
+
+  const parcel = await prisma.$transaction(async (tx) => {
+    const created = await tx.parcel.create({
+      data: {
+        trackingCode,
+        senderName,
+        senderPhone,
+        senderEmail,
+        recipientName,
+        recipientPhone,
+        recipientEmail,
+        originCity,
+        destinationCity,
+        originAgencyId,
+        destinationAgencyId,
+        category: data.category ? String(data.category).trim().toUpperCase() : 'STANDARD',
+        description: data.description ? normalizeString(data.description) : null,
+        weightKg: Number(data.weightKg) || 1,
+        volumeM3: Number(data.volumeM3) || 0.01,
+        declaredValue: data.declaredValue ? Number(data.declaredValue) : null,
+        amount: pricing.amount,
+        currency: pricing.currency,
+        status: initialStatus,
+        receivedByUserId: null,
+        receivedAt: new Date(),
+      },
+      include: {
+        originAgency: { select: { id: true, code: true, name: true, city: true, phone: true } },
+        destinationAgency: { select: { id: true, code: true, name: true, city: true, phone: true } },
+      },
+    });
+
+    await tx.parcelStatusHistory.create({
+      data: {
+        parcelId: created.id,
+        previousStatus: null,
+        newStatus: initialStatus,
+        changedByUserId: null,
+        reason: 'Enregistrement public du colis en ligne',
+        details: { pricingBreakdown: pricing.breakdown },
+      },
+    });
+
+    return created;
+  });
+
+  return {
+    parcel: {
+      id: parcel.id,
+      trackingCode: parcel.trackingCode,
+      senderName: parcel.senderName,
+      recipientName: parcel.recipientName,
+      originCity: parcel.originCity,
+      destinationCity: parcel.destinationCity,
+      originAgency: parcel.originAgency,
+      destinationAgency: parcel.destinationAgency,
+      amount: parcel.amount,
+      currency: parcel.currency,
+      status: parcel.status,
+      createdAt: parcel.createdAt,
+    },
+    pricingBreakdown: pricing.breakdown,
+  };
+};
+
+const getPublicParcelByTrackingCode = async (trackingCode) => {
+  const code = normalizeString(trackingCode);
+  if (!code) throw new AppError('trackingCode is required', 400);
+
+  const parcel = await prisma.parcel.findUnique({
+    where: { trackingCode: code },
+    include: {
+      originAgency: { select: { id: true, code: true, name: true, city: true, phone: true } },
+      destinationAgency: { select: { id: true, code: true, name: true, city: true, phone: true } },
+      statusHistory: {
+        orderBy: { changedAt: 'asc' },
+        select: {
+          previousStatus: true,
+          newStatus: true,
+          changedAt: true,
+          reason: true,
+        },
+      },
+    },
+  });
+
+  if (!parcel) throw new AppError('Parcel not found', 404);
+
+  return {
+    parcel: {
+      trackingCode: parcel.trackingCode,
+      senderName: parcel.senderName,
+      recipientName: parcel.recipientName,
+      originCity: parcel.originCity,
+      destinationCity: parcel.destinationCity,
+      originAgency: parcel.originAgency,
+      destinationAgency: parcel.destinationAgency,
+      status: parcel.status,
+      weightKg: parcel.weightKg,
+      amount: parcel.amount,
+      currency: parcel.currency,
+      createdAt: parcel.createdAt,
+      statusHistory: parcel.statusHistory,
+    },
+  };
+};
+
 module.exports = {
   listPublicTrips,
   getPublicTripSeats,
   createPublicReservation,
   getPublicReservationByCode,
   createPublicReservationPayment,
+  createPublicParcel,
+  getPublicParcelByTrackingCode,
 };

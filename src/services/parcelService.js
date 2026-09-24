@@ -155,10 +155,6 @@ const getParcelById = async (id, currentUser) => {
 
 const createParcel = async (data, currentUser) => {
   assertCoachAccess(currentUser);
-  if (!data.senderName || !data.senderPhone || !data.recipientName || !data.recipientPhone || !data.originCity || !data.destinationCity) {
-    throw new AppError('Sender, recipient, and route (origin/destination) information are required', 400);
-  }
-
   const userAgencyId = currentUser.agencyId || currentUser.agency?.id;
   if (userAgencyId && currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SERVICE_ADMIN') {
     if (data.originAgencyId && data.originAgencyId !== userAgencyId) {
@@ -167,6 +163,34 @@ const createParcel = async (data, currentUser) => {
     if (!data.originAgencyId) {
       data.originAgencyId = userAgencyId;
     }
+  }
+
+  if (data.originAgencyId) {
+    const originAgency = await prisma.agency.findUnique({ where: { id: data.originAgencyId } });
+    if (!originAgency || !originAgency.isActive) {
+      throw new AppError('Origin agency not found or inactive', 400);
+    }
+    if (!data.originCity && originAgency.city) {
+      data.originCity = originAgency.city;
+    }
+  }
+
+  if (data.destinationAgencyId) {
+    const destinationAgency = await prisma.agency.findUnique({ where: { id: data.destinationAgencyId } });
+    if (!destinationAgency || !destinationAgency.isActive) {
+      throw new AppError('Destination agency not found or inactive', 400);
+    }
+    if (!data.destinationCity && destinationAgency.city) {
+      data.destinationCity = destinationAgency.city;
+    }
+  }
+
+  if (data.originAgencyId && data.destinationAgencyId && data.originAgencyId === data.destinationAgencyId) {
+    throw new AppError('Origin agency and destination agency cannot be the same', 400);
+  }
+
+  if (!data.senderName || !data.senderPhone || !data.recipientName || !data.recipientPhone || !data.originCity || !data.destinationCity) {
+    throw new AppError('Sender, recipient, and route (origin/destination) information are required', 400);
   }
 
   const dept = await getCoachDepartment();

@@ -1,7 +1,7 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
-const { requireCoachAdmin, getScopedDepartmentId, assertDepartmentIdForUser } = require('./departmentAccessService');
+const { requireCoachAdmin, requireDepartmentType, getScopedDepartmentId, assertDepartmentIdForUser } = require('./departmentAccessService');
 
 const normalizePage = (value) => {
   const parsed = Number(value);
@@ -48,7 +48,7 @@ const listPublicAgencies = async (query = {}) => {
 };
 
 const listAgencies = async (query = {}, currentUser) => {
-  requireCoachAdmin(currentUser);
+  requireDepartmentType(currentUser, 'VANGUARD_COACH');
 
   const page = normalizePage(query.page);
   const limit = normalizeLimit(query.limit);
@@ -57,6 +57,9 @@ const listAgencies = async (query = {}, currentUser) => {
   const where = {};
   const departmentId = await getScopedDepartmentId(currentUser, query.departmentId, 'VANGUARD_COACH');
   if (departmentId) where.departmentId = departmentId;
+  if (query.isActive !== undefined) {
+    where.isActive = query.isActive === 'true' || query.isActive === true;
+  }
   if (query.search) {
     const s = typeof query.search === 'string' ? query.search.trim() : '';
     if (s) {
@@ -79,7 +82,7 @@ const listAgencies = async (query = {}, currentUser) => {
 };
 
 const getAgencyById = async (agencyId, currentUser) => {
-  requireCoachAdmin(currentUser);
+  requireDepartmentType(currentUser, 'VANGUARD_COACH');
 
   const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
   if (!agency) throw new AppError('Agency not found', 404);
