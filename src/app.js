@@ -49,7 +49,6 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const adminMediaRoutes = require('./routes/adminMedia');
 const publicRoutes = require('./routes/public');
-const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 
@@ -143,7 +142,6 @@ const apiLimiter = rateLimit({
 });
 
 app.use('/api', apiLimiter);
-app.use('/api/webhooks/mbiyopay', express.raw({ type: 'application/json', limit: '1mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
@@ -186,7 +184,6 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/media', adminMediaRoutes);
-app.use('/api/webhooks', webhookRoutes);
 
 const clientSpaPredicate = (req) => {
   const pathname = decodeURIComponent(req.path || '/');

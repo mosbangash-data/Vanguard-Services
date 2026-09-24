@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
-const { mbiyoPayProvider } = require('./payment');
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -379,7 +378,7 @@ const getPublicReservationByCode = async (code) => {
 };
 
 const createPublicReservationPayment = async (reservationId, data) => {
-  const { amount, method, reference, comment, network, phoneNumber, countryCode } = data;
+  const { amount, method, reference, comment } = data;
 
   if (!reservationId) throw new AppError('reservationId is required', 400);
   if (!amount) throw new AppError('amount is required', 400);
@@ -445,90 +444,15 @@ const createPublicReservationPayment = async (reservationId, data) => {
   }
 
   const normalizedMethod = normalizeString(method).toUpperCase();
-  const allowedMethods = new Set(['CASH', 'MOBILE_MONEY']);
+  const allowedMethods = new Set(['CASH']);
   if (!allowedMethods.has(normalizedMethod)) {
-    throw new AppError('Only CASH and MOBILE_MONEY are supported for public reservations.', 400);
+    throw new AppError('Only CASH is supported for public reservations.', 400);
   }
 
-  const channel = normalizedMethod === 'MOBILE_MONEY' ? 'ONLINE' : 'AGENCY';
-  const provider = normalizedMethod === 'MOBILE_MONEY' ? 'MBIYOPAY' : 'AGENCY';
+  const channel = 'AGENCY';
+  const provider = 'AGENCY';
 
   const paymentReference = reference ? normalizeString(reference) : reservation.reservationCode || reservation.id;
-
-  if (normalizedMethod === 'MOBILE_MONEY') {
-    const resolvedNetwork = normalizeString(network || data.networkName || data.network_name).toUpperCase();
-    const validNetworks = new Set(['VODACOM', 'AIRTEL', 'ORANGE', 'AFRICELL']);
-    if (!validNetworks.has(resolvedNetwork)) {
-      throw new AppError('Invalid Mobile Money network. Supported values: Vodacom, Airtel, Orange, Africell.', 400);
-    }
-
-    const phone = normalizeString(phoneNumber || data.phone_number || data.phoneNumber);
-    if (!/^\+?[0-9]{7,15}$/.test(phone)) {
-      throw new AppError('Invalid mobile phone number.', 400);
-    }
-
-    const resolvedCountryCode = normalizeString(countryCode || data.country_code || data.countryCode).toUpperCase();
-    if (!['CD', 'RW', 'UG', 'TZ', 'ZM', 'CM', 'GA', 'BJ'].includes(resolvedCountryCode)) {
-      throw new AppError('Invalid country code for Mobile Money.', 400);
-    }
-
-    const providerInit = await mbiyoPayProvider.initiatePayment({
-      amount: amountNum,
-      currency,
-      reference: paymentReference,
-      orderId: reservation.reservationCode,
-      description: `Coach reservation ${reservation.reservationCode}`,
-      customerPhone: phone,
-      metadata: {
-        network: resolvedNetwork,
-        phone_number: phone,
-        country_code: resolvedCountryCode,
-      },
-    });
-
-    if (!providerInit || providerInit.status === 'FAILED' || providerInit.status === 'PENDING_PROVIDER_SETUP') {
-      throw new AppError(providerInit?.message || "Impossible d'initialiser le paiement Mobile Money. Veuillez réessayer.", 502);
-    }
-
-    if (!providerInit.providerTransactionId) {
-      throw new AppError("Impossible d'initialiser le paiement Mobile Money. Veuillez réessayer.", 502);
-    }
-
-    const payment = await prisma.payment.create({
-      data: {
-        reservationId: reservation.id,
-        agencyId: reservation.agencyId,
-        amount: amountNum.toFixed(2),
-        currency,
-        channel,
-        provider,
-        method: normalizedMethod,
-        status: 'PENDING',
-        reference: paymentReference,
-        idempotencyKey: idempotencyKey || undefined,
-        providerTransactionId: providerInit.providerTransactionId,
-        providerReference: providerInit.providerReference || paymentReference,
-        comment: comment ? normalizeString(comment) : null,
-      },
-    });
-
-    return {
-      payment: {
-        id: payment.id,
-        agencyId: payment.agencyId,
-        amount: payment.amount,
-        currency: payment.currency,
-        method: payment.method,
-        channel: payment.channel,
-        provider: payment.provider,
-        status: payment.status,
-        reference: payment.reference,
-        providerTransactionId: payment.providerTransactionId,
-        createdAt: payment.createdAt,
-      },
-      message: 'Paiement Mobile Money initié. La confirmation réelle est réservée au webhook MbiyoPay vérifié.',
-    };
-  }
 
   const payment = await prisma.payment.create({
     data: {

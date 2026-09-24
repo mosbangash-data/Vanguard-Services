@@ -27,8 +27,6 @@ const filesToSyntaxCheck = [
   'src/services/reservationPaymentService.js',
   'src/controllers/reservationPaymentController.js',
   'src/routes/reservationPayments.js',
-  'src/services/payment/MbiyoPayProvider.js',
-  'src/controllers/webhookController.js',
   'src/middleware/uploadMiddleware.js',
   'src/routes/upload.js',
   'src/repositories/busMediaRepository.js',
@@ -108,38 +106,25 @@ check('CoachOperationsPage intègre l\'affichage et l\'impression du reçu', () 
   assert(code.includes('window.print()'), 'Action impression reçu manquante');
 });
 
-console.log('\n--- TEST GROUP 5 : INTERFACE CLIENT MOBILE MONEY ---');
-check('Transport.jsx client supporte tous les opérateurs et pays Mobile Money', () => {
+console.log('\n--- TEST GROUP 5 : INTERFACE CLIENT CASH AGENCE ---');
+check('Transport.jsx client expose uniquement le paiement en agence pour les réservations coach', () => {
   const code = fs.readFileSync(path.resolve('client-frontend/src/pages/Transport.jsx'), 'utf8');
-  assert(code.includes('MOBILE_NETWORKS'), 'Constante MOBILE_NETWORKS manquante');
-  assert(code.includes('VODACOM'), 'Réseau Vodacom manquant');
-  assert(code.includes('AIRTEL'), 'Réseau Airtel manquant');
-  assert(code.includes('ORANGE'), 'Réseau Orange manquant');
-  assert(code.includes('AFRICELL'), 'Réseau Africell manquant');
-  assert(code.includes('MOBILE_COUNTRIES'), 'Constante MOBILE_COUNTRIES manquante');
-  assert(code.includes('payNetwork'), 'Sélecteur de réseau manquant');
-  assert(code.includes('payPhone'), 'Champ de numéro de téléphone Mobile Money manquant');
+  assert(code.includes("const PAYMENT_METHODS = ['CASH']"), 'Sélection du mode de paiement cash manquante');
+  assert(code.includes('paymentAgencyNotice'), 'Notice d\'agence manquante');
   assert(code.includes('idempotencyKey:'), 'Envoi de clé d\'idempotence manquant');
   assert(code.includes('disabled={paymentLoading}'), 'Protection anti double soumission manquante');
+  assert(!code.includes('MOBILE_MONEY'), 'Le flux mobile doit être retiré du client');
 });
 
-console.log('\n--- TEST GROUP 6 : PROVIDER MBIYOPAY SANDBOX ---');
-check('MbiyoPayProvider implémente AbortController 15s et assainissement des logs', () => {
-  const code = fs.readFileSync(path.resolve('src/services/payment/MbiyoPayProvider.js'), 'utf8');
-  assert(code.includes('_fetchWithTimeout'), 'Méthode _fetchWithTimeout manquante');
-  assert(code.includes('AbortController'), 'AbortController manquant');
-  assert(code.includes('_sanitizeResponse'), 'Méthode _sanitizeResponse manquante');
-  assert(code.includes('[REDACTED]'), 'Masquage des secrets [REDACTED] manquant');
-});
-
-console.log('\n--- TEST GROUP 7 & 8 : WEBHOOK IDEMPOTENT & MULTI-ENTITÉS ---');
-check('webhookController est idempotent et gère Coach, AutoSales et Parcels', () => {
-  const code = fs.readFileSync(path.resolve('src/controllers/webhookController.js'), 'utf8');
-  assert(code.includes('ALREADY_PROCESSED'), 'Statut ALREADY_PROCESSED manquant');
-  assert(code.includes('payment.vehicleReservationId'), 'Support vehicleReservationId manquant');
-  assert(code.includes('payment.parcelId'), 'Support parcelId manquant');
-  assert(code.includes('tx.parcelStatusHistory.create'), 'Historique parcelStatusHistory manquant');
-  assert(code.includes('status: \'FAILED\''), 'Prise en compte des rejets de paiement manquante');
+console.log('\n--- TEST GROUP 6-8 : CASH-ONLY PAYMENT FLOW ---');
+check('Le backend public et les providers restent strictement cash / agency uniquement', () => {
+  const paymentIndex = fs.readFileSync(path.resolve('src/services/payment/index.js'), 'utf8');
+  const publicService = fs.readFileSync(path.resolve('src/services/publicTransportService.js'), 'utf8');
+  const validator = fs.readFileSync(path.resolve('src/validators/publicValidator.js'), 'utf8');
+  assert(paymentIndex.includes('getProvider = () => agencyPaymentProvider'), 'Provider agency-only manquant');
+  assert(publicService.includes("const allowedMethods = new Set(['CASH'])"), 'Validation publique cash-only manquante');
+  assert(validator.includes("const ALLOWED_PUBLIC_PAYMENT_METHODS = ['CASH'];"), 'Validateur public cash-only manquant');
+  assert(!publicService.includes('MOBILE_MONEY'), 'Paiement mobile encore présent dans le service public');
 });
 
 console.log('\n--- TEST GROUP 9-14 : UPLOAD MULTIPART, BUS MEDIA & VEHICLE MEDIA ---');

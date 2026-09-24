@@ -22,25 +22,7 @@ import { translateError } from '../utils/errors'
 
 const STEPS = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6']
 
-const PAYMENT_METHODS = ['CASH', 'MOBILE_MONEY']
-
-const MOBILE_NETWORKS = [
-  { id: 'VODACOM', label: 'Vodacom M-Pesa' },
-  { id: 'AIRTEL', label: 'Airtel Money' },
-  { id: 'ORANGE', label: 'Orange Money' },
-  { id: 'AFRICELL', label: 'Africell Money' },
-]
-
-const MOBILE_COUNTRIES = [
-  { code: 'CD', label: 'RD Congo (+243)' },
-  { code: 'RW', label: 'Rwanda (+250)' },
-  { code: 'UG', label: 'Ouganda (+256)' },
-  { code: 'TZ', label: 'Tanzanie (+255)' },
-  { code: 'ZM', label: 'Zambie (+260)' },
-  { code: 'CM', label: 'Cameroun (+237)' },
-  { code: 'GA', label: 'Gabon (+241)' },
-  { code: 'BJ', label: 'Bénin (+229)' },
-]
+const PAYMENT_METHODS = ['CASH']
 
 const formatDate = (date) => {
   if (!date) return '—'
@@ -94,9 +76,6 @@ export default function Transport() {
   const [payment, setPayment] = useState({
     amount: '',
     method: 'CASH',
-    network: 'VODACOM',
-    countryCode: 'CD',
-    phoneNumber: '',
     reference: '',
     comment: '',
   })
@@ -273,11 +252,6 @@ export default function Transport() {
         reference: payment.reference?.trim() || null,
         comment: payment.comment?.trim() || null,
         idempotencyKey: `pay-${reservationId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      }
-      if (payment.method === 'MOBILE_MONEY') {
-        payload.network = payment.network
-        payload.phoneNumber = payment.phoneNumber?.trim()
-        payload.countryCode = payment.countryCode
       }
       const result = await api.createReservationPayment(reservationId, payload)
       setPaymentResult(result)
@@ -714,14 +688,10 @@ export default function Transport() {
                       <div className="confirmation-icon">
                         <CheckCircle2 size={40} aria-hidden="true" />
                       </div>
-                      <h4>
-                        {paymentResult.payment.method === 'MOBILE_MONEY'
-                          ? t('transportPage.paymentInProgress')
-                          : t('transportPage.paymentDeclared')}
-                      </h4>
+                      <h4>{t('transportPage.paymentDeclared')}</h4>
                       <div className="notice notice-info">
                         <Info size={18} aria-hidden="true" />
-                        <span>{paymentResult.message || (paymentResult.payment.method === 'MOBILE_MONEY' ? t('transportPage.paymentMobileInProgress') : t('transportPage.paymentPendingNote'))}</span>
+                        <span>{paymentResult.message || t('transportPage.paymentPendingNote')}</span>
                       </div>
                       <div className="notice notice-info mt-4">
                         <Info size={18} aria-hidden="true" />
@@ -768,61 +738,6 @@ export default function Transport() {
                         </div>
                       </div>
 
-                      {payment.method === 'MOBILE_MONEY' && (
-                        <div className="form-row">
-                          <div className="form-group">
-                            <label className="form-label" htmlFor="payNetwork">
-                              {t('transportPage.paymentNetwork')} <span className="required">*</span>
-                            </label>
-                            <select
-                              id="payNetwork"
-                              className="form-select"
-                              value={payment.network}
-                              onChange={(e) => setPayment({ ...payment, network: e.target.value })}
-                              required
-                            >
-                              {MOBILE_NETWORKS.map((net) => (
-                                <option key={net.id} value={net.id}>
-                                  {net.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="form-group">
-                            <label className="form-label" htmlFor="payCountry">
-                              {t('transportPage.paymentCountry')} <span className="required">*</span>
-                            </label>
-                            <select
-                              id="payCountry"
-                              className="form-select"
-                              value={payment.countryCode}
-                              onChange={(e) => setPayment({ ...payment, countryCode: e.target.value })}
-                              required
-                            >
-                              {MOBILE_COUNTRIES.map((c) => (
-                                <option key={c.code} value={c.code}>
-                                  {c.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                            <label className="form-label" htmlFor="payPhone">
-                              {t('transportPage.paymentPhone')} <span className="required">*</span>
-                            </label>
-                            <input
-                              id="payPhone"
-                              type="tel"
-                              className="form-input"
-                              placeholder="+243..."
-                              value={payment.phoneNumber}
-                              onChange={(e) => setPayment({ ...payment, phoneNumber: e.target.value })}
-                              required
-                            />
-                          </div>
-                        </div>
-                      )}
-
                       <div className="form-group">
                         <label className="form-label" htmlFor="payRef">
                           {t('transportPage.paymentReference')}
@@ -853,9 +768,7 @@ export default function Transport() {
                       <div className="notice notice-info mt-4">
                         <Info size={18} aria-hidden="true" />
                         <span>
-                          {payment.method === 'MOBILE_MONEY'
-                            ? `Montant dû exact: ${getReservationOutstandingAmount(booking || lookupResult).toFixed(2)} USD`
-                            : `Montant dû exact: ${getReservationOutstandingAmount(booking || lookupResult).toFixed(2)} USD`}
+                          Montant dû exact: {getReservationOutstandingAmount(booking || lookupResult).toFixed(2)} USD
                         </span>
                       </div>
                       <button type="submit" className="btn btn-outline" disabled={paymentLoading}>
@@ -864,11 +777,7 @@ export default function Transport() {
                       </button>
                       <div className="notice notice-info mt-4">
                         <Info size={18} aria-hidden="true" />
-                        <span>
-                          {payment.method === 'MOBILE_MONEY'
-                            ? t('transportPage.paymentMobileInProgress')
-                            : t('transportPage.paymentAgencyNotice')}
-                        </span>
+                        <span>{t('transportPage.paymentAgencyNotice')}</span>
                       </div>
                     </form>
                   )}

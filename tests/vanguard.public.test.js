@@ -1,9 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
-const crypto = require('crypto');
 const app = require('../src/app');
-const { mbiyoPayProvider } = require('../src/services/payment');
 const { main: seedMain } = require('../prisma/seed');
 
 let server;
@@ -243,7 +241,7 @@ test('POST /api/public/reservations/:id/payments — paiement déclaré reste PE
   assert.equal(payRes.data.data.payment.status, 'PENDING');
 });
 
-test('POST /api/public/reservations/:id/payments — autorise uniquement CASH ou MOBILE_MONEY', async () => {
+test('POST /api/public/reservations/:id/payments — autorise uniquement CASH', async () => {
   const tripsRes = await request('GET', '/api/public/trips');
   const trips = tripsRes.data.data.items;
   if (trips.length === 0) return;
@@ -260,103 +258,27 @@ test('POST /api/public/reservations/:id/payments — autorise uniquement CASH ou
 
   const invalidMethodRes = await request('POST', `/api/public/reservations/${reservationId}/payments`, {
     amount: '10.00',
-    method: 'CARD',
+    method: 'MOBILE_MONEY',
   });
   assert.equal(invalidMethodRes.status, 400);
-  assert.match(String(invalidMethodRes.data.message || invalidMethodRes.data.error || ''), /CASH|MOBILE_MONEY/i);
+  assert.match(String(invalidMethodRes.data.message || invalidMethodRes.data.error || ''), /Only CASH is supported/i);
 
-  const statusHijackRes = await request('POST', `/api/public/reservations/${reservationId}/payments`, {
+  const validCashRes = await request('POST', `/api/public/reservations/${reservationId}/payments`, {
     amount: '10.00',
-    method: 'MOBILE_MONEY',
-    status: 'VERIFIED',
-    validatedById: 'fake-user-id',
+    method: 'CASH',
   });
-  assert.equal(statusHijackRes.status, 201);
-  assert.equal(statusHijackRes.data.data.payment.status, 'PENDING');
+  assert.equal(validCashRes.status, 201);
+  assert.equal(validCashRes.data.data.payment.method, 'CASH');
 });
 
-test('POST /api/public/reservations/:id/payments — échec MbiyoPay ne crée pas de faux paiement', async () => {
-  const tripsRes = await request('GET', '/api/public/trips');
-  const trips = tripsRes.data.data.items;
-  if (trips.length === 0) return;
-
-  const trip = trips[0];
-  const createRes = await request('POST', '/api/public/reservations', {
-    tripId: trip.id,
-    customerName: 'MbiyoPay Failure Client',
-    customerPhone: '+243222222224',
-    seatNumber: '5',
-  });
-  assert.equal(createRes.status, 201);
-  const reservationId = createRes.data.data.reservation.id;
-
-  const originalInitiate = mbiyoPayProvider.initiatePayment;
-  mbiyoPayProvider.initiatePayment = async () => ({
-    provider: 'MBIYOPAY',
-    isConfigured: true,
-    providerTransactionId: null,
-    providerReference: null,
-    status: 'FAILED',
-    message: 'MbiyoPay unavailable',
+test('GET /api/webhooks/mbiyopay — la route mobile est désactivée', async () => {
+  const res = await fetch(`${baseUrl}/api/webhooks/mbiyopay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'ignored' }),
   });
 
-  try {
-    const res = await request('POST', `/api/public/reservations/${reservationId}/payments`, {
-      amount: '10.00',
-      method: 'MOBILE_MONEY',
-      network: 'Vodacom',
-      phoneNumber: '+243811111111',
-      countryCode: 'CD',
-    });
-
-    assert.equal(res.status, 502);
-    assert.match(String(res.data.message || res.data.error || ''), /Impossible d'initialiser|MbiyoPay|initialiser/i);
-
-    const paymentListRes = await request('GET', `/api/public/reservations/${reservationId}`);
-    const payments = paymentListRes.data.data.reservation.payments || [];
-    assert.equal(payments.length, 0);
-  } finally {
-    mbiyoPayProvider.initiatePayment = originalInitiate;
-  }
-});
-
-test('POST /api/webhooks/mbiyopay — signature valide sur le raw body est acceptée', async () => {
-  const payload = {
-    event: 'PAYMENT_UPDATED',
-    type: 'payment.success',
-    status: 'successful',
-    transaction_id: 'txn-raw-body-check',
-    order_id: 'RES-ORDER-RAW',
-    amount: '10.00',
-    currency: 'USD',
-  };
-  const secret = 'test-webhook-secret';
-  const rawBody = JSON.stringify(payload);
-  const signature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-
-  const originalSecret = process.env.MBIYOPAY_WEBHOOK_SECRET;
-  process.env.MBIYOPAY_WEBHOOK_SECRET = secret;
-  const originalProviderSecret = mbiyoPayProvider.webhookSecret;
-  mbiyoPayProvider.webhookSecret = secret;
-
-  try {
-    const res = await fetch(`${baseUrl}/api/webhooks/mbiyopay`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Signature: signature,
-      },
-      body: rawBody,
-    });
-
-    assert.equal(res.status, 200);
-    const response = await res.json();
-    assert.equal(response.success, true);
-  } finally {
-    if (originalSecret === undefined) delete process.env.MBIYOPAY_WEBHOOK_SECRET;
-    else process.env.MBIYOPAY_WEBHOOK_SECRET = originalSecret;
-    mbiyoPayProvider.webhookSecret = originalProviderSecret;
-  }
+  assert.equal(res.status, 404);
 });
 
 // ===== CONSTRUCTION PUBLIC =====

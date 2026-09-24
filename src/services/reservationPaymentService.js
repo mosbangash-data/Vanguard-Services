@@ -128,7 +128,7 @@ const createReservationPayment = async (data, currentUser) => {
   }
 
   const channel = data.channel ? String(data.channel).trim().toUpperCase() : 'AGENCY';
-  const provider = data.provider || (channel === 'ONLINE' ? 'MBIYOPAY' : 'AGENCY');
+  const provider = data.provider || 'AGENCY';
   const currency = reservation.currency || 'USD';
 
   const paymentData = {

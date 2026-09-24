@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { encryptSensitiveData, decryptSensitiveData, maskIdNumber, generateSecureTrackingCode } = require('../src/utils/cryptoUtils');
 const { buildSignedQrPayload, verifySignedQrPayload } = require('../src/utils/qrUtils');
 const { calculateOfficialPrice, CATEGORY_COEFFICIENTS } = require('../src/services/parcelPricingService');
-const { MbiyoPayProvider, AgencyPaymentProvider, getProvider } = require('../src/services/payment');
+const { AgencyPaymentProvider, getProvider } = require('../src/services/payment');
 
 // 1. Encryption & Sensitive PII Security
 test('Sensitive ID number encryption at rest with AES-256-GCM, decryption, and masking', () => {
@@ -85,9 +85,9 @@ test('Parcel pricing engine calculates official price server-side and applies ru
   assert.equal(fragileWithInsurance.breakdown.categoryMultiplier, 1.3);
 });
 
-// 5. Payment Providers Abstraction & MbiyoPay Preparation
-test('Payment providers abstraction cleanly handles AGENCY and prepares ONLINE without live keys', async () => {
-  const agencyProvider = getProvider('AGENCY');
+// 5. Payment Providers Abstraction & Agency-Only Cash Policy
+test('Payment providers abstraction keeps only the AGENCY cash flow active', async () => {
+  const agencyProvider = getProvider();
   assert.equal(agencyProvider.name, 'AGENCY');
 
   const agencyPayment = await agencyProvider.initiatePayment({
@@ -99,48 +99,14 @@ test('Payment providers abstraction cleanly handles AGENCY and prepares ONLINE w
   assert.equal(agencyPayment.status, 'VERIFIED');
   assert.equal(agencyPayment.channel, 'AGENCY');
   assert.equal(agencyPayment.receivedByUserId, 'agent-123');
-
-  const onlineProvider = getProvider('ONLINE');
-  assert.equal(onlineProvider.name, 'MBIYOPAY');
-  assert.equal(onlineProvider.isConfigured(), false); // Clean unconfigured state
-
-  const onlineInit = await onlineProvider.initiatePayment({
-    amount: 100.00,
-    currency: 'USD',
-    reference: 'RES-TEST-01',
-  });
-  assert.equal(onlineInit.status, 'PENDING_PROVIDER_SETUP');
-  assert.equal(onlineInit.provider, 'MBIYOPAY');
 });
 
-// 6. Webhook Signature & Idempotent Verification
-test('Webhook signature validation and idempotency handling', () => {
-  const provider = new MbiyoPayProvider({ webhookSecret: 'test-secret-key-12345' });
-  const payload = { transactionId: 'TX-999', reference: 'PAY-REF-01', amount: 45.00, status: 'SUCCESS' };
-  const rawPayload = JSON.stringify(payload);
-
-  const signature = crypto
-    .createHmac('sha256', 'test-secret-key-12345')
-    .update(rawPayload)
-    .digest('hex');
-
-  const isValid = provider.verifyWebhookSignature({
-    payload: rawPayload,
-    signature,
-    secret: 'test-secret-key-12345',
-  });
-  assert.equal(isValid, true, 'Valid HMAC signature must be accepted');
-
-  const isBadSig = provider.verifyWebhookSignature({
-    payload: rawPayload,
-    signature: 'bad-signature-hex-string',
-    secret: 'test-secret-key-12345',
-  });
-  assert.equal(isBadSig, false, 'Invalid HMAC signature must be rejected');
-
-  const event = provider.parseWebhookEvent({ body: payload });
-  assert.equal(event.providerTransactionId, 'TX-999');
-  assert.equal(event.status, 'VERIFIED');
+// 6. Agency Payment Contract 
+test('Agency payment provider does not expose a webhook or online checkout contract', () => {
+  const provider = new AgencyPaymentProvider();
+  assert.equal(provider.verifyWebhookSignature(), false);
+  assert.equal(provider.parseWebhookEvent(), null);
+  assert.equal(provider.name, 'AGENCY');
 });
 
 // 7. Parcel Workflow State Machine
@@ -249,82 +215,12 @@ test('Reservation price manipulation rejection: client-supplied totalAmount is s
   assert.equal(defaultAmount, '50.00');
 });
 
-// 11. MbiyoPay Webhook 503 when unconfigured (Zero Data Mutation)
-test('MbiyoPay webhook returns HTTP 503 and performs zero data mutations when provider is not configured', async () => {
-  const unconfiguredProvider = new MbiyoPayProvider({ apiKey: null, merchantId: null });
-  assert.equal(unconfiguredProvider.isConfigured(), false);
-
-  let dbMutationOccurred = false;
-
-  const mockHandleWebhook = async (req, provider) => {
-    if (!provider.isConfigured()) {
-      return { status: 503, body: { success: false, message: 'MbiyoPay webhook provider is not configured' } };
-    }
-    // Simulation of DB mutation if reached
-    dbMutationOccurred = true;
-    return { status: 200, body: { success: true } };
-  };
-
-  const req = {
-    headers: {},
-    body: { transactionId: 'TX-ATTACK', reference: 'RES-01', amount: 50.00, status: 'SUCCESS' },
-  };
-
-  const res = await mockHandleWebhook(req, unconfiguredProvider);
-  assert.equal(res.status, 503);
-  assert.equal(res.body.success, false);
-  assert.equal(dbMutationOccurred, false, 'No DB mutation must occur when unconfigured');
-});
-
-// 12. MbiyoPay Webhook Signature & Idempotency when Configured
-test('MbiyoPay webhook when configured verifies HMAC-SHA256 signature (401 on bad sig) and enforces idempotency', async () => {
-  const configuredProvider = new MbiyoPayProvider({
-    apiKey: 'live-key-123',
-    merchantId: 'merchant-456',
-    webhookSecret: 'secret-webhook-789',
-  });
-  assert.equal(configuredProvider.isConfigured(), true);
-
-  const payload = { transactionId: 'TX-100', reference: 'RES-100', amount: 35.00, status: 'SUCCESS' };
-  const rawPayload = JSON.stringify(payload);
-
-  const validSignature = crypto
-    .createHmac('sha256', 'secret-webhook-789')
-    .update(rawPayload)
-    .digest('hex');
-
-  // Bad signature -> 401
-  const isBadSigValid = configuredProvider.verifyWebhookSignature({
-    payload: rawPayload,
-    signature: 'bad-sig',
-    secret: 'secret-webhook-789',
-  });
-  assert.equal(isBadSigValid, false);
-
-  // Valid signature -> True
-  const isGoodSigValid = configuredProvider.verifyWebhookSignature({
-    payload: rawPayload,
-    signature: validSignature,
-    secret: 'secret-webhook-789',
-  });
-  assert.equal(isGoodSigValid, true);
-
-  // Idempotency simulation
-  const paymentState = { id: 'pay-1', status: 'PENDING', amount: '35.00' };
-  const processWebhook = (event) => {
-    if (paymentState.status === 'VERIFIED') return { status: 'ALREADY_PROCESSED' };
-    if (Number(paymentState.amount) !== Number(event.amount)) return { status: 'AMOUNT_MISMATCH' };
-    paymentState.status = 'VERIFIED';
-    return { status: 'PROCESSED' };
-  };
-
-  const firstCall = processWebhook(payload);
-  assert.equal(firstCall.status, 'PROCESSED');
-  assert.equal(paymentState.status, 'VERIFIED');
-
-  // Replay call
-  const secondCall = processWebhook(payload);
-  assert.equal(secondCall.status, 'ALREADY_PROCESSED');
+// 11. Agency payment contract remains offline and non-webhook based
+test('Agency payment contract stays offline and rejects any external webhook contract', () => {
+  const provider = new AgencyPaymentProvider();
+  assert.equal(provider.verifyWebhookSignature(), false);
+  assert.equal(provider.parseWebhookEvent(), null);
+  assert.equal(provider.initiatePayment({ amount: 35.00, currency: 'USD', method: 'CASH' }).status, 'VERIFIED');
 });
 
 // 13. Agency Isolation on Parcels (IDOR Protection)
