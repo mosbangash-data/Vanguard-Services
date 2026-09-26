@@ -5,6 +5,6 @@ const { requireRole } = require('../middleware/permissionMiddleware');
 const controller = require('../controllers/managerDashboardController');
 
 router.use(authenticateToken);
-router.get('/dashboard', requireRole('MANAGER'), controller.getManagerDashboard);
+router.get('/dashboard', requireRole('MANAGER', 'SERVICE_ADMIN'), controller.getManagerDashboard);
 
 module.exports = router;

@@ -1641,6 +1641,9 @@ body {
 .manager-alert-dot.info { background: #2563eb; }
 .manager-agency-list > div { display: flex; align-items: center; gap: .75rem; padding: .65rem 0; color: #475569; border-bottom: 1px solid #eef2f6; }
 .manager-agency-list span { display: grid; }
+.manager-agency-list .manager-agency-stats { display: flex; flex-wrap: wrap; gap: .35rem .7rem; margin-top: .4rem; }
+.manager-agency-list .manager-agency-stats span { display: inline; color: #64748b; font-size: .66rem; }
+.manager-agency-list .manager-agency-stats strong { color: #334155; font-size: inherit; }
 .manager-agency-list strong { color: #0f172a; font-size: .84rem; }
 .manager-agency-list small, .manager-muted { color: #64748b; font-size: .75rem; }
 .manager-parcel-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem; margin-bottom: 1rem; }

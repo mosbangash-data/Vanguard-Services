@@ -21,21 +21,29 @@ test.before(() => {
     findMany: record('payment', 'findMany', []),
     groupBy: async (args = {}) => {
       calls.push({ model: 'payment', method: 'groupBy', args });
+      if (args.by?.includes('channel')) return [
+        { channel: 'AGENCY', method: 'CASH', status: 'PENDING', _count: { _all: 2 } },
+        { channel: 'ONLINE', method: 'CARD', status: 'PROCESSING', _count: { _all: 3 } },
+      ];
       if (args.where?.status?.in) return [{ currency: 'USD', _sum: { amount: 80 } }];
       return [{ currency: 'USD', _sum: { amount: 25 } }];
     },
   };
   prismaModule.parcel = { count: record('parcel', 'count', 0), findMany: record('parcel', 'findMany', []) };
   prismaModule.user = { groupBy: record('user', 'groupBy', []) };
+  prismaModule.ticket = { groupBy: record('ticket', 'groupBy', []) };
+  prismaModule.ticketScan = { findMany: record('ticketScan', 'findMany', []) };
 });
 
 test.after(() => {
   for (const [key, value] of Object.entries(originalPrisma)) prismaModule[key] = value;
 });
 
-test('Manager dashboard rejects non-manager roles', async () => {
+test.beforeEach(() => { calls.length = 0; });
+
+test('Manager dashboard rejects operational roles without department supervision access', async () => {
   const service = require('../src/services/managerDashboardService');
-  await assert.rejects(service.getManagerDashboard({ role: 'SERVICE_ADMIN', department: { type: 'VANGUARD_COACH' } }), { statusCode: 403 });
+  await assert.rejects(service.getManagerDashboard({ role: 'AGENT', department: { type: 'VANGUARD_COACH' } }), { statusCode: 403 });
   assert.equal(calls.length, 0);
 });
 
@@ -52,6 +60,8 @@ test('Manager dashboard derives department and agency filters from the authentic
   assert.deepEqual(result.kpis.revenue, { USD: 80 });
   assert.equal(result.kpis.pendingPayments, 3);
   assert.deepEqual(result.kpis.pendingPaymentAmount, { USD: 50 });
+  assert.equal(result.kpis.pendingCashToValidate, 2);
+  assert.equal(result.kpis.pendingOnline, 3);
   const paidQuery = calls.find((call) => call.model === 'payment' && call.method === 'groupBy' && call.args.where.status?.in);
   assert.deepEqual(paidQuery.args.where.status.in, ['VERIFIED', 'COMPLETED']);
   assert.deepEqual(result.operations.todayTrips, []);
@@ -61,4 +71,26 @@ test('Manager agency assignment outside the authenticated department is refused'
   prismaModule.agency.findFirst = record('agency', 'findFirst', null);
   const service = require('../src/services/managerDashboardService');
   await assert.rejects(service.getManagerDashboard({ role: 'MANAGER', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, agencyId: 'foreign-agency', permissions: ['VIEW_TRIP'] }), { statusCode: 403 });
+});
+
+test('Vanguard Coach Service Admin receives department-wide scope', async () => {
+  prismaModule.agency.findFirst = record('agency', 'findFirst', null);
+  const service = require('../src/services/managerDashboardService');
+  const result = await service.getManagerDashboard({ role: 'SERVICE_ADMIN', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, agencyId: 'agency-a', permissions: ['VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'VIEW_PARCEL', 'VIEW_PARCEL_PAYMENT', 'VIEW_USER'] });
+  assert.equal(result.scope.departmentId, 'dept-coach');
+  assert.equal(result.scope.agencyId, null);
+  assert.equal(calls.some((call) => call.model === 'agency' && call.method === 'findFirst'), false);
+  const tripQuery = calls.filter((call) => call.model === 'trip' && call.method === 'findMany').at(-1);
+  assert.equal(tripQuery.args.where.schedule.departmentId, 'dept-coach');
+  assert.equal(Object.hasOwn(tripQuery.args.where.schedule, 'agencyId'), false);
+});
+
+test('A Coach dashboard request from another department is refused', async () => {
+  const service = require('../src/services/managerDashboardService');
+  await assert.rejects(service.getManagerDashboard({ role: 'MANAGER', departmentId: 'dept-construction', department: { type: 'CONSTRUCTION' }, agencyId: 'agency-a', permissions: ['VIEW_TRIP'] }), { statusCode: 403 });
+});
+
+test('A Manager without dashboard read permissions is refused', async () => {
+  const service = require('../src/services/managerDashboardService');
+  await assert.rejects(service.getManagerDashboard({ role: 'MANAGER', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, agencyId: 'agency-a', permissions: [] }), { statusCode: 403 });
 });
