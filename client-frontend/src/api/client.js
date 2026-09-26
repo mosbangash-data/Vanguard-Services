@@ -84,9 +84,9 @@ apiClient.interceptors.response.use(
  * - GET /api/public/reservations/:code
  *   → { success, data: { reservation: { id, reservationCode, status, seatNumber, totalAmount,
  *        customerName, customerPhone, customerEmail, createdAt, trip: { id, departureAt, arrivalAt,
- *        route, schedule, bus }, payments } } }
- * - POST /api/public/reservations/:reservationId/payments { amount, method, reference, comment }
- *   → { success, data: { payment: { id, amount, method, status: 'PENDING', reference, createdAt },
+ *        route, schedule, bus }, payments, tickets } } }
+ * - POST /api/public/reservations creates the reservation and initial CASH payment atomically
+ *   → { success, data: { reservation, payment: { id, amount, method: 'CASH', status: 'PENDING' },
  *        message } }
  *
  * [BILLET]
@@ -166,8 +166,6 @@ export const api = {
    * @param {string} reservationId
    * @param {{ amount: string|number, method: string, reference?: string, comment?: string }} payload
    */
-  createReservationPayment: (reservationId, payload) =>
-    apiClient.post(`/api/public/reservations/${reservationId}/payments`, payload).then(unwrap),
 
   /**
    * Récupérer les agences publiques disponibles.

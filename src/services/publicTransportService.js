@@ -273,12 +273,12 @@ const createPublicReservation = async (data) => {
 
   const sealedSeatNumber = String(normalizedSeatNumber);
 
-  const reservation = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     try {
       const totalAmount = String(trip.schedule.price ?? '0.00');
       const reservationCode = `RSV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
-      return await tx.reservation.create({
+      const reservation = await tx.reservation.create({
         data: {
           reservationCode,
           tripId,
@@ -292,6 +292,28 @@ const createPublicReservation = async (data) => {
           createdByUserId: null,
         },
       });
+
+      const settings = await tx.serviceSettings.findUnique({
+        where: { departmentId: trip.schedule.departmentId },
+        select: { currency: true },
+      });
+      const payment = await tx.payment.create({
+        data: {
+          reservationId: reservation.id,
+          agencyId,
+          amount: reservation.totalAmount,
+          currency: settings?.currency || 'USD',
+          channel: 'AGENCY',
+          method: 'CASH',
+          provider: 'AGENCY',
+          status: 'PENDING',
+          reference: reservation.reservationCode,
+          idempotencyKey: `reservation:${reservation.id}:initial-cash`,
+          comment: 'Paiement en espèces à l’agence de départ',
+        },
+      });
+
+      return { reservation, payment };
     } catch (error) {
       if (error?.code === 'P2002') {
         throw new AppError('Seat already reserved', 409);
@@ -302,13 +324,23 @@ const createPublicReservation = async (data) => {
 
   return {
     reservation: {
-      id: reservation.id,
-      reservationCode: reservation.reservationCode,
-      status: reservation.status,
-      seatNumber: reservation.seatNumber,
-      totalAmount: reservation.totalAmount,
-      tripId: reservation.tripId,
-      agencyId: reservation.agencyId,
+      id: result.reservation.id,
+      reservationCode: result.reservation.reservationCode,
+      status: result.reservation.status,
+      seatNumber: result.reservation.seatNumber,
+      totalAmount: result.reservation.totalAmount,
+      tripId: result.reservation.tripId,
+      agencyId: result.reservation.agencyId,
+    },
+    payment: {
+      id: result.payment.id,
+      reservationId: result.payment.reservationId,
+      amount: result.payment.amount,
+      currency: result.payment.currency,
+      method: result.payment.method,
+      channel: result.payment.channel,
+      status: result.payment.status,
+      createdAt: result.payment.createdAt,
     },
   };
 };
@@ -337,6 +369,7 @@ const getPublicReservationByCode = async (code) => {
           createdAt: true,
         },
       },
+      tickets: { select: { ticketCode: true, qrCode: true, status: true, issuedAt: true } },
     },
   });
 
@@ -375,6 +408,7 @@ const getPublicReservationByCode = async (code) => {
         },
       },
       payments: reservation.payments,
+      tickets: reservation.tickets,
     },
   };
 };
@@ -653,7 +687,6 @@ module.exports = {
   getPublicTripSeats,
   createPublicReservation,
   getPublicReservationByCode,
-  createPublicReservationPayment,
   createPublicParcel,
   getPublicParcelByTrackingCode,
 };

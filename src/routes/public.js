@@ -4,7 +4,6 @@ const router = express.Router();
 const publicController = require('../controllers/publicController');
 const {
   validatePublicReservationCreate,
-  validatePublicReservationPaymentCreate,
   validatePublicCustomerRequestCreate,
   validatePublicQuoteRequestCreate,
   validatePublicVehicleInquiryCreate,
@@ -45,14 +44,6 @@ router.post('/reservations', publicPostLimiter, validatePublicReservationCreate,
 
 // GET /api/public/reservations/:code
 router.get('/reservations/:code', publicController.getPublicReservationByCode);
-
-// POST /api/public/reservations/:reservationId/payments
-router.post(
-  '/reservations/:reservationId/payments',
-  publicPostLimiter,
-  validatePublicReservationPaymentCreate,
-  publicController.createPublicReservationPayment
-);
 
 // POST /api/public/parcels
 router.post('/parcels', publicPostLimiter, publicController.createPublicParcel);

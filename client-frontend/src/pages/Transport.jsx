@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Info,
   Armchair,
-  CreditCard,
   Package,
 } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageProvider'
@@ -22,8 +21,6 @@ import { api } from '../api/client'
 import { translateError } from '../utils/errors'
 
 const STEPS = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6']
-
-const PAYMENT_METHODS = ['CASH']
 
 const formatDate = (date) => {
   if (!date) return '—'
@@ -36,17 +33,6 @@ const formatTime = (time) => time || '—'
 
 const formatAmount = (amount, currency = 'USD') =>
   `${new Intl.NumberFormat('fr-FR').format(Number(amount))} ${currency}`
-
-const getReservationOutstandingAmount = (reservation) => {
-  if (!reservation) return 0
-  const totalAmount = Number(reservation.totalAmount ?? 0)
-  const payments = Array.isArray(reservation.payments) ? reservation.payments : []
-  const validatedAmount = payments
-    .filter((payment) => payment?.status === 'VERIFIED' || payment?.status === 'COMPLETED')
-    .reduce((sum, payment) => sum + Number(payment?.amount ?? 0), 0)
-
-  return Math.max(totalAmount - validatedAmount, 0)
-}
 
 export default function Transport() {
   const { t } = useLanguage()
@@ -72,17 +58,6 @@ export default function Transport() {
   const [lookupResult, setLookupResult] = useState(null)
   const [lookupLoading, setLookupLoading] = useState(false)
   const [lookupError, setLookupError] = useState(null)
-
-  // Paiement
-  const [payment, setPayment] = useState({
-    amount: '',
-    method: 'CASH',
-    reference: '',
-    comment: '',
-  })
-  const [paymentResult, setPaymentResult] = useState(null)
-  const [paymentLoading, setPaymentLoading] = useState(false)
-  const [paymentError, setPaymentError] = useState(null)
 
   // Agences pour formulaire colis
   const [agencies, setAgencies] = useState([])
@@ -260,15 +235,11 @@ export default function Transport() {
         customerEmail: passenger.email || null,
       })
       const resData = result?.reservation || null
-      setBooking(resData)
-      if (resData) {
-        const dueAmount = getReservationOutstandingAmount(resData)
-        setPayment((prev) => ({
-          ...prev,
-          amount: dueAmount > 0 ? String(dueAmount) : '0',
-          phoneNumber: passenger.phone || prev.phoneNumber,
-        }))
+      if (resData && result?.payment) {
+        resData.payments = [result.payment]
+        resData.payment = result.payment
       }
+      setBooking(resData)
       setStep(5)
     } catch (err) {
       setBookingError(translateError(err, t))
@@ -286,62 +257,10 @@ export default function Transport() {
       const result = await api.getReservationByCode(lookupCode.trim())
       const resData = result?.reservation || null
       setLookupResult(resData)
-      if (resData) {
-        const dueAmount = getReservationOutstandingAmount(resData)
-        setPayment((prev) => ({
-          ...prev,
-          amount: dueAmount > 0 ? String(dueAmount) : '0',
-          phoneNumber: resData.customerPhone || prev.phoneNumber,
-        }))
-      }
     } catch (err) {
       setLookupError(translateError(err, t))
     } finally {
       setLookupLoading(false)
-    }
-  }
-
-  const handlePayment = async (e) => {
-    e.preventDefault()
-    if (!booking && !lookupResult) return
-
-    const reservation = booking || lookupResult
-    const reservationId = reservation?.id
-    const dueAmount = getReservationOutstandingAmount(reservation)
-    const submittedAmount = Number(payment.amount)
-
-    if (!reservationId) {
-      setPaymentError('Aucune réservation active n a été trouvée pour ce paiement.')
-      return
-    }
-
-    if (!Number.isFinite(submittedAmount) || submittedAmount <= 0) {
-      setPaymentError('Le montant du paiement doit être supérieur à zéro.')
-      return
-    }
-
-    if (dueAmount > 0 && Math.abs(submittedAmount - dueAmount) > 0.0001) {
-      setPaymentError(`Le montant exact à payer est ${dueAmount.toFixed(2)} USD selon le solde restant.`)
-      return
-    }
-
-    setPaymentLoading(true)
-    setPaymentError(null)
-    setPaymentResult(null)
-    try {
-      const payload = {
-        amount: submittedAmount,
-        method: payment.method,
-        reference: payment.reference?.trim() || null,
-        comment: payment.comment?.trim() || null,
-        idempotencyKey: `pay-${reservationId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      }
-      const result = await api.createReservationPayment(reservationId, payload)
-      setPaymentResult(result)
-    } catch (err) {
-      setPaymentError(translateError(err, t))
-    } finally {
-      setPaymentLoading(false)
     }
   }
 
@@ -761,109 +680,13 @@ export default function Transport() {
                   <div className="confirmation-code">{booking.reservationCode}</div>
                 )}
 
-                {/* Déclaration de paiement */}
                 <div className="payment-section">
-                  <h4>{t('transportPage.paymentTitle')}</h4>
-                  <p className="payment-note">{t('transportPage.paymentSubtitle')}</p>
-
-                  {paymentResult?.payment ? (
-                    <div className="form-success">
-                      <div className="confirmation-icon">
-                        <CheckCircle2 size={40} aria-hidden="true" />
-                      </div>
-                      <h4>{t('transportPage.paymentDeclared')}</h4>
-                      <div className="notice notice-info">
-                        <Info size={18} aria-hidden="true" />
-                        <span>{paymentResult.message || t('transportPage.paymentPendingNote')}</span>
-                      </div>
-                      <div className="notice notice-info mt-4">
-                        <Info size={18} aria-hidden="true" />
-                        <span>
-                          Statut backend: {paymentResult.payment.status} • Montant déclaré: {formatAmount(paymentResult.payment.amount, paymentResult.payment.currency || 'USD')}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <form onSubmit={handlePayment} className="payment-form">
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="payAmount">
-                            {t('transportPage.paymentAmount')} <span className="required">*</span>
-                          </label>
-                          <input
-                            id="payAmount"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            className="form-input"
-                            value={payment.amount}
-                            onChange={(e) => setPayment({ ...payment, amount: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="payMethod">
-                            {t('transportPage.paymentMethod')} <span className="required">*</span>
-                          </label>
-                          <select
-                            id="payMethod"
-                            className="form-select"
-                            value={payment.method}
-                            onChange={(e) => setPayment({ ...payment, method: e.target.value })}
-                            required
-                          >
-                            {PAYMENT_METHODS.map((method) => (
-                              <option key={method} value={method}>
-                                {t(`transportPage.paymentMethod${method[0]}${method.slice(1).toLowerCase()}`)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="payRef">
-                          {t('transportPage.paymentReference')}
-                        </label>
-                        <input
-                          id="payRef"
-                          type="text"
-                          className="form-input"
-                          value={payment.reference}
-                          onChange={(e) => setPayment({ ...payment, reference: e.target.value })}
-                          maxLength={120}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="payComment">
-                          {t('transportPage.paymentComment')}
-                        </label>
-                        <textarea
-                          id="payComment"
-                          className="form-textarea"
-                          value={payment.comment}
-                          onChange={(e) => setPayment({ ...payment, comment: e.target.value })}
-                          maxLength={500}
-                          rows={2}
-                        />
-                      </div>
-                      {paymentError && <div className="notice notice-error">{paymentError}</div>}
-                      <div className="notice notice-info mt-4">
-                        <Info size={18} aria-hidden="true" />
-                        <span>
-                          Montant dû exact: {getReservationOutstandingAmount(booking || lookupResult).toFixed(2)} USD
-                        </span>
-                      </div>
-                      <button type="submit" className="btn btn-outline" disabled={paymentLoading}>
-                        <CreditCard size={18} aria-hidden="true" />
-                        {paymentLoading ? t('transportPage.paymentSending') : t('transportPage.paymentSubmit')}
-                      </button>
-                      <div className="notice notice-info mt-4">
-                        <Info size={18} aria-hidden="true" />
-                        <span>{t('transportPage.paymentAgencyNotice')}</span>
-                      </div>
-                    </form>
-                  )}
+                  <h4>Montant à payer : {formatAmount(booking?.totalAmount, booking?.payment?.currency || 'USD')}</h4>
+                  <p>Mode de paiement : CASH — {booking?.payment?.status === 'VERIFIED' || booking?.payment?.status === 'COMPLETED' ? 'VALIDÉ' : 'EN ATTENTE'}</p>
+                  {booking?.payment?.status === 'VERIFIED' || booking?.payment?.status === 'COMPLETED'
+                    ? <p>Votre paiement est validé. Votre billet est disponible.</p>
+                    : <p>Veuillez payer en espèces à l’agence de départ. Votre paiement sera vérifié par un agent Vanguard Services. Après validation, votre billet sera généré automatiquement.</p>}
+                  {booking?.tickets?.[0] && <Link className="btn btn-primary" to={`/ticket/${booking.tickets[0].ticketCode}`}>Voir mon billet</Link>}
                 </div>
 
                 <Link to="/" className="btn btn-outline">
@@ -956,22 +779,16 @@ export default function Transport() {
                   </div>
                 </div>
 
-                {/* Paiements existants */}
-                {lookupResult.payments && lookupResult.payments.length > 0 && (
-                  <div className="payments-list">
-                    <h4>{t('transportPage.reservationPayment')}</h4>
-                    {lookupResult.payments.map((p) => (
-                      <div key={p.id} className="payment-item">
-                        <span>{p.method}</span>
-                        <span>{formatAmount(p.amount)}</span>
-                        <span className={`badge ${p.status === 'VERIFIED' || p.status === 'COMPLETED' ? 'badge-success' : 'badge-gold'}`}>
-                          {p.status === 'VERIFIED' || p.status === 'COMPLETED'
-                            ? p.status
-                            : t('transportPage.reservationPaymentPending')}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                <div className="notice notice-info mt-4">
+                  <Info size={18} aria-hidden="true" />
+                  <span>
+                    Paiement : {lookupResult.payments?.some((p) => ['VERIFIED', 'COMPLETED'].includes(p.status)) ? 'VALIDÉ' : 'EN ATTENTE'}
+                    {' · '}Mode : CASH
+                    {!lookupResult.payments?.some((p) => ['VERIFIED', 'COMPLETED'].includes(p.status)) && ' · Veuillez payer en espèces à l’agence de départ.'}
+                  </span>
+                </div>
+                {lookupResult.tickets?.[0] && (
+                  <Link className="btn btn-primary" to={`/tickets/${lookupResult.tickets[0].ticketCode}`}>Voir mon billet</Link>
                 )}
               </div>
             )}

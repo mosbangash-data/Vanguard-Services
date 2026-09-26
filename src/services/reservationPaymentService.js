@@ -344,39 +344,24 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
     }
 
     await maybeConfirmReservation(tx, reservation, paymentCents);
-    const confirmedReservation = await tx.reservation.findUnique({ where: { id: reservation.id }, select: { status: true } });
-    if (confirmedReservation?.status !== 'CONFIRMED') {
-      throw new AppError('Ticket can only be generated for confirmed reservations', 409);
-    }
-    const existingTicket = await tx.ticket.findUnique({ where: { reservationId: reservation.id } });
-    let ticket = existingTicket;
-    let created = false;
-
-    if (!existingTicket) {
-      const ticketCode = `TCK-${require('crypto').randomUUID()}`;
-      ticket = await tx.ticket.create({
-        data: {
-          ticketCode,
-          serialNumber: `SN-${Date.now()}-${require('crypto').randomInt(10000, 99999)}`,
-          qrCode: `vanguard://ticket/${ticketCode}`,
-          reservationId: reservation.id,
-          status: 'VALID',
-          issuedByUserId: currentUser.id,
-        },
-      });
-      created = true;
-    }
+    const { ticket, created } = await ticketService.createTicketForReservationInTransaction(tx, reservation.id, currentUser);
 
     const updated = await tx.payment.findUnique({ where: { id: paymentId } });
+    await tx.auditLog.create({
+      data: {
+        action: 'validate_reservation_payment',
+        actorId: currentUser.id,
+        details: {
+          targetReservationId: reservation.id,
+          targetPaymentId: paymentId,
+          targetTicketId: ticket.id,
+          amount: updated.amount,
+          status: updated.status,
+          agencyId: resolvedAgencyId,
+        },
+      },
+    });
     return { payment: updated, ticket, created };
-  });
-
-  await auditService.log('validate_reservation_payment', currentUser.id, {
-    targetReservationId: reservation.id,
-    targetPaymentId: paymentId,
-    amount: ticketResult.payment.amount,
-    status: ticketResult.payment.status,
-    agencyId: resolvedAgencyId,
   });
 
   if (ticketResult.created) {

@@ -143,10 +143,15 @@ test('reservation payment confirms coach reservation after validation', async ()
   const payment = paymentRes.data.data.payment;
   assert.equal(payment.status, 'PENDING');
   assert.equal(payment.reference, 'REF-COACH-01');
+  assert.equal(await prisma.ticket.count({ where: { reservationId: reservation.id } }), 0);
 
   const validateRes = await request('POST', `/api/reservation-payments/${payment.id}/validate`, null, adminToken);
   assert.equal(validateRes.status, 200);
   assert.equal(validateRes.data.data.payment.status, 'VERIFIED');
+  assert.ok(validateRes.data.data.payment.validatedById);
+  assert.ok(validateRes.data.data.payment.validatedAt);
+  assert.equal(validateRes.data.data.ticket.qrCode, `vanguard://ticket/${validateRes.data.data.ticket.ticketCode}`);
+  assert.equal(await prisma.ticket.count({ where: { reservationId: reservation.id } }), 1);
 
   const reservationAfterRes = await request('GET', `/api/reservations/${reservation.id}`, null, adminToken);
   assert.equal(reservationAfterRes.status, 200);

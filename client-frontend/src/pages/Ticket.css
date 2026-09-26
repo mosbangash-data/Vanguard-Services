@@ -1,0 +1,75 @@
+.ticket-page {
+  min-height: 75vh;
+  padding: 32px 16px 56px;
+  background: #f2f5f9;
+}
+
+.ticket-page-actions {
+  max-width: 520px;
+  margin: 0 auto 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.ticket-back { color: #34445c; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.ticket-printable {
+  width: min(100%, 420px);
+  margin: 0 auto;
+  padding: 22px 24px 18px;
+  background: #fff;
+  color: #14243b;
+  border: 1px solid #d8e0ea;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px #1d355712;
+  font-family: Arial, sans-serif;
+}
+.ticket-print-header { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 2px solid #14243b; }
+.ticket-print-header div { display: grid; gap: 2px; }
+.ticket-print-header div strong { font-size: 15px; letter-spacing: .09em; }
+.ticket-print-header div span { font-size: 11px; font-weight: 700; letter-spacing: .2em; color: #a77722; }
+.ticket-payment-status { margin-left: auto; padding: 5px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.ticket-payment-status.is-paid { color: #17633a; background: #e5f5eb; }
+.ticket-payment-status.is-pending { color: #805812; background: #fff4d7; }
+.ticket-print-route { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 20px 0 12px; }
+.ticket-print-route div { display: grid; gap: 5px; min-width: 0; }
+.ticket-print-route div:last-child { text-align: right; }
+.ticket-print-route div span, .ticket-print-times span, .ticket-print-passenger > span, .ticket-print-details span { color: #6b7788; font-size: 9px; font-weight: 700; letter-spacing: .1em; }
+.ticket-print-route div strong { font-size: 18px; text-transform: uppercase; overflow-wrap: anywhere; }
+.ticket-route-arrow { color: #b0812b; font-size: 21px; }
+.ticket-print-times { display: flex; gap: 28px; padding: 0 0 15px; border-bottom: 1px dashed #cbd4df; }
+.ticket-print-times div, .ticket-print-passenger, .ticket-print-details div { display: grid; gap: 5px; }
+.ticket-print-times strong { font-size: 12px; }
+.ticket-print-passenger { padding: 15px 0; border-bottom: 1px dashed #cbd4df; }
+.ticket-print-passenger strong { font-size: 16px; text-transform: uppercase; }
+.ticket-print-passenger small { color: #56657a; }
+.ticket-print-details { display: grid; grid-template-columns: .55fr 1fr; gap: 13px 20px; padding: 15px 0; }
+.ticket-print-details div:last-child { grid-column: 1 / -1; }
+.ticket-print-details strong { font-size: 12px; overflow-wrap: anywhere; }
+.ticket-print-qr { display: grid; justify-items: center; gap: 7px; padding: 10px 0 14px; }
+.ticket-print-qr img { display: block; width: 176px; height: 176px; image-rendering: pixelated; }
+.ticket-print-qr small { color: #56657a; font-size: 10px; text-align: center; }
+.ticket-print-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; padding-top: 11px; border-top: 1px solid #d8e0ea; color: #56657a; font-size: 9px; }
+.ticket-print-footer strong { width: 100%; color: #17633a; text-align: center; letter-spacing: .12em; font-size: 11px; }
+
+@media (max-width: 480px) {
+  .ticket-page { padding: 18px 10px 36px; }
+  .ticket-page-actions { align-items: stretch; flex-direction: column-reverse; }
+  .ticket-page-actions .btn { justify-content: center; }
+  .ticket-printable { padding: 18px 16px 15px; }
+  .ticket-print-route div strong { font-size: 15px; }
+}
+
+@page { size: 80mm auto; margin: 3mm; }
+@media print {
+  html, body, #root { width: 80mm !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  body * { visibility: hidden !important; }
+  .ticket-printable, .ticket-printable * { visibility: visible !important; }
+  .ticket-page { position: absolute !important; inset: 0 auto auto 0 !important; width: 74mm !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; background: #fff !important; }
+  .ticket-page-actions { display: none !important; }
+  .ticket-printable { width: 74mm !important; max-width: 74mm !important; margin: 0 !important; padding: 3mm 2mm !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; break-inside: avoid !important; page-break-inside: avoid !important; }
+  .ticket-print-header div strong { font-size: 12px; }
+  .ticket-print-route div strong { font-size: 14px; }
+  .ticket-print-qr img { width: 38mm; height: 38mm; }
+}

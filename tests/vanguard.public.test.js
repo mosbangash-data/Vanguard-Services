@@ -195,6 +195,10 @@ test('POST /api/public/reservations — prix falsifié ignoré', async () => {
   assert.equal(res.status, 201);
   assert.equal(res.data.data.reservation.status, 'PENDING');
   assert.notEqual(res.data.data.reservation.totalAmount, '0.01');
+  assert.equal(res.data.data.payment.status, 'PENDING');
+  assert.equal(res.data.data.payment.method, 'CASH');
+  assert.equal(res.data.data.payment.channel, 'AGENCY');
+  assert.equal(Number(res.data.data.payment.amount), Number(res.data.data.reservation.totalAmount));
 });
 
 test('POST /api/public/reservations — double réservation concurrente', async () => {
@@ -219,6 +223,11 @@ test('POST /api/public/reservations — double réservation concurrente', async 
 
   const statuses = [res1.status, res2.status].sort();
   assert.deepEqual(statuses, [201, 409]);
+  const created = res1.status === 201 ? res1 : res2;
+  assert.equal(created.data.data.payment.status, 'PENDING');
+  const lookup = await request('GET', `/api/public/reservations/${created.data.data.reservation.reservationCode}`);
+  assert.equal(lookup.status, 200);
+  assert.equal(lookup.data.data.reservation.payments.filter((payment) => payment.method === 'CASH' && payment.status === 'PENDING').length, 1);
 });
 
 test('GET /api/public/reservations/:code — réservation introuvable', async () => {
@@ -226,7 +235,7 @@ test('GET /api/public/reservations/:code — réservation introuvable', async ()
   assert.equal(res.status, 404);
 });
 
-test('POST /api/public/reservations/:id/payments — paiement déclaré reste PENDING', async () => {
+test('POST /api/public/reservations — crée le paiement CASH PENDING automatiquement', async () => {
   const tripsRes = await request('GET', '/api/public/trips');
   const trips = tripsRes.data.data.items;
   if (trips.length === 0) return;
@@ -239,44 +248,19 @@ test('POST /api/public/reservations/:id/payments — paiement déclaré reste PE
     seatNumber: '3',
   });
   assert.equal(createRes.status, 201);
-  const reservationId = createRes.data.data.reservation.id;
-
-  const payRes = await request('POST', `/api/public/reservations/${reservationId}/payments`, {
-    amount: '10.00',
-    method: 'CASH',
-  });
-  assert.equal(payRes.status, 201);
-  assert.equal(payRes.data.data.payment.status, 'PENDING');
+  const { reservation, payment } = createRes.data.data;
+  assert.equal(payment.reservationId, reservation.id);
+  assert.equal(payment.status, 'PENDING');
+  assert.equal(payment.method, 'CASH');
+  assert.equal(payment.channel, 'AGENCY');
+  assert.equal(Number(payment.amount), Number(reservation.totalAmount));
 });
 
-test('POST /api/public/reservations/:id/payments — autorise uniquement CASH', async () => {
-  const tripsRes = await request('GET', '/api/public/trips');
-  const trips = tripsRes.data.data.items;
-  if (trips.length === 0) return;
-
-  const trip = trips[0];
-  const createRes = await request('POST', '/api/public/reservations', {
-    tripId: trip.id,
-    customerName: 'Payment Restriction Client',
-    customerPhone: '+243222222223',
-    seatNumber: '4',
+test('POST /api/public/reservations/:id/payments — création manuelle de paiement désactivée', async () => {
+  const res = await request('POST', '/api/public/reservations/any-id/payments', {
+    amount: '10.00', method: 'MOBILE_MONEY', status: 'VERIFIED',
   });
-  assert.equal(createRes.status, 201);
-  const reservationId = createRes.data.data.reservation.id;
-
-  const invalidMethodRes = await request('POST', `/api/public/reservations/${reservationId}/payments`, {
-    amount: '10.00',
-    method: 'MOBILE_MONEY',
-  });
-  assert.equal(invalidMethodRes.status, 400);
-  assert.match(String(invalidMethodRes.data.message || invalidMethodRes.data.error || ''), /Only CASH is supported/i);
-
-  const validCashRes = await request('POST', `/api/public/reservations/${reservationId}/payments`, {
-    amount: '10.00',
-    method: 'CASH',
-  });
-  assert.equal(validCashRes.status, 201);
-  assert.equal(validCashRes.data.data.payment.method, 'CASH');
+  assert.equal(res.status, 404);
 });
 
 test('GET /api/webhooks/mbiyopay — la route mobile est désactivée', async () => {
@@ -442,14 +426,12 @@ test('SÉCURITÉ — aucune route publique ne permet de valider un paiement', as
   });
   assert.equal(createRes.status, 201);
   const reservationId = createRes.data.data.reservation.id;
-
   const payRes = await request('POST', `/api/public/reservations/${reservationId}/payments`, {
     amount: '10.00',
     method: 'CASH',
     status: 'VERIFIED', // Tentative de validation directe
   });
-  assert.equal(payRes.status, 201);
-  assert.equal(payRes.data.data.payment.status, 'PENDING');
+  assert.equal(payRes.status, 404);
 });
 
 test('SÉCURITÉ — aucune route publique ne permet de créer un compte interne', async () => {

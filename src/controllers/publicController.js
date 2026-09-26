@@ -51,15 +51,6 @@ const getPublicReservationByCode = async (req, res, next) => {
   }
 };
 
-const createPublicReservationPayment = async (req, res, next) => {
-  try {
-    const result = await publicTransportService.createPublicReservationPayment(req.params.reservationId, req.body);
-    res.status(201).json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-};
-
 const createPublicParcel = async (req, res, next) => {
   try {
     const result = await publicTransportService.createPublicParcel(req.body);
@@ -144,7 +135,6 @@ module.exports = {
   getPublicTripSeats,
   createPublicReservation,
   getPublicReservationByCode,
-  createPublicReservationPayment,
   createPublicParcel,
   getPublicParcelByTrackingCode,
   listPublicProjects,

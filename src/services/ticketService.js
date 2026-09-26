@@ -29,7 +29,7 @@ const ensureCoachTicketAccess = (currentUser) => {
   if (currentUser.role !== 'SUPER_ADMIN' && currentUser.department?.type !== 'VANGUARD_COACH') {
     throw new AppError('Access denied', 403);
   }
-  if (!currentUser.permissions?.includes('VIEW_RESERVATION')) {
+  if (!currentUser.permissions?.includes('VIEW_RESERVATION') && !currentUser.permissions?.includes('MANAGE_RESERVATION_PAYMENT')) {
     throw new AppError('Insufficient permissions', 403);
   }
 };
@@ -63,26 +63,6 @@ const ensureReservationReadyForTicket = (reservation) => {
   }
 };
 
-const getReservationWithDetails = async (reservationId) => {
-  return prisma.reservation.findUnique({
-    where: { id: reservationId },
-    include: {
-      trip: {
-        include: {
-          schedule: {
-            include: {
-              route: true,
-              bus: true,
-            },
-          },
-        },
-      },
-      payments: true,
-      tickets: true,
-    },
-  });
-};
-
 const getTicketByCode = async (ticketCode, currentUser = null) => {
   const ticket = await prisma.ticket.findUnique({
     where: { ticketCode },
@@ -107,6 +87,7 @@ const getTicketByCode = async (ticketCode, currentUser = null) => {
           seatNumber: true,
           totalAmount: true,
           status: true,
+          payments: { select: { amount: true, currency: true, method: true, status: true, validatedAt: true } },
           trip: {
             select: {
               id: true,
@@ -635,15 +616,22 @@ const cancelTicketByCode = async (ticketCode, currentUser) => {
   return { ticket: updated };
 };
 
-const createTicketForReservation = async (reservationId, currentUser) => {
+const createTicketForReservationInTransaction = async (tx, reservationId, currentUser) => {
   ensureCoachTicketAccess(currentUser);
   if (!reservationId || typeof reservationId !== 'string' || !reservationId.trim()) {
     throw new AppError('Reservation ID is required', 400);
   }
 
-  const reservation = await getReservationWithDetails(reservationId);
-  await assertDepartmentIdForUser(currentUser, reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
+  const reservation = await tx.reservation.findUnique({
+    where: { id: reservationId },
+    include: {
+      trip: { include: { schedule: { include: { route: true, bus: true } } } },
+      payments: true,
+      tickets: true,
+    },
+  });
   ensureCoachReservation(reservation);
+  await assertDepartmentIdForUser(currentUser, reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
   ensureReservationReadyForTicket(reservation);
 
   const existingTicket = reservation.tickets[0];
@@ -655,7 +643,7 @@ const createTicketForReservation = async (reservationId, currentUser) => {
   const serialNumber = buildSerialNumber();
   const qrCode = buildQrCode(ticketCode);
 
-  const ticket = await prisma.ticket.create({
+  const ticket = await tx.ticket.create({
     data: {
       ticketCode,
       reservationId,
@@ -683,13 +671,19 @@ const createTicketForReservation = async (reservationId, currentUser) => {
     },
   });
 
-  await auditService.log('create_ticket', currentUser?.id || null, {
-    targetTicketId: ticket.id,
-    reservationId,
+  await tx.auditLog.create({
+    data: {
+      action: 'create_ticket',
+      actorId: currentUser?.id || null,
+      details: { targetTicketId: ticket.id, reservationId },
+    },
   });
 
   return { ticket, created: true };
 };
+
+const createTicketForReservation = async (reservationId, currentUser) => prisma.$transaction((tx) =>
+  createTicketForReservationInTransaction(tx, reservationId, currentUser));
 
 const notifyCustomerAboutTicket = async (ticket) => {
   // Placeholder for future delivery integration (WhatsApp, SMS, email).
@@ -699,6 +693,7 @@ const notifyCustomerAboutTicket = async (ticket) => {
 
 module.exports = {
   createTicketForReservation,
+  createTicketForReservationInTransaction,
   getTicketByCode,
   listTickets,
   listTicketScans,
