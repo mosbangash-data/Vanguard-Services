@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../../../services/api'
@@ -6,7 +6,6 @@ import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
 import { useLanguage } from '../../../i18n/useLanguage'
 
-const listItems = (payload) => Array.isArray(payload) ? payload : (payload?.items || payload?.data?.items || payload?.data || [])
 const isAgentUser = (user) => ['AGENT'].includes(user?.role)
 const formatDate = (value, lang) => {
   if (!value) return '—'
@@ -24,45 +23,28 @@ const formatMoney = (amount, currency, lang) => new Intl.NumberFormat(lang === '
   maximumFractionDigits: 2,
 }).format(Number(amount || 0))
 
-async function fetchReservations(user) {
-  if (!user) return []
-  const params = { page: 1, limit: 200 }
+async function fetchReservations(user, page) {
+  if (!user) return { items: [], total: 0 }
+  const params = { page, limit: 50, status: 'COMPLETED' }
   if (isAgentUser(user)) params.createdByUserId = user.id
   const response = await api.get('/api/vehicle-reservations', { params })
-  return listItems(response.data?.data || response.data)
-}
-
-async function fetchVehicles() {
-  const response = await api.get('/api/vehicles', { params: { page: 1, limit: 200 } })
-  return listItems(response.data?.data || response.data)
+  return response.data?.data || response.data
 }
 
 export function AutoSalesAgentSalesPage() {
   const { user } = useAuth()
   const { lang, t } = useLanguage()
+  const [page, setPage] = useState(1)
 
   const canViewSales = hasPermission(user, 'VIEW_RESERVATION') || user?.role === 'SUPER_ADMIN' || user?.role === 'SERVICE_ADMIN'
 
   const reservationsQuery = useQuery({
-    queryKey: ['autosales-agent-sales-reservations', user?.id],
-    queryFn: () => fetchReservations(user),
+    queryKey: ['autosales-agent-sales-reservations', user?.id, page],
+    queryFn: () => fetchReservations(user, page),
     enabled: !!user && canViewSales,
   })
-
-  const vehiclesQuery = useQuery({
-    queryKey: ['autosales-agent-sales-vehicles'],
-    queryFn: fetchVehicles,
-    enabled: !!user && canViewSales,
-  })
-
-  const reservations = useMemo(() => reservationsQuery.data || [], [reservationsQuery.data])
-  const vehicles = useMemo(() => vehiclesQuery.data || [], [vehiclesQuery.data])
-  const vehicleById = useMemo(() => new Map(vehicles.map((vehicle) => [vehicle.id, vehicle])), [vehicles])
-
-  const sales = reservations.filter((reservation) => {
-    const vehicle = vehicleById.get(reservation.vehicleId)
-    return reservation.status === 'COMPLETED' || reservation.paymentStatus === 'COMPLETED' || vehicle?.status === 'SOLD'
-  })
+  const sales = reservationsQuery.data?.items || []
+  const total = reservationsQuery.data?.total || 0
 
   if (!canViewSales) {
     return (
@@ -86,9 +68,9 @@ export function AutoSalesAgentSalesPage() {
       </div>
 
       <div className="card">
-        {(reservationsQuery.isPending || vehiclesQuery.isPending) && <p>{t('dashboard.loading')}</p>}
-        {(reservationsQuery.isError || vehiclesQuery.isError) && <p className="error">{t('dashboard.errorState')}</p>}
-        {!reservationsQuery.isPending && !vehiclesQuery.isPending && !reservationsQuery.isError && !vehiclesQuery.isError && (
+        {reservationsQuery.isPending && <p>{t('dashboard.loading')}</p>}
+        {reservationsQuery.isError && <p className="error">{t('dashboard.errorState')}</p>}
+        {!reservationsQuery.isPending && !reservationsQuery.isError && (
           <div className="table-wrap">
             <table>
               <thead>
@@ -96,27 +78,35 @@ export function AutoSalesAgentSalesPage() {
                   <th>{t('autosalesAgent.customer')}</th>
                   <th>{t('autosalesAgent.vehicle')}</th>
                   <th>{t('autosalesAgent.amount')}</th>
+                  <th>Paiements encaissés</th>
+                  <th>Solde</th>
                   <th>{t('autosalesAgent.status')}</th>
-                  <th>{t('autosalesAgent.date')}</th>
+                  <th>Date de clôture</th>
                 </tr>
               </thead>
               <tbody>
                 {sales.length === 0 ? (
-                  <tr><td colSpan="5"><p className="empty">{t('autosalesAgent.empty')}</p></td></tr>
+                  <tr><td colSpan="7"><p className="empty">{t('autosalesAgent.empty')}</p></td></tr>
                 ) : sales.map((reservation) => {
-                  const vehicle = vehicleById.get(reservation.vehicleId)
+                  const vehicle = reservation.vehicle
+                  const currency = vehicle?.currency || 'USD'
+                  const paid = (reservation.payments || []).filter((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status) && (payment.currency || 'USD') === currency).reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+                  const balance = Math.max(Number(reservation.reservationAmount || 0) - paid, 0)
                   return (
                     <tr key={reservation.id}>
                       <td>{reservation.customerName}</td>
                       <td>{vehicle ? `${vehicle.brand} ${vehicle.model}` : '—'}</td>
-                      <td>{formatMoney(reservation.reservationAmount, vehicle?.currency || 'USD', lang)}</td>
+                      <td>{formatMoney(reservation.reservationAmount, currency, lang)}</td>
+                      <td>{formatMoney(paid, currency, lang)}</td>
+                      <td>{formatMoney(balance, currency, lang)}</td>
                       <td>{reservation.status}</td>
-                      <td>{formatDate(reservation.createdAt, lang)}</td>
+                      <td>{formatDate(reservation.updatedAt, lang)}</td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
+            <div className="button-row" style={{ justifyContent: 'space-between', padding: 12 }}><span>{total} vente(s) · page {page}</span><div className="button-row"><button className="button secondary sm" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>Précédent</button><button className="button secondary sm" disabled={page * 50 >= total} onClick={() => setPage((value) => value + 1)}>Suivant</button></div></div>
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ const auditService = require('./auditService');
 const constructionRepository = require('../repositories/constructionRepository');
 const { deleteMediaIfOrphaned } = require('./mediaService');
 const { createWithUniqueSlug, slugify } = require('../utils/uniqueSlug');
+const { requireConstructionAdmin } = require('./departmentAccessService');
 
 const assertConstructionAccess = (currentUser) => {
   if (!currentUser) throw new AppError('Unauthorized', 401);
@@ -44,6 +45,67 @@ const parseBudget = (value) => {
 };
 
 const buildPagination = (page, limit, total) => ({ page, limit, total });
+
+const getDashboard = async (currentUser) => {
+  requireConstructionAdmin(currentUser);
+  const permissions = new Set(currentUser.permissions || []);
+  if (!permissions.has('VIEW_PROJECT')) throw new AppError('Insufficient permissions', 403);
+
+  // Every dashboard query is pinned to Construction, including for SUPER_ADMIN.
+  const projectWhere = { department: { type: 'CONSTRUCTION' }, isTemplate: false };
+  const customerWhere = { department: { type: 'CONSTRUCTION' } };
+  const quoteWhere = { department: { type: 'CONSTRUCTION' } };
+  const canRequests = permissions.has('VIEW_CUSTOMER_REQUEST');
+  const canQuotes = permissions.has('VIEW_QUOTE_REQUEST');
+  const canUpdates = permissions.has('VIEW_PROJECT');
+  const canGallery = permissions.has('VIEW_PROJECT');
+
+  const [department, projectGroups, projectTotal, projectBudget, noBudget, recentModified, recentCreated,
+    customerGroups, quoteGroups, recentUpdates, recentMedia] = await Promise.all([
+    prisma.department.findUnique({ where: { type: 'CONSTRUCTION' }, select: { id: true, settings: { select: { currency: true } } } }),
+    prisma.project.groupBy({ by: ['status', 'publicationStatus'], where: projectWhere, _count: { _all: true } }),
+    prisma.project.count({ where: projectWhere }),
+    prisma.project.aggregate({ where: projectWhere, _sum: { budget: true } }),
+    prisma.project.count({ where: { ...projectWhere, budget: null } }),
+    prisma.project.findMany({ where: projectWhere, orderBy: { updatedAt: 'desc' }, take: 8,
+      select: { id: true, title: true, status: true, publicationStatus: true, budget: true, createdAt: true, updatedAt: true,
+        _count: { select: { gallery: true, updates: true } } } }),
+    prisma.project.findMany({ where: projectWhere, orderBy: { createdAt: 'desc' }, take: 8,
+      select: { id: true, title: true, status: true, publicationStatus: true, budget: true, createdAt: true, updatedAt: true,
+        _count: { select: { gallery: true, updates: true } } } }),
+    canRequests ? prisma.customerRequest.groupBy({ by: ['status'], where: customerWhere, _count: { _all: true } }) : [],
+    canQuotes ? prisma.quoteRequest.groupBy({ by: ['status'], where: quoteWhere, _count: { _all: true } }) : [],
+    canUpdates ? prisma.projectUpdate.findMany({ where: { project: projectWhere }, orderBy: { createdAt: 'desc' }, take: 8,
+      select: { id: true, title: true, createdAt: true, project: { select: { id: true, title: true } } } }) : [],
+    canGallery ? prisma.projectGallery.findMany({ where: { project: projectWhere }, orderBy: { createdAt: 'desc' }, take: 8,
+      include: { media: true, project: { select: { id: true, title: true } } } }) : [],
+  ]);
+
+  const countGroups = (rows) => Object.fromEntries(rows.map((row) => [row.status, row._count._all]));
+  const projectsByStatus = {};
+  const publicationByStatus = {};
+  let publishedCount = 0;
+  for (const row of projectGroups) {
+    projectsByStatus[row.status] = (projectsByStatus[row.status] || 0) + row._count._all;
+    publicationByStatus[row.publicationStatus] = (publicationByStatus[row.publicationStatus] || 0) + row._count._all;
+    if (row.status === 'PUBLISHED' && row.publicationStatus === 'PUBLISHED') publishedCount += row._count._all;
+  }
+  const customerRequests = countGroups(customerGroups);
+  const quoteRequests = countGroups(quoteGroups);
+  const sum = Number(projectBudget._sum.budget || 0);
+
+  return {
+    scope: { department: 'CONSTRUCTION', currency: department?.settings?.currency || 'USD' },
+    projects: { total: projectTotal, published: publishedCount, byStatus: projectsByStatus, byPublicationStatus: publicationByStatus,
+      budgetTotal: sum, withoutBudget: noBudget, recentModified, recentCreated },
+    customerRequests: canRequests ? { total: Object.values(customerRequests).reduce((a, b) => a + b, 0), byStatus: customerRequests,
+      needsAction: ['NEW', 'CONTACTED', 'IN_PROGRESS'].reduce((n, status) => n + (customerRequests[status] || 0), 0) } : null,
+    quoteRequests: canQuotes ? { total: Object.values(quoteRequests).reduce((a, b) => a + b, 0), byStatus: quoteRequests,
+      needsAction: ['NEW', 'IN_PROGRESS'].reduce((n, status) => n + (quoteRequests[status] || 0), 0) } : null,
+    recentUpdates: canUpdates ? recentUpdates : null,
+    recentMedia: canGallery ? recentMedia : null,
+  };
+};
 
 const listCustomerRequests = async (query = {}, currentUser) => {
   assertConstructionAccess(currentUser);
@@ -678,6 +740,7 @@ const setPrimaryProjectMedia = async (galleryId, currentUser) => {
 };
 
 module.exports = {
+  getDashboard,
   listCustomerRequests,
   getCustomerRequest,
   createCustomerRequest,

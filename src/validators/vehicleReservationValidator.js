@@ -49,10 +49,12 @@ const validateVehicleReservationCreate = (req, res, next) => {
   if (!VALID_STATUSES.includes(status)) {
     return res.status(400).json({ success: false, message: 'status is invalid' });
   }
+  if (status !== 'PENDING') return res.status(400).json({ success: false, message: 'New reservations must start in PENDING status' });
 
   if (!VALID_PAYMENT_STATUSES.includes(paymentStatus)) {
     return res.status(400).json({ success: false, message: 'paymentStatus is invalid' });
   }
+  if (paymentStatus !== 'PENDING') return res.status(400).json({ success: false, message: 'Reservation payment status is set by payment validation' });
 
   return next();
 };
@@ -62,17 +64,14 @@ const validateVehicleReservationUpdate = (req, res, next) => {
   if (!body || Object.keys(body).length === 0) {
     return res.status(400).json({ success: false, message: 'At least one field must be provided for update' });
   }
+  if (body.paymentStatus !== undefined) return res.status(400).json({ success: false, message: 'Reservation payment status is set by payment validation' });
 
-  const allowedFields = ['status', 'reservationAmount', 'depositAmount', 'paymentStatus', 'expirationDate', 'customerName', 'customerPhone', 'customerEmail', 'reservationDate', 'reason'];
+  const allowedFields = ['status', 'reservationAmount', 'depositAmount', 'expirationDate', 'customerName', 'customerPhone', 'customerEmail', 'reservationDate', 'reason'];
   const hasValidField = allowedFields.some((field) => Object.prototype.hasOwnProperty.call(body, field));
   if (!hasValidField) return res.status(400).json({ success: false, message: 'No valid update fields provided' });
 
   if (body.status !== undefined && !VALID_STATUSES.includes(normalizeString(body.status).toUpperCase())) {
     return res.status(400).json({ success: false, message: 'status is invalid' });
-  }
-
-  if (body.paymentStatus !== undefined && !VALID_PAYMENT_STATUSES.includes(normalizeString(body.paymentStatus).toUpperCase())) {
-    return res.status(400).json({ success: false, message: 'paymentStatus is invalid' });
   }
 
   if (body.reservationAmount !== undefined && (isNaN(Number(body.reservationAmount)) || Number(body.reservationAmount) < 0)) {

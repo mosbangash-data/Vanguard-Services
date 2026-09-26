@@ -75,6 +75,23 @@ const getScopedDepartmentId = async (user, requestedDepartmentId, departmentType
   return department.id;
 };
 
+const getDepartmentScopeId = async (user, requestedDepartmentId, departmentType) => {
+  requireDepartmentType(user, departmentType);
+  if (user.role === 'SUPER_ADMIN') {
+    const department = requestedDepartmentId
+      ? await prisma.department.findUnique({ where: { id: requestedDepartmentId } })
+      : await prisma.department.findUnique({ where: { type: departmentType } });
+    if (!department || department.type !== departmentType) throw new AppError('Department is not valid for this service', 400);
+    return department.id;
+  }
+  return getScopedDepartmentId(user, requestedDepartmentId, departmentType);
+};
+
+const assertDepartmentScope = async (user, departmentId, departmentType) => {
+  const scopeId = await getDepartmentScopeId(user, null, departmentType);
+  if (scopeId !== departmentId) throw new AppError('Access to this department is not allowed', 403);
+};
+
 const assertResourceDepartment = (user, departmentId, departmentType) => {
   requireDepartmentType(user, departmentType);
   if (user.role !== 'SUPER_ADMIN' && departmentId !== user.department?.id) {
@@ -101,5 +118,7 @@ module.exports = {
   requireAutomobileAdmin,
   requireConstructionAdmin,
   getScopedDepartmentId,
+  getDepartmentScopeId,
+  assertDepartmentScope,
   assertDepartmentIdForUser,
 };

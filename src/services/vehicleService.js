@@ -1,7 +1,7 @@
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const vehicleRepository = require('../repositories/vehicleRepository');
-const { getScopedDepartmentId, assertDepartmentIdForUser } = require('./departmentAccessService');
+const { getDepartmentScopeId, assertDepartmentScope } = require('./departmentAccessService');
 
 const assertAutoSalesAccess = (currentUser) => {
   if (!currentUser) throw new AppError('Unauthorized', 401);
@@ -49,8 +49,7 @@ const listVehicles = async (query = {}, currentUser) => {
   const skip = (page - 1) * limit;
 
   const where = {};
-  const departmentId = await getScopedDepartmentId(currentUser, query.departmentId, 'AUTO_SALES');
-  if (departmentId) where.departmentId = departmentId;
+  where.departmentId = await getDepartmentScopeId(currentUser, query.departmentId, 'AUTO_SALES');
   if (query.status) where.status = query.status;
   if (query.isTemplate !== undefined) {
     where.isTemplate = query.isTemplate === 'true' || query.isTemplate === true;
@@ -76,7 +75,7 @@ const getVehicleById = async (id, currentUser) => {
 
   const vehicle = await vehicleRepository.getVehicleById(id);
   if (!vehicle) throw new AppError('Vehicle not found', 404);
-  await assertDepartmentIdForUser(currentUser, vehicle.departmentId, 'AUTO_SALES');
+  await assertDepartmentScope(currentUser, vehicle.departmentId, 'AUTO_SALES');
   return { vehicle };
 };
 
@@ -84,7 +83,7 @@ const createVehicle = async (data, currentUser) => {
   assertAutoSalesAccess(currentUser);
   if (!currentUser.permissions.includes('CREATE_VEHICLE')) throw new AppError('Insufficient permissions', 403);
 
-  const departmentId = await getScopedDepartmentId(currentUser, typeof data?.departmentId === 'string' && data.departmentId.trim() ? data.departmentId.trim() : null, 'AUTO_SALES');
+  const departmentId = await getDepartmentScopeId(currentUser, typeof data?.departmentId === 'string' && data.departmentId.trim() ? data.departmentId.trim() : null, 'AUTO_SALES');
   const brand = typeof data?.brand === 'string' ? data.brand.trim() : '';
   const model = typeof data?.model === 'string' ? data.model.trim() : '';
   const year = isValidYear(data?.year) ? Number(data.year) : null;
@@ -132,7 +131,7 @@ const updateVehicle = async (id, data, currentUser) => {
 
   const vehicle = await vehicleRepository.getVehicleById(id);
   if (!vehicle) throw new AppError('Vehicle not found', 404);
-  await assertDepartmentIdForUser(currentUser, vehicle.departmentId, 'AUTO_SALES');
+  await assertDepartmentScope(currentUser, vehicle.departmentId, 'AUTO_SALES');
 
   const updatePayload = {};
   if (data?.isTemplate !== undefined) {
@@ -141,7 +140,7 @@ const updateVehicle = async (id, data, currentUser) => {
   if (data?.departmentId !== undefined) {
     const departmentId = typeof data.departmentId === 'string' && data.departmentId.trim() ? data.departmentId.trim() : null;
     if (!departmentId) throw new AppError('departmentId must be a valid identifier', 400);
-    await assertDepartmentIdForUser(currentUser, departmentId, 'AUTO_SALES');
+    await assertDepartmentScope(currentUser, departmentId, 'AUTO_SALES');
     updatePayload.departmentId = departmentId;
   }
   if (data?.brand !== undefined) {
@@ -219,7 +218,7 @@ const deleteVehicle = async (id, currentUser) => {
 
   const vehicle = await vehicleRepository.getVehicleById(id);
   if (!vehicle) throw new AppError('Vehicle not found', 404);
-  await assertDepartmentIdForUser(currentUser, vehicle.departmentId, 'AUTO_SALES');
+  await assertDepartmentScope(currentUser, vehicle.departmentId, 'AUTO_SALES');
 
   if (!vehicle.isTemplate) {
     const inquiryCount = await vehicleRepository.countVehicleInquiries(id);

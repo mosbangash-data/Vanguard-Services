@@ -3,7 +3,8 @@ const auditService = require('./auditService');
 const vehicleRepository = require('../repositories/vehicleRepository');
 const userRepository = require('../services/userRepository');
 const vehicleInquiryRepository = require('../repositories/vehicleInquiryRepository');
-const { assertDepartmentIdForUser } = require('./departmentAccessService');
+const { assertDepartmentScope } = require('./departmentAccessService');
+const prisma = require('../config/prisma');
 
 const assertAutoSalesAccess = (currentUser) => {
   if (!currentUser) throw new AppError('Unauthorized', 401);
@@ -29,8 +30,7 @@ const listVehicleInquiries = async (query, currentUser) => {
   if (!currentUser.permissions.includes('VIEW_VEHICLE_INQUIRY')) throw new AppError('Insufficient permissions', 403);
 
   if (currentUser.role === 'AGENT') {
-    const forcedAssignedToUserId = query?.assignedToUserId ? String(query.assignedToUserId) : null;
-    if (forcedAssignedToUserId !== currentUser.id) {
+    if (query?.assignedToUserId && String(query.assignedToUserId) !== currentUser.id) {
       throw new AppError('Access denied', 403);
     }
   }
@@ -42,9 +42,9 @@ const listVehicleInquiries = async (query, currentUser) => {
   const where = {};
   if (currentUser.role === 'AGENT') {
     where.assignedToUserId = currentUser.id;
-    where.vehicle = { department: { type: 'AUTO_SALES' } };
-  } else if (currentUser.role !== 'SUPER_ADMIN') {
-    where.vehicle = { department: { type: 'AUTO_SALES' } };
+    where.vehicle = { is: { department: { is: { type: 'AUTO_SALES' } } } };
+  } else {
+    where.vehicle = { is: { department: { is: { type: 'AUTO_SALES' } } } };
   }
   if (query.vehicleId) where.vehicleId = query.vehicleId;
   if (query.status) where.status = query.status;
@@ -74,10 +74,8 @@ const getVehicleInquiryById = async (id, currentUser) => {
 
   const inquiry = await vehicleInquiryRepository.getVehicleInquiryById(id);
   if (!inquiry) throw new AppError('Vehicle inquiry not found', 404);
-  await assertDepartmentIdForUser(currentUser, inquiry.vehicle.departmentId, 'AUTO_SALES');
-  if ((currentUser.role === 'AGENT')
-    && inquiry.assignedToUserId !== null
-    && inquiry.assignedToUserId !== currentUser.id) {
+  await assertDepartmentScope(currentUser, inquiry.vehicle.departmentId, 'AUTO_SALES');
+  if (currentUser.role === 'AGENT' && inquiry.assignedToUserId !== currentUser.id) {
     throw new AppError('Access denied', 403);
   }
   return { vehicleInquiry: inquiry };
@@ -105,7 +103,7 @@ const createVehicleInquiry = async (data, currentUser) => {
 
   const vehicle = await vehicleRepository.getVehicleById(vehicleId);
   if (!vehicle) throw new AppError('Vehicle not found', 404);
-  await assertDepartmentIdForUser(currentUser, vehicle.departmentId, 'AUTO_SALES');
+  await assertDepartmentScope(currentUser, vehicle.departmentId, 'AUTO_SALES');
 
   const createdByUserId = currentUser?.id || null;
   if (!createdByUserId) throw new AppError('Unauthorized', 401);
@@ -130,6 +128,7 @@ const createVehicleInquiry = async (data, currentUser) => {
     contactPreference: contactPreference ? contactPreference.toUpperCase() : null,
     message,
     status: 'NEW',
+    assignedToUserId: currentUser.role === 'AGENT' ? currentUser.id : null,
     createdByUserId,
   });
 
@@ -145,9 +144,7 @@ const updateVehicleInquiry = async (id, data, currentUser) => {
   if (!inquiry) throw new AppError('Vehicle inquiry not found', 404);
   await assertDepartmentIdForUser(currentUser, inquiry.vehicle.departmentId, 'AUTO_SALES');
 
-  const isAgentAssignedToInquiry = (currentUser.role === 'AGENT')
-    && (inquiry.assignedToUserId === null || inquiry.assignedToUserId === currentUser.id);
-  if ((currentUser.role === 'AGENT') && !isAgentAssignedToInquiry) {
+  if (currentUser.role === 'AGENT' && inquiry.assignedToUserId !== currentUser.id) {
     throw new AppError('Access denied', 403);
   }
 
@@ -180,6 +177,9 @@ const updateVehicleInquiry = async (id, data, currentUser) => {
     }
   }
 
+  if (updatePayload.assignedToUserId !== undefined) {
+    if (!currentUser.permissions.includes('ASSIGN_VEHICLE_INQUIRY')) throw new AppError('Insufficient permissions', 403);
+  }
   if (updatePayload.assignedToUserId) {
     const user = await userRepository.findById(updatePayload.assignedToUserId);
     if (!user) throw new AppError('Assigned user not found', 404);
@@ -194,6 +194,21 @@ const updateVehicleInquiry = async (id, data, currentUser) => {
     }
 
     await auditService.log('assign_vehicle_inquiry', currentUser.id, { targetVehicleInquiryId: id, assignedToUserId: updatePayload.assignedToUserId });
+  }
+
+  if (updatePayload.status === 'CLOSED' && !currentUser.permissions.includes('CLOSE_VEHICLE_INQUIRY')) {
+    throw new AppError('Insufficient permissions', 403);
+  }
+  if (updatePayload.status === 'CONVERTED') {
+    const reservation = await prisma.vehicleReservation.findFirst({
+      where: {
+        vehicleId: inquiry.vehicleId,
+        customerPhone: inquiry.customerPhone,
+        status: { in: ['PENDING', 'CONFIRMED', 'COMPLETED'] },
+      },
+      select: { id: true },
+    });
+    if (!reservation) throw new AppError('Create a reservation for this customer and vehicle before converting the inquiry', 409);
   }
 
   if (updatePayload.status) {
@@ -223,7 +238,7 @@ const assignVehicleInquiry = async (id, assignedToUserId, currentUser) => {
   if (typeof assignedToUserId !== 'string' || !assignedToUserId.trim()) throw new AppError('assignedToUserId is required', 400);
   const inquiry = await vehicleInquiryRepository.getVehicleInquiryById(id);
   if (!inquiry) throw new AppError('Vehicle inquiry not found', 404);
-  await assertDepartmentIdForUser(currentUser, inquiry.vehicle.departmentId, 'AUTO_SALES');
+  await assertDepartmentScope(currentUser, inquiry.vehicle.departmentId, 'AUTO_SALES');
   const assignee = await userRepository.findById(assignedToUserId);
   const isEscalatedManager = ['SUPER_ADMIN', 'SERVICE_ADMIN'].includes(currentUser.role);
   const isSelfAssignment = assignee && assignee.id === currentUser.id && isEscalatedManager;

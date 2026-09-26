@@ -3,6 +3,7 @@ const auditService = require('./auditService');
 const vehicleReservationRepository = require('../repositories/vehicleReservationRepository');
 const vehiclePaymentRepository = require('../repositories/vehiclePaymentRepository');
 const prisma = require('../config/prisma');
+const { assertDepartmentScope, getDepartmentScopeId } = require('./departmentAccessService');
 
 const PAYMENT_VALIDATED_STATUSES = ['VERIFIED', 'COMPLETED'];
 const RESERVATION_ACCEPTED_STATUSES = ['PENDING', 'CONFIRMED'];
@@ -50,10 +51,11 @@ const sumValidatedPayments = (payments = []) => payments
   .filter((payment) => PAYMENT_VALIDATED_STATUSES.includes(payment.status))
   .reduce((sum, payment) => sum + parseMoneyToCents(payment.amount), 0);
 
-const getReservationWithVehicle = async (reservationId) => {
+const getReservationWithVehicle = async (reservationId, currentUser) => {
   const reservation = await vehicleReservationRepository.getVehicleReservationById(reservationId);
   if (!reservation) throw new AppError('Vehicle reservation not found', 404);
   if (!reservation.vehicle) throw new AppError('Vehicle reservation relationship is invalid', 400);
+  await assertDepartmentScope(currentUser, reservation.vehicle.departmentId, 'AUTO_SALES');
   return reservation;
 };
 
@@ -91,7 +93,7 @@ const createVehiclePayment = async (data, currentUser) => {
   assertAutoSalesAccess(currentUser);
   if (!currentUser.permissions.includes('MANAGE_VEHICLE_RESERVATION')) throw new AppError('Insufficient permissions', 403);
 
-  const reservation = await getReservationWithVehicle(data.reservationId);
+  const reservation = await getReservationWithVehicle(data.reservationId, currentUser);
   if (!RESERVATION_ACCEPTED_STATUSES.includes(reservation.status)) {
     throw new AppError('Vehicle reservation is not in a payable state', 409);
   }
@@ -119,6 +121,7 @@ const createVehiclePayment = async (data, currentUser) => {
   const paymentData = {
     vehicleReservationId: reservation.id,
     amount: formatMoneyFromCents(amountCents),
+    currency: reservation.vehicle.currency || 'USD',
     method,
     status: 'PENDING',
     reference,
@@ -146,7 +149,7 @@ const listVehiclePayments = async (reservationId, currentUser) => {
   assertAutoSalesAccess(currentUser);
   if (!currentUser.permissions.includes('VIEW_RESERVATION')) throw new AppError('Insufficient permissions', 403);
 
-  const reservation = await getReservationWithVehicle(reservationId);
+  const reservation = await getReservationWithVehicle(reservationId, currentUser);
   if (['AGENT'].includes(currentUser.role) && reservation.createdByUserId !== currentUser.id) {
     throw new AppError('Access denied', 403);
   }
@@ -172,9 +175,28 @@ const getVehiclePayment = async (paymentId, currentUser) => {
 
   const payment = await vehiclePaymentRepository.getVehiclePaymentById(paymentId);
   if (!payment || !payment.vehicleReservation) throw new AppError('Vehicle payment not found', 404);
+  await getReservationWithVehicle(payment.vehicleReservationId, currentUser);
   enforcePaymentOwnership(currentUser, payment);
 
   return { payment };
+};
+
+const listAllVehiclePayments = async (query = {}, currentUser) => {
+  assertAutoSalesAccess(currentUser);
+  if (!currentUser.permissions.includes('VIEW_RESERVATION')) throw new AppError('Insufficient permissions', 403);
+  const page = Number(query.page) > 0 ? Number(query.page) : 1;
+  const limit = Number(query.limit) > 0 ? Math.min(Number(query.limit), 100) : 50;
+  const departmentId = await getDepartmentScopeId(currentUser, null, 'AUTO_SALES');
+  const where = {
+    vehicleReservation: { is: { vehicle: { is: { departmentId, isTemplate: false } }, ...(currentUser.role === 'AGENT' ? { createdByUserId: currentUser.id } : {}) } },
+  };
+  if (query.status && query.status !== 'ALL') where.status = String(query.status).trim().toUpperCase();
+  const [items, total] = await Promise.all([
+    prisma.payment.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
+      include: { validatedBy: true, vehicleReservation: { include: { vehicle: true, createdBy: true } } } }),
+    prisma.payment.count({ where }),
+  ]);
+  return { items, page, limit, total };
 };
 
 const ensurePendingPayment = (payment) => {
@@ -192,7 +214,7 @@ const updateVehiclePayment = async (paymentId, data, currentUser) => {
   ensurePendingPayment(payment);
   enforcePaymentOwnership(currentUser, payment);
 
-  const reservation = await getReservationWithVehicle(payment.vehicleReservationId);
+  const reservation = await getReservationWithVehicle(payment.vehicleReservationId, currentUser);
   if (!RESERVATION_ACCEPTED_STATUSES.includes(reservation.status)) {
     throw new AppError('Vehicle reservation is not in a payable state', 409);
   }
@@ -268,7 +290,7 @@ const validateVehiclePayment = async (paymentId, currentUser) => {
   ensurePendingPayment(payment);
   enforcePaymentOwnership(currentUser, payment);
 
-  const reservation = await getReservationWithVehicle(payment.vehicleReservationId);
+  const reservation = await getReservationWithVehicle(payment.vehicleReservationId, currentUser);
   if (!RESERVATION_ACCEPTED_STATUSES.includes(reservation.status)) {
     throw new AppError('Vehicle reservation is not in a payable state', 409);
   }
@@ -315,6 +337,7 @@ const rejectVehiclePayment = async (paymentId, currentUser, reason = null) => {
 
   const payment = await vehiclePaymentRepository.getVehiclePaymentById(paymentId);
   ensurePendingPayment(payment);
+  await getReservationWithVehicle(payment.vehicleReservationId, currentUser);
   enforcePaymentOwnership(currentUser, payment);
 
   const updatePayload = {
@@ -342,6 +365,7 @@ module.exports = {
   createVehiclePayment,
   listVehiclePayments,
   getVehiclePayment,
+  listAllVehiclePayments,
   updateVehiclePayment,
   validateVehiclePayment,
   rejectVehiclePayment,

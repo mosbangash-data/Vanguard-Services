@@ -1,5 +1,12 @@
 const vehiclePaymentService = require('../services/vehiclePaymentService');
 
+const listAllVehiclePayments = async (req, res, next) => {
+  try {
+    const result = await vehiclePaymentService.listAllVehiclePayments(req.query, req.user);
+    res.json({ success: true, data: result });
+  } catch (error) { next(error); }
+};
+
 const createVehiclePayment = async (req, res, next) => {
   try {
     const result = await vehiclePaymentService.createVehiclePayment(req.body, req.user);
@@ -64,6 +71,7 @@ const cancelVehiclePayment = async (req, res, next) => {
 };
 
 module.exports = {
+  listAllVehiclePayments,
   createVehiclePayment,
   listVehiclePayments,
   getVehiclePayment,

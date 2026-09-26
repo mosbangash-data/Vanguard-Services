@@ -18,7 +18,7 @@ const listVehiclePaymentsByReservationId = async ({ reservationId, skip = 0, tak
 const getVehiclePaymentById = async (id) => prisma.payment.findUnique({
   where: { id },
   include: {
-    vehicleReservation: { include: { vehicle: true } },
+    vehicleReservation: { include: { vehicle: { include: { department: true } } } },
     validatedBy: true,
   },
 });

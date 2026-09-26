@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/api'
 import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
@@ -38,14 +38,6 @@ const formatMoney = (amount, currency, lang) => {
 const statusOptions = ['NEW', 'CONTACTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'CONVERTED', 'RESOLVED', 'CLOSED']
 const reservationStatusOptions = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'EXPIRED']
 const paymentStatusOptions = ['PENDING', 'VERIFIED', 'REJECTED', 'COMPLETED']
-
-const getAssignedInquiries = async (user) => {
-  if (!user) return []
-  const params = { page: 1, limit: 100 }
-  if (user.role === 'AGENT') params.assignedToUserId = user.id
-  const response = await api.get('/api/vehicle-inquiries', { params })
-  return asList(response.data?.data || response.data)
-}
 
 const getAutoSalesDepartment = async () => {
   const response = await api.get('/api/departments', { params: { page: 1, limit: 100 } })
@@ -90,6 +82,7 @@ export function AutoSalesInquiryPage() {
   const canManageInquiries = hasPermission(user, 'VIEW_VEHICLE_INQUIRY') || user?.role === 'SUPER_ADMIN'
   const canAssignInquiry = hasPermission(user, 'ASSIGN_VEHICLE_INQUIRY') || user?.role === 'SUPER_ADMIN'
   const canUpdateInquiry = hasPermission(user, 'UPDATE_VEHICLE_INQUIRY') || user?.role === 'SUPER_ADMIN'
+  const allowedInquiryStatuses = statusOptions.filter((status) => status !== 'CLOSED' || hasPermission(user, 'CLOSE_VEHICLE_INQUIRY') || user?.role === 'SUPER_ADMIN')
 
   const inquiriesQuery = useQuery({
     queryKey: ['autosales-inquiries', search, statusFilter],
@@ -113,7 +106,7 @@ export function AutoSalesInquiryPage() {
   const agents = agentQuery.data || []
   const inquiries = inquiriesQuery.data || []
 
-  const selectedInquiry = useMemo(() => inquiries.find((item) => item.id === selectedId) || null, [inquiries, selectedId])
+  const selectedInquiry = useMemo(() => inquiriesQuery.data?.find((item) => item.id === selectedId) || null, [inquiriesQuery.data, selectedId])
 
   const openInquiry = (inquiry) => {
     setSelectedId(inquiry.id)
@@ -178,7 +171,7 @@ export function AutoSalesInquiryPage() {
             <span>{t('autosalesCommercial.status')}</span>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="ALL">{t('autosalesCommercial.all')}</option>
-              {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+              {allowedInquiryStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
             </select>
           </label>
         </div>
@@ -242,7 +235,7 @@ export function AutoSalesInquiryPage() {
             <label>
               <span>{t('autosalesCommercial.status')}</span>
               <select value={statusDraft} onChange={(event) => setStatusDraft(event.target.value)} disabled={!canUpdateInquiry}>
-                {statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                {allowedInquiryStatuses.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </label>
             <label className="full-width">
@@ -277,7 +270,8 @@ export function AutoSalesReservationPage() {
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [search, setSearch] = useState('')
-  const [showCreate, setShowCreate] = useState(false)
+  const [reservationSearchParams] = useSearchParams()
+  const [showCreate, setShowCreate] = useState(() => reservationSearchParams.get('create') === '1')
   const [form, setForm] = useState({
     vehicleId: '',
     customerName: '',
@@ -475,9 +469,13 @@ export function AutoSalesPaymentPage() {
   const { lang, t } = useLanguage()
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [searchParams] = useSearchParams()
+  const [showCreate, setShowCreate] = useState(() => searchParams.get('create') === '1')
+  const [paymentForm, setPaymentForm] = useState({ reservationId: '', amount: '', method: 'CASH', reference: '', comment: '' })
 
   const canViewPayments = hasPermission(user, 'VIEW_RESERVATION') || user?.role === 'SUPER_ADMIN'
   const canValidatePayment = hasPermission(user, 'MANAGE_VEHICLE_RESERVATION') || user?.role === 'SUPER_ADMIN'
+  const canCreatePayment = hasPermission(user, 'MANAGE_VEHICLE_RESERVATION') || user?.role === 'SUPER_ADMIN'
 
   const reservationsQuery = useQuery({
     queryKey: ['autosales-payment-reservations'],
@@ -491,21 +489,10 @@ export function AutoSalesPaymentPage() {
   const paymentQuery = useQuery({
     queryKey: ['autosales-payments', statusFilter],
     queryFn: async () => {
-      const reservations = reservationsQuery.data || []
-      const paymentEntries = await Promise.all(
-        reservations.map(async (reservation) => {
-          const response = await api.get(`/api/vehicle-payments/reservation/${reservation.id}`)
-          return {
-            reservationId: reservation.id,
-            items: asList(response.data?.data?.payments || response.data?.data || []),
-          }
-        }),
-      )
-      const flat = paymentEntries.flatMap(({ reservationId, items }) => items.map((payment) => ({ ...payment, reservationId })))
-      if (statusFilter === 'ALL') return flat
-      return flat.filter((payment) => payment.status === statusFilter)
+      const response = await api.get('/api/vehicle-payments', { params: { page: 1, limit: 100, status: statusFilter } })
+      return response.data?.data || response.data
     },
-    enabled: !!user && canViewPayments && !!reservationsQuery.data,
+    enabled: !!user && canViewPayments,
   })
 
   const validateMutation = useMutation({
@@ -524,7 +511,18 @@ export function AutoSalesPaymentPage() {
     },
   })
 
-  const payments = paymentQuery.data || []
+  const createMutation = useMutation({
+    mutationFn: async () => api.post('/api/vehicle-payments', paymentForm),
+    onSuccess: () => {
+      setPaymentForm({ reservationId: '', amount: '', method: 'CASH', reference: '', comment: '' })
+      setShowCreate(false)
+      queryClient.invalidateQueries({ queryKey: ['autosales-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['autosales-payment-reservations'] })
+      queryClient.invalidateQueries({ queryKey: ['autosales-dashboard'] })
+    },
+  })
+
+  const payments = paymentQuery.data?.items || []
 
   if (!canViewPayments) {
     return <section className="page"><div className="card"><h1>{t('autosalesCommercial.payments.title')}</h1><p className="empty">{t('autosalesCommercial.accessDenied')}</p></div></section>
@@ -537,8 +535,18 @@ export function AutoSalesPaymentPage() {
           <p className="autosales-eyebrow">VANGUARD SERVICES · AUTOSALES</p>
           <h1>{t('autosalesCommercial.payments.title')}</h1>
         </div>
+        {canCreatePayment && <button type="button" className="button" onClick={() => setShowCreate((current) => !current)}>Enregistrer un paiement</button>}
         <Link className="button secondary" to="/automobile">{t('autosalesCommercial.back')}</Link>
       </div>
+
+      {showCreate && canCreatePayment && <div className="card"><h2>Enregistrer un paiement de réservation</h2><div className="vehicle-form-grid">
+        <label><span>Réservation</span><select value={paymentForm.reservationId} onChange={(event) => setPaymentForm((current) => ({ ...current, reservationId: event.target.value }))}><option value="">Sélectionner une réservation</option>{(reservationsQuery.data || []).filter((reservation) => ['PENDING', 'CONFIRMED'].includes(reservation.status)).map((reservation) => <option key={reservation.id} value={reservation.id}>{reservation.reservationCode} · {reservation.customerName} · {reservation.vehicle?.brand} {reservation.vehicle?.model}</option>)}</select></label>
+        <label><span>Montant</span><input type="number" min="0.01" step="0.01" value={paymentForm.amount} onChange={(event) => setPaymentForm((current) => ({ ...current, amount: event.target.value }))} /></label>
+        <label><span>Mode de paiement</span><input value={paymentForm.method} onChange={(event) => setPaymentForm((current) => ({ ...current, method: event.target.value.toUpperCase() }))} /></label>
+        <label><span>Référence</span><input value={paymentForm.reference} onChange={(event) => setPaymentForm((current) => ({ ...current, reference: event.target.value }))} /></label>
+        <label><span>Note</span><input value={paymentForm.comment} onChange={(event) => setPaymentForm((current) => ({ ...current, comment: event.target.value }))} /></label>
+        <div className="button-row full-width"><button type="button" className="button" disabled={createMutation.isPending || !paymentForm.reservationId || !paymentForm.amount} onClick={() => createMutation.mutate()}>Enregistrer en attente de validation</button>{createMutation.isError && <span className="error">{createMutation.error?.response?.data?.message || 'Échec de l’enregistrement.'}</span>}</div>
+      </div></div>}
 
       <div className="card vehicle-toolbar">
         <div className="toolbar-grid">
@@ -577,7 +585,7 @@ export function AutoSalesPaymentPage() {
                     <td>{payment.reference || payment.id}</td>
                     <td>{payment.vehicleReservation?.customerName || '—'}</td>
                     <td>{payment.vehicleReservation?.vehicle ? `${payment.vehicleReservation.vehicle.brand} ${payment.vehicleReservation.vehicle.model}` : '—'}</td>
-                    <td>{formatMoney(payment.amount, 'USD', lang)}</td>
+                    <td>{formatMoney(payment.amount, payment.currency || payment.vehicleReservation?.vehicle?.currency || 'USD', lang)}</td>
                     <td>{payment.method}</td>
                     <td>{payment.status}</td>
                     <td className="button-row">
@@ -602,31 +610,21 @@ export function AutoSalesPaymentPage() {
 export function AutoSalesSalesPage() {
   const { user } = useAuth()
   const { lang, t } = useLanguage()
+  const [page, setPage] = useState(1)
+  const pageSize = 50
   const canViewSales = hasPermission(user, 'VIEW_RESERVATION') || user?.role === 'SUPER_ADMIN'
 
   const reservationsQuery = useQuery({
-    queryKey: ['autosales-sales-reservations'],
+    queryKey: ['autosales-sales-reservations', page],
     queryFn: async () => {
-      const response = await api.get('/api/vehicle-reservations', { params: { page: 1, limit: 200 } })
-      return asList(response.data?.data || response.data)
+      const response = await api.get('/api/vehicle-reservations', { params: { page, limit: pageSize, status: 'COMPLETED' } })
+      return response.data?.data || response.data
     },
     enabled: !!user && canViewSales,
   })
 
-  const vehiclesQuery = useQuery({
-    queryKey: ['autosales-sales-vehicles'],
-    queryFn: getVehicleOptions,
-    enabled: !!user && canViewSales,
-  })
-
-  const reservations = reservationsQuery.data || []
-  const vehicles = vehiclesQuery.data || []
-  const vehicleMap = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]))
-
-  const sales = reservations.filter((reservation) => {
-    const vehicle = vehicleMap.get(reservation.vehicleId)
-    return reservation.status === 'COMPLETED' || reservation.paymentStatus === 'COMPLETED' || vehicle?.status === 'SOLD'
-  })
+  const sales = reservationsQuery.data?.items || []
+  const total = reservationsQuery.data?.total || 0
 
   if (!canViewSales) {
     return <section className="page"><div className="card"><h1>{t('autosalesCommercial.sales.title')}</h1><p className="empty">{t('autosalesCommercial.accessDenied')}</p></div></section>
@@ -643,37 +641,49 @@ export function AutoSalesSalesPage() {
       </div>
 
       <div className="card">
-        {reservationsQuery.isPending || vehiclesQuery.isPending ? <p>{t('dashboard.loading')}</p> : (
+        {reservationsQuery.isPending ? <p>{t('dashboard.loading')}</p> : reservationsQuery.isError ? <p className="error">{t('dashboard.errorState')}</p> : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>{t('autosalesCommercial.vehicle')}</th>
                   <th>{t('autosalesCommercial.customer')}</th>
-                  <th>{t('autosalesCommercial.amount')}</th>
+                  <th>Montant de vente</th>
+                  <th>Paiements encaissés</th>
+                  <th>Solde</th>
                   <th>{t('autosalesCommercial.agent')}</th>
                   <th>{t('autosalesCommercial.status')}</th>
-                  <th>{t('autosalesCommercial.date')}</th>
+                  <th>Date de clôture</th>
                 </tr>
               </thead>
               <tbody>
                 {sales.length === 0 ? (
-                  <tr><td colSpan="6"><p className="empty">{t('autosalesCommercial.empty')}</p></td></tr>
+                  <tr><td colSpan="8"><p className="empty">{t('autosalesCommercial.empty')}</p></td></tr>
                 ) : sales.map((reservation) => {
-                  const vehicle = vehicleMap.get(reservation.vehicleId)
+                  const vehicle = reservation.vehicle
+                  const validatedPayments = (reservation.payments || []).filter((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status) && (payment.currency || 'USD') === (reservation.vehicle?.currency || 'USD'))
+                  const paid = validatedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+                  const remaining = Math.max(Number(reservation.reservationAmount || 0) - paid, 0)
+                  const currency = vehicle?.currency || 'USD'
                   return (
                     <tr key={reservation.id}>
                       <td>{vehicle ? `${vehicle.brand} ${vehicle.model}` : '—'}</td>
                       <td>{reservation.customerName}</td>
-                      <td>{formatMoney(reservation.reservationAmount, vehicle?.currency || 'USD', lang)}</td>
+                      <td>{formatMoney(reservation.reservationAmount, currency, lang)}</td>
+                      <td>{formatMoney(paid, currency, lang)}</td>
+                      <td>{formatMoney(remaining, currency, lang)}</td>
                       <td>{reservation.createdBy ? `${reservation.createdBy.firstName} ${reservation.createdBy.lastName}` : '—'}</td>
                       <td>{reservation.status}</td>
-                      <td>{formatDate(reservation.createdAt, lang)}</td>
+                      <td>{formatDate(reservation.updatedAt, lang)}</td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
+            <div className="button-row" style={{ justifyContent: 'space-between', padding: 12 }}>
+              <span>{total} vente(s) · page {page}</span>
+              <div className="button-row"><button className="button secondary sm" disabled={page <= 1} onClick={() => setPage((value) => Math.max(value - 1, 1))}>Précédent</button><button className="button secondary sm" disabled={page * pageSize >= total} onClick={() => setPage((value) => value + 1)}>Suivant</button></div>
+            </div>
           </div>
         )}
       </div>

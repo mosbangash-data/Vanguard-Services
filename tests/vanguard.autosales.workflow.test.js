@@ -8,6 +8,8 @@ let server;
 let baseUrl;
 let adminToken;
 let adminUserId;
+let autoSalesAdminToken;
+let coachAdminToken;
 
 const request = async (method, path, body, token) => {
   const headers = {};
@@ -44,6 +46,20 @@ test.before(async () => {
   assert.equal(loginRes.status, 200, 'Admin login should succeed');
   adminToken = loginRes.data.data.token;
   adminUserId = loginRes.data.data.user.id;
+
+  const autoSalesLogin = await request('POST', '/api/auth/login', {
+    identifier: 'autosales.admin@vanguard.local',
+    password: process.env.AUTOSALES_ADMIN_PASSWORD || 'dev-autosales-admin-password',
+  });
+  assert.equal(autoSalesLogin.status, 200, 'AutoSales SERVICE_ADMIN login should succeed');
+  autoSalesAdminToken = autoSalesLogin.data.data.token;
+
+  const coachLogin = await request('POST', '/api/auth/login', {
+    identifier: 'coach.admin@vanguard.local',
+    password: process.env.COACH_ADMIN_PASSWORD || 'dev-coach-admin-password',
+  });
+  assert.equal(coachLogin.status, 200, 'Coach SERVICE_ADMIN login should succeed');
+  coachAdminToken = coachLogin.data.data.token;
 });
 
 test.after(async () => {
@@ -51,6 +67,14 @@ test.after(async () => {
 });
 
 test('auto sales commercial workflow: inquiry reservation payment and final sale', async () => {
+  const superDashboard = await request('GET', '/api/dashboard/autosales', null, adminToken);
+  assert.equal(superDashboard.status, 200);
+  assert.equal(superDashboard.data.data.scope.department, 'AUTO_SALES');
+  const serviceDashboard = await request('GET', '/api/dashboard/autosales', null, autoSalesAdminToken);
+  assert.equal(serviceDashboard.status, 200);
+  assert.equal(serviceDashboard.data.data.scope.department, 'AUTO_SALES');
+  const coachDashboard = await request('GET', '/api/dashboard/autosales', null, coachAdminToken);
+  assert.equal(coachDashboard.status, 403, 'Other departments must not read AutoSales dashboard data');
   const departmentsRes = await request('GET', '/api/departments', null, adminToken);
   assert.equal(departmentsRes.status, 200);
   const autoSalesDept = departmentsRes.data.data.items.find((item) => item.type === 'AUTO_SALES');
@@ -84,20 +108,20 @@ test('auto sales commercial workflow: inquiry reservation payment and final sale
 
   const rolesRes = await request('GET', '/api/roles', null, adminToken);
   assert.equal(rolesRes.status, 200);
-  const autoServiceAdminRole = rolesRes.data.data.items.find((item) => item.name === 'SERVICE_ADMIN');
-  assert.ok(autoServiceAdminRole, 'SERVICE_ADMIN role must exist');
+  const salesAgentRole = rolesRes.data.data.items.find((item) => item.name === 'AGENT');
+  assert.ok(salesAgentRole, 'AGENT role must exist');
 
   const salesAgentRes = await request('POST', '/api/users', {
     firstName: 'Sales',
     lastName: 'Agent',
     email: `workflow.${Date.now()}@example.com`,
     phone: '+33123456789',
-    roleId: autoServiceAdminRole.id,
+    roleId: salesAgentRole.id,
     departmentId: autoSalesDept.id,
   }, adminToken);
   assert.equal(salesAgentRes.status, 201, 'Auto service admin user should be creatable');
   const salesAgent = salesAgentRes.data.data.user;
-  const tempPassword = salesAgentRes.data.data.user.temporaryPassword;
+  const tempPassword = salesAgentRes.data.data.temporaryPassword;
   assert.ok(tempPassword, 'Temporary password should be issued');
 
   const salesAgentLogin = await request('POST', '/api/auth/login', {
@@ -107,11 +131,16 @@ test('auto sales commercial workflow: inquiry reservation payment and final sale
   assert.equal(salesAgentLogin.status, 200, 'Agent login should succeed');
   const salesAgentToken = salesAgentLogin.data.data.token;
 
+  assert.ok(salesAgentLogin.data.data.user.permissions.includes('VIEW_VEHICLE'));
+  assert.ok(salesAgentLogin.data.data.user.permissions.includes('MANAGE_VEHICLE_RESERVATION'));
+  assert.ok(!salesAgentLogin.data.data.user.permissions.includes('VIEW_TRIP'));
+  assert.ok(!salesAgentLogin.data.data.user.permissions.includes('CREATE_PARCEL'));
+
   const assignRes = await request('PUT', `/api/vehicle-inquiries/${inquiryId}`, {
     assignedToUserId: salesAgent.id,
     status: 'CONTACTED',
     internalNotes: 'Premier contact et suivi concentré.',
-  }, salesAgentToken);
+  }, adminToken);
   assert.equal(assignRes.status, 200, 'Assigned agent should be able to update the inquiry');
   assert.equal(assignRes.data.data.vehicleInquiry.assignedTo.id, salesAgent.id);
 
@@ -120,6 +149,10 @@ test('auto sales commercial workflow: inquiry reservation payment and final sale
   }, salesAgentToken);
   assert.equal(inProgressRes.status, 200, 'Inquiry should progress to IN_PROGRESS');
   assert.equal(inProgressRes.data.data.vehicleInquiry.status, 'IN_PROGRESS');
+  const agentDashboard = await request('GET', '/api/dashboard/autosales', null, salesAgentToken);
+  assert.equal(agentDashboard.status, 200);
+  assert.equal(agentDashboard.data.data.scope.agentId, salesAgent.id);
+  assert.ok(agentDashboard.data.data.inquiries.recent.some((item) => item.id === inquiryId));
 
   const reservationDate = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   const expirationDate = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
@@ -133,7 +166,7 @@ test('auto sales commercial workflow: inquiry reservation payment and final sale
     depositAmount: '1000.00',
     reservationDate,
     expirationDate,
-  }, adminToken);
+  }, salesAgentToken);
   assert.equal(reservationRes.status, 201, 'Reservation should be created');
   const reservationId = reservationRes.data.data.vehicleReservation.id;
 
@@ -150,6 +183,10 @@ test('auto sales commercial workflow: inquiry reservation payment and final sale
   assert.equal(paymentRes.status, 201, 'Payment should be created');
   const paymentId = paymentRes.data.data.payment.id;
   assert.equal(paymentRes.data.data.payment.status, 'PENDING');
+
+  const paymentsListRes = await request('GET', '/api/vehicle-payments?page=1&limit=20', null, adminToken);
+  assert.equal(paymentsListRes.status, 200, 'Department payments should be available as a paginated collection');
+  assert.ok(paymentsListRes.data.data.items.some((payment) => payment.id === paymentId), 'Payment list should include the linked reservation payment');
 
   const validationRes = await request('POST', `/api/vehicle-payments/${paymentId}/validate`, null, adminToken);
   assert.equal(validationRes.status, 200, 'Payment validation should succeed');
@@ -178,4 +215,8 @@ test('auto sales commercial workflow: inquiry reservation payment and final sale
   const inquiryAfterSale = await request('GET', `/api/vehicle-inquiries/${inquiryId}`, null, adminToken);
   assert.equal(inquiryAfterSale.status, 200, 'Inquiry should remain accessible after sale');
   assert.equal(inquiryAfterSale.data.data.vehicleInquiry.status, 'CONVERTED', 'Final sale must convert the inquiry');
+
+  const finalDashboard = await request('GET', '/api/dashboard/autosales', null, adminToken);
+  assert.equal(finalDashboard.status, 200, 'AutoSales dashboard should refresh after a sale');
+  assert.ok(finalDashboard.data.data.sales.count >= 1, 'Only finalized reservations should count as sales');
 });

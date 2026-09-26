@@ -3,6 +3,7 @@ const auditService = require('./auditService');
 const vehicleRepository = require('../repositories/vehicleRepository');
 const vehicleReservationRepository = require('../repositories/vehicleReservationRepository');
 const prisma = require('../config/prisma');
+const { assertDepartmentScope } = require('./departmentAccessService');
 
 const assertAutoSalesAccess = (currentUser) => {
   if (!currentUser) throw new AppError('Unauthorized', 401);
@@ -43,6 +44,7 @@ const listVehicleReservations = async (query = {}, currentUser) => {
   const skip = (page - 1) * limit;
 
   const where = {};
+  where.vehicle = { is: { department: { is: { type: 'AUTO_SALES' } } } };
   if (query.vehicleId) where.vehicleId = query.vehicleId;
   if (query.status) where.status = query.status;
   if (query.paymentStatus) where.paymentStatus = query.paymentStatus;
@@ -76,6 +78,7 @@ const getVehicleReservationById = async (id, currentUser) => {
 
   const reservation = await vehicleReservationRepository.getVehicleReservationById(id);
   if (!reservation) throw new AppError('Vehicle reservation not found', 404);
+  await assertDepartmentScope(currentUser, reservation.vehicle.departmentId, 'AUTO_SALES');
   enforceReservationOwnership(currentUser, reservation);
   return { vehicleReservation: reservation };
 };
@@ -110,13 +113,17 @@ const createVehicleReservation = async (data, currentUser) => {
 
   const validStatuses = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'EXPIRED'];
   if (!validStatuses.includes(status)) throw new AppError('Invalid reservation status', 400);
+  if (status !== 'PENDING') throw new AppError('A new reservation must start in PENDING status', 400);
 
   const validPaymentStatuses = ['PENDING', 'VERIFIED', 'REJECTED', 'COMPLETED'];
   if (!validPaymentStatuses.includes(paymentStatus)) throw new AppError('Invalid paymentStatus', 400);
+  if (paymentStatus !== 'PENDING') throw new AppError('Reservation payment status is managed by payment validation', 400);
 
   const vehicle = await vehicleRepository.getVehicleById(vehicleId);
   if (!vehicle) throw new AppError('Vehicle not found', 404);
+  await assertDepartmentScope(currentUser, vehicle.departmentId, 'AUTO_SALES');
   if (vehicle.status === 'SOLD') throw new AppError('Cannot reserve a sold vehicle', 409);
+  if (vehicle.status === 'IN_MAINTENANCE') throw new AppError('Cannot reserve a vehicle in maintenance', 409);
 
   if (['AGENT'].includes(currentUser.role) && currentUser.id) {
     // agent ownership is tracked on createdByUserId, so the created reservation remains scoped to the acting agent
@@ -147,6 +154,7 @@ const createVehicleReservation = async (data, currentUser) => {
     const lockedVehicle = Array.isArray(lockedVehicleRows) ? lockedVehicleRows[0] : lockedVehicleRows;
     if (!lockedVehicle) throw new AppError('Vehicle not found', 404);
     if (lockedVehicle.status === 'SOLD') throw new AppError('Cannot reserve a sold vehicle', 409);
+    if (lockedVehicle.status === 'IN_MAINTENANCE') throw new AppError('Cannot reserve a vehicle in maintenance', 409);
 
     await tx.vehicleReservation.updateMany({
       where: {
@@ -203,11 +211,12 @@ const updateVehicleReservation = async (id, data, currentUser) => {
 
   const existing = await vehicleReservationRepository.getVehicleReservationById(id);
   if (!existing) throw new AppError('Vehicle reservation not found', 404);
+  await assertDepartmentScope(currentUser, existing.vehicle.departmentId, 'AUTO_SALES');
   enforceReservationOwnership(currentUser, existing);
 
   const updatePayload = {};
   if (data.status !== undefined) updatePayload.status = String(data.status).trim().toUpperCase();
-  if (data.paymentStatus !== undefined) updatePayload.paymentStatus = String(data.paymentStatus).trim().toUpperCase();
+  if (data.paymentStatus !== undefined) throw new AppError('Reservation payment status is managed by payment validation', 400);
   if (data.reservationAmount !== undefined) updatePayload.reservationAmount = Number(data.reservationAmount);
   if (data.depositAmount !== undefined) updatePayload.depositAmount = data.depositAmount !== null ? Number(data.depositAmount) : null;
   if (data.expirationDate !== undefined) updatePayload.expirationDate = data.expirationDate ? new Date(data.expirationDate) : null;
@@ -240,12 +249,18 @@ const updateVehicleReservation = async (id, data, currentUser) => {
   if (updatePayload.status !== undefined) {
     const validStatuses = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'EXPIRED'];
     if (!validStatuses.includes(updatePayload.status)) throw new AppError('Invalid reservation status', 400);
+    if (updatePayload.status === 'COMPLETED' && existing.status !== 'CONFIRMED') {
+      throw new AppError('Only a confirmed reservation can be finalized as a sale', 409);
+    }
+    if (updatePayload.status === 'COMPLETED') {
+      const validatedPaid = (existing.payments || [])
+        .filter((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status))
+        .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+      if (validatedPaid < Number(existing.reservationAmount || 0)) {
+        throw new AppError('The reservation must be fully paid with validated payments before sale completion', 409);
+      }
+    }
   }
-  if (updatePayload.paymentStatus !== undefined) {
-    const validPaymentStatuses = ['PENDING', 'VERIFIED', 'REJECTED', 'COMPLETED'];
-    if (!validPaymentStatuses.includes(updatePayload.paymentStatus)) throw new AppError('Invalid paymentStatus', 400);
-  }
-
   const updated = await vehicleReservationRepository.updateVehicleReservation(id, updatePayload);
 
   if (updatePayload.status && updatePayload.status !== existing.status) {
@@ -264,7 +279,8 @@ const updateVehicleReservation = async (id, data, currentUser) => {
     await prisma.vehicleInquiry.updateMany({
       where: {
         vehicleId: existing.vehicleId,
-        status: { in: ['NEW', 'CONTACTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'RESOLVED', 'CLOSED'] },
+        customerPhone: existing.customerPhone,
+        status: { in: ['NEW', 'CONTACTED', 'IN_PROGRESS', 'WAITING_CLIENT'] },
       },
       data: { status: 'CONVERTED' },
     });
@@ -280,6 +296,7 @@ const cancelVehicleReservation = async (id, data, currentUser) => {
 
   const existing = await vehicleReservationRepository.getVehicleReservationById(id);
   if (!existing) throw new AppError('Vehicle reservation not found', 404);
+  await assertDepartmentScope(currentUser, existing.vehicle.departmentId, 'AUTO_SALES');
   enforceReservationOwnership(currentUser, existing);
   if (existing.status === 'CANCELLED') throw new AppError('Reservation is already cancelled', 400);
   if (existing.status === 'COMPLETED') throw new AppError('Cannot cancel a completed reservation', 400);

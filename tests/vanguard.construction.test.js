@@ -8,6 +8,7 @@ let server;
 let baseUrl;
 let adminToken;
 let constructionToken;
+let autoSalesToken;
 
 async function request(method, path, body, token) {
   const headers = {};
@@ -53,6 +54,13 @@ test.before(async () => {
 
   assert.equal(constructionLoginRes.status, 200, 'Construction user login should succeed');
   constructionToken = constructionLoginRes.data.data.token;
+
+  const autoSalesLoginRes = await request('POST', '/api/auth/login', {
+    identifier: 'autosales.admin@vanguard.local',
+    password: process.env.AUTOSALES_ADMIN_PASSWORD || 'dev-autosales-admin-password',
+  });
+  assert.equal(autoSalesLoginRes.status, 200, 'AutoSales user login should succeed');
+  autoSalesToken = autoSalesLoginRes.data.data.token;
 });
 
 test.after(async () => {
@@ -67,6 +75,20 @@ test('seeded construction Service Admin has correct permissions', async () => {
   assert.ok(serviceAdminRole.permissions.includes('CREATE_CUSTOMER_REQUEST'));
   assert.ok(serviceAdminRole.permissions.includes('VIEW_PROJECT'));
   assert.ok(serviceAdminRole.permissions.includes('DELETE_PROJECT'));
+});
+
+test('construction dashboard is restricted by department and scoped for super admin', async () => {
+  const constructionDashboard = await request('GET', '/api/construction/dashboard', null, constructionToken);
+  assert.equal(constructionDashboard.status, 200);
+  assert.equal(constructionDashboard.data.data.scope.department, 'CONSTRUCTION');
+  assert.ok(constructionDashboard.data.data.projects.byStatus);
+
+  const superDashboard = await request('GET', '/api/construction/dashboard', null, adminToken);
+  assert.equal(superDashboard.status, 200);
+  assert.equal(superDashboard.data.data.scope.department, 'CONSTRUCTION');
+
+  const autoSalesDashboard = await request('GET', '/api/construction/dashboard', null, autoSalesToken);
+  assert.equal(autoSalesDashboard.status, 403);
 });
 
 test('construction customer requests and quote requests and projects', async () => {
@@ -140,4 +162,19 @@ test('construction customer requests and quote requests and projects', async () 
 
   assert.equal(updateProjectRes.status, 200);
   assert.equal(updateProjectRes.data.data.project.status, 'PUBLISHED');
+
+  const dashboardRes = await request('GET', '/api/construction/dashboard', null, constructionToken);
+  assert.equal(dashboardRes.status, 200);
+  assert.ok(dashboardRes.data.data.projects.total >= 1);
+  assert.ok(dashboardRes.data.data.projects.budgetTotal >= 50000);
+  assert.ok(dashboardRes.data.data.customerRequests.total >= 1);
+  assert.ok(dashboardRes.data.data.quoteRequests.total >= 1);
+  assert.ok(dashboardRes.data.data.projects.recentModified.some((item) => item.id === project.id));
+
+  const updateRes = await request('POST', `/api/construction/projects/${project.id}/updates`, {
+    title: 'Fondations terminées', description: 'Le coulage est terminé.',
+  }, constructionToken);
+  assert.equal(updateRes.status, 201);
+  const updatedDashboard = await request('GET', '/api/construction/dashboard', null, constructionToken);
+  assert.ok(updatedDashboard.data.data.recentUpdates.some((item) => item.project.id === project.id && item.title === 'Fondations terminées'));
 });

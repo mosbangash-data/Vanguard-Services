@@ -3,7 +3,7 @@ const prisma = require('../config/prisma');
 const auditService = require('./auditService');
 const vehicleRepository = require('../repositories/vehicleRepository');
 const vehicleMediaRepository = require('../repositories/vehicleMediaRepository');
-const { assertDepartmentIdForUser } = require('./departmentAccessService');
+const { assertDepartmentScope } = require('./departmentAccessService');
 const { deleteMediaIfOrphaned } = require('./mediaService');
 
 const normalizeOrder = (value, fallback = 0) => {
@@ -66,7 +66,7 @@ const listVehicleMedia = async (vehicleId, currentUser) => {
   if (!vehicle) {
     throw new AppError('Vehicle not found', 404);
   }
-  await assertDepartmentIdForUser(currentUser, vehicle.departmentId, 'AUTO_SALES');
+  await assertDepartmentScope(currentUser, vehicle.departmentId, 'AUTO_SALES');
 
   const items = await vehicleMediaRepository.listMediaByVehicleId(vehicleId);
   return { items };
@@ -80,7 +80,7 @@ const getVehicleMediaById = async (id, currentUser) => {
   if (!record) {
     throw new AppError('Vehicle media not found', 404);
   }
-  await assertDepartmentIdForUser(currentUser, record.vehicle.departmentId, 'AUTO_SALES');
+  await assertDepartmentScope(currentUser, record.vehicle.departmentId, 'AUTO_SALES');
 
   return { vehicleMedia: record };
 };
@@ -104,7 +104,7 @@ const createVehicleMedia = async (data, currentUser) => {
   if (!vehicle) {
     throw new AppError('Vehicle not found', 404);
   }
-  await assertDepartmentIdForUser(currentUser, vehicle.departmentId, 'AUTO_SALES');
+  await assertDepartmentScope(currentUser, vehicle.departmentId, 'AUTO_SALES');
 
   if (mediaId) {
     const media = await requireMediaForEntity(mediaId, 'vehicle', vehicleId, vehicle.department?.type);
@@ -133,7 +133,7 @@ const updateVehicleMedia = async (id, data, currentUser) => {
   if (!existing) {
     throw new AppError('Vehicle media not found', 404);
   }
-  await assertDepartmentIdForUser(currentUser, existing.vehicle.departmentId, 'AUTO_SALES');
+  await assertDepartmentScope(currentUser, existing.vehicle.departmentId, 'AUTO_SALES');
 
   const updatePayload = {};
   if (data?.caption !== undefined) updatePayload.caption = data.caption ? String(data.caption).trim() : null;
@@ -166,7 +166,7 @@ const deleteVehicleMedia = async (id, currentUser) => {
   if (!existing) {
     throw new AppError('Vehicle media not found', 404);
   }
-  await assertDepartmentIdForUser(currentUser, existing.vehicle.departmentId, 'AUTO_SALES');
+  await assertDepartmentScope(currentUser, existing.vehicle.departmentId, 'AUTO_SALES');
 
   await prisma.$transaction(async (tx) => {
     await vehicleMediaRepository.deleteVehicleMedia(id, tx);

@@ -3,6 +3,7 @@ const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const userRepository = require('./userRepository');
+const { isRoleDepartmentCompatible } = require('../config/rbac');
 
 const normalizeSearch = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -40,11 +41,12 @@ const assertManageableUser = async (targetUser, currentUser, { creating = false,
   if (targetUser?.role?.name === 'SUPER_ADMIN' || targetUser?.role?.name === 'SERVICE_ADMIN' || requestedRole?.name === 'SUPER_ADMIN' || requestedRole?.name === 'SERVICE_ADMIN') {
     throw new AppError('Department administrators cannot manage other administrators', 403);
   }
-  if (creating && !['AGENT', 'MANAGER'].includes(requestedRole?.name)) {
+  const departmentType = (await prisma.department.findUnique({ where: { id: targetDepartmentId }, select: { type: true } }))?.type;
+  const allowedDepartmentStaff = departmentType === 'VANGUARD_COACH'
+    ? ['AGENT', 'MANAGER']
+    : departmentType === 'AUTO_SALES' ? ['AGENT'] : [];
+  if (creating && !allowedDepartmentStaff.includes(requestedRole?.name)) {
     throw new AppError('Department administrators can only create departmental staff', 403);
-  }
-  if (creating && requestedRole?.name && !['VANGUARD_COACH'].includes((await prisma.department.findUnique({ where: { id: targetDepartmentId }, select: { type: true } }))?.type)) {
-    throw new AppError('MANAGER and AGENT roles are only available in VANGUARD_COACH', 403);
   }
 };
 
@@ -155,6 +157,7 @@ const createUser = async (data, currentUser) => {
   if (!department) {
     throw new AppError('Department not found', 404);
   }
+  if (!isRoleDepartmentCompatible(role.name, department.type)) throw new AppError('Role is not valid for this department', 400);
   let agency = null;
   if (agencyId) {
     agency = await prisma.agency.findUnique({ where: { id: agencyId } });
@@ -162,7 +165,7 @@ const createUser = async (data, currentUser) => {
       throw new AppError('Agency does not belong to the selected department', 400);
     }
   }
-  if (role.name === 'AGENT' && !agency) {
+  if (role.name === 'AGENT' && department.type === 'VANGUARD_COACH' && !agency) {
     throw new AppError('An agency is required for AGENT users', 400);
   }
   await assertManageableUser(null, currentUser, { creating: true, requestedDepartmentId: department.id, requestedRole: role });

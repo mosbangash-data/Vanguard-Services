@@ -28,6 +28,7 @@ const ROLE_PERMISSION_MAP = {
     'CREATE_RESERVATION', 'VIEW_RESERVATION', 'UPDATE_RESERVATION', 'MANAGE_RESERVATION_PAYMENT',
     'VIEW_TRIP', 'VIEW_PAYMENT', 'SCAN_TICKET', 'VIEW_TICKET_SCAN',
     'VIEW_VEHICLE', 'VIEW_VEHICLE_INQUIRY', 'CREATE_VEHICLE_INQUIRY', 'UPDATE_VEHICLE_INQUIRY',
+    'MANAGE_VEHICLE_RESERVATION', 'CANCEL_VEHICLE_RESERVATION',
     'VIEW_CUSTOMER_REQUEST', 'UPDATE_CUSTOMER_REQUEST', 'VIEW_QUOTE_REQUEST',
     'CREATE_PARCEL', 'VIEW_PARCEL', 'RECEIVE_PARCEL', 'CHANGE_PARCEL_STATUS', 'COLLECT_PARCEL', 'PRINT_PARCEL_RECEIPT',
   ],
@@ -37,8 +38,19 @@ const ROLE_DEPARTMENT_COMPATIBILITY = {
   SUPER_ADMIN: ['VANGUARD_COACH', 'CONSTRUCTION', 'AUTO_SALES'],
   SERVICE_ADMIN: ['VANGUARD_COACH', 'CONSTRUCTION', 'AUTO_SALES'],
   MANAGER: ['VANGUARD_COACH'],
-  AGENT: ['VANGUARD_COACH'],
+  AGENT: ['VANGUARD_COACH', 'AUTO_SALES'],
 };
+
+const AUTO_SALES_AGENT_PERMISSIONS = [
+  'VIEW_VEHICLE', 'VIEW_VEHICLE_INQUIRY', 'CREATE_VEHICLE_INQUIRY', 'UPDATE_VEHICLE_INQUIRY',
+  'VIEW_RESERVATION', 'MANAGE_VEHICLE_RESERVATION', 'CANCEL_VEHICLE_RESERVATION',
+];
+const AUTO_SALES_ONLY_AGENT_PERMISSIONS = new Set([
+  'VIEW_VEHICLE', 'CREATE_VEHICLE', 'UPDATE_VEHICLE', 'DELETE_VEHICLE', 'MANAGE_VEHICLE_MEDIA',
+  'VIEW_VEHICLE_INQUIRY', 'CREATE_VEHICLE_INQUIRY', 'UPDATE_VEHICLE_INQUIRY',
+  'ASSIGN_VEHICLE_INQUIRY', 'CLOSE_VEHICLE_INQUIRY', 'MANAGE_VEHICLE_INQUIRY',
+  'MANAGE_VEHICLE_RESERVATION', 'CANCEL_VEHICLE_RESERVATION',
+]);
 
 const normalizeRoleName = (roleName) => {
   const value = typeof roleName === 'string' ? roleName.trim().toUpperCase() : '';
@@ -58,7 +70,17 @@ const isRoleDepartmentCompatible = (roleName, departmentType) => {
 const getExpectedRolePermissions = (roleName) => {
   const normalizedRole = normalizeRoleName(roleName);
   if (!normalizedRole) return [];
-  return [...ROLE_PERMISSION_MAP[normalizedRole]];
+  return [...new Set([...ROLE_PERMISSION_MAP[normalizedRole], ...(normalizedRole === 'AGENT' ? AUTO_SALES_AGENT_PERMISSIONS : [])])];
+};
+
+const filterPermissionsForDepartment = (roleName, departmentType, permissionNames = []) => {
+  if (normalizeRoleName(roleName) !== 'AGENT') return [...new Set(permissionNames)];
+  if (departmentType === 'AUTO_SALES') {
+    const granted = new Set(permissionNames);
+    return AUTO_SALES_AGENT_PERMISSIONS.filter((permission) => granted.has(permission));
+  }
+  if (departmentType === 'VANGUARD_COACH') return [...new Set(permissionNames)].filter((permission) => !AUTO_SALES_ONLY_AGENT_PERMISSIONS.has(permission));
+  return [];
 };
 
 module.exports = {
@@ -67,4 +89,5 @@ module.exports = {
   normalizeRoleName,
   isRoleDepartmentCompatible,
   getExpectedRolePermissions,
+  filterPermissionsForDepartment,
 };

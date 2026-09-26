@@ -1,5 +1,12 @@
 const constructionService = require('../services/constructionService');
 
+const getDashboard = async (req, res, next) => {
+  try {
+    const result = await constructionService.getDashboard(req.user);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+};
+
 const listCustomerRequests = async (req, res, next) => {
   try {
     const result = await constructionService.listCustomerRequests(req.query, req.user);
@@ -223,6 +230,7 @@ const setPrimaryProjectGallery = async (req, res, next) => {
 };
 
 module.exports = {
+  getDashboard,
   listCustomerRequests,
   getCustomerRequest,
   createCustomerRequest,

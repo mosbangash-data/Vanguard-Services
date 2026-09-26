@@ -32,23 +32,13 @@ async function fetchReservationsByAgent(user) {
   return listItems(response.data?.data || response.data)
 }
 
-async function fetchPaymentsForReservations(reservations) {
-  if (!reservations.length) return []
-  const paymentEntries = await Promise.all(
-    reservations.map(async (reservation) => {
-      const response = await api.get(`/api/vehicle-payments/reservation/${reservation.id}`)
-      const items = listItems(response.data?.data?.payments || response.data?.data || response.data)
-      return items.map((payment) => ({ ...payment, reservation, vehicle: reservation.vehicle }))
-    }),
-  )
-  return paymentEntries.flat()
-}
-
 export function AutoSalesAgentPaymentsPage() {
   const { user } = useAuth()
   const { lang, t } = useLanguage()
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [showCreate, setShowCreate] = useState(false)
+  const [paymentForm, setPaymentForm] = useState({ reservationId: '', amount: '', method: 'CASH', reference: '', comment: '' })
 
   const canViewPayment = hasPermission(user, 'VIEW_RESERVATION') || user?.role === 'SUPER_ADMIN' || user?.role === 'SERVICE_ADMIN'
   const canManagePayment = hasPermission(user, 'MANAGE_VEHICLE_RESERVATION') || user?.role === 'SUPER_ADMIN' || user?.role === 'SERVICE_ADMIN'
@@ -62,10 +52,9 @@ export function AutoSalesAgentPaymentsPage() {
   const paymentsQuery = useQuery({
     queryKey: ['autosales-agent-payments', user?.id, statusFilter],
     queryFn: async () => {
-      const reservations = await fetchReservationsByAgent(user)
-      const payments = await fetchPaymentsForReservations(reservations)
-      if (statusFilter === 'ALL') return payments
-      return payments.filter((payment) => payment.status === statusFilter)
+      const response = await api.get('/api/vehicle-payments', { params: { page: 1, limit: 100, status: statusFilter } })
+      const payload = response.data?.data || response.data
+      return (payload?.items || []).map((payment) => ({ ...payment, reservation: payment.vehicleReservation, vehicle: payment.vehicleReservation?.vehicle }))
     },
     enabled: !!user && canViewPayment,
   })
@@ -84,6 +73,17 @@ export function AutoSalesAgentPaymentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autosales-agent-payments'] })
       queryClient.invalidateQueries({ queryKey: ['autosales-agent-payments-reservations'] })
+    },
+  })
+
+  const createMutation = useMutation({
+    mutationFn: async () => api.post('/api/vehicle-payments', paymentForm),
+    onSuccess: () => {
+      setPaymentForm({ reservationId: '', amount: '', method: 'CASH', reference: '', comment: '' })
+      setShowCreate(false)
+      queryClient.invalidateQueries({ queryKey: ['autosales-agent-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['autosales-agent-payments-reservations'] })
+      queryClient.invalidateQueries({ queryKey: ['autosales-agent-workspace-reservations'] })
     },
   })
 
@@ -107,8 +107,18 @@ export function AutoSalesAgentPaymentsPage() {
           <p className="autosales-eyebrow">VANGUARD SERVICES · AUTOSALES</p>
           <h1>{t('autosalesAgent.payments.title')}</h1>
         </div>
+        {canManagePayment && <button type="button" className="button" onClick={() => setShowCreate((current) => !current)}>Enregistrer un paiement</button>}
         <Link className="button secondary" to="/automobile/agent">{t('autosalesAgent.back')}</Link>
       </div>
+
+      {showCreate && canManagePayment && <div className="card"><h2>Enregistrer un paiement de réservation</h2><div className="vehicle-form-grid">
+        <label><span>Réservation</span><select value={paymentForm.reservationId} onChange={(event) => setPaymentForm((current) => ({ ...current, reservationId: event.target.value }))}><option value="">Sélectionner une réservation</option>{(reservationsQuery.data || []).filter((reservation) => ['PENDING', 'CONFIRMED'].includes(reservation.status)).map((reservation) => <option key={reservation.id} value={reservation.id}>{reservation.reservationCode} · {reservation.customerName} · {reservation.vehicle?.brand} {reservation.vehicle?.model}</option>)}</select></label>
+        <label><span>Montant</span><input type="number" min="0.01" step="0.01" value={paymentForm.amount} onChange={(event) => setPaymentForm((current) => ({ ...current, amount: event.target.value }))} /></label>
+        <label><span>Mode de paiement</span><input value={paymentForm.method} onChange={(event) => setPaymentForm((current) => ({ ...current, method: event.target.value.toUpperCase() }))} /></label>
+        <label><span>Référence</span><input value={paymentForm.reference} onChange={(event) => setPaymentForm((current) => ({ ...current, reference: event.target.value }))} /></label>
+        <label><span>Note</span><input value={paymentForm.comment} onChange={(event) => setPaymentForm((current) => ({ ...current, comment: event.target.value }))} /></label>
+        <div className="button-row full-width"><button type="button" className="button" disabled={createMutation.isPending || !paymentForm.reservationId || !paymentForm.amount} onClick={() => createMutation.mutate()}>Enregistrer en attente de validation</button>{createMutation.isError && <span className="error">{createMutation.error?.response?.data?.message || 'Échec de l’enregistrement.'}</span>}</div>
+      </div></div>}
 
       <div className="card vehicle-toolbar">
         <div className="toolbar-grid">
@@ -150,7 +160,7 @@ export function AutoSalesAgentPaymentsPage() {
                     <td>{payment.reference || payment.id}</td>
                     <td>{payment.reservation?.customerName || '—'}</td>
                     <td>{payment.vehicle ? `${payment.vehicle.brand} ${payment.vehicle.model}` : '—'}</td>
-                    <td>{formatMoney(payment.amount, payment.vehicle?.currency || 'USD', lang)}</td>
+                    <td>{formatMoney(payment.amount, payment.currency || payment.vehicle?.currency || 'USD', lang)}</td>
                     <td>{payment.method}</td>
                     <td>{payment.status}</td>
                     <td>{formatDate(payment.createdAt, lang)}</td>

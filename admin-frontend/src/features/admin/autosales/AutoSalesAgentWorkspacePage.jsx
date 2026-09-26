@@ -72,8 +72,8 @@ export function AutoSalesAgentManagementPage() {
   const [error, setError] = useState('')
 
   const canManageAgents = hasPermission(user, 'VIEW_USER') || hasPermission(user, 'CREATE_USER') || user?.role === 'SUPER_ADMIN'
-  const departmentsQuery = useQuery({ queryKey: ['autosales-departments'], queryFn: fetchAutoSalesDepartment })
-  const rolesQuery = useQuery({ queryKey: ['autosales-roles'], queryFn: fetchRoles })
+  const departmentsQuery = useQuery({ queryKey: ['autosales-departments'], queryFn: fetchAutoSalesDepartment, enabled: canManageAgents })
+  const rolesQuery = useQuery({ queryKey: ['autosales-roles'], queryFn: fetchRoles, enabled: canManageAgents })
   const agentsQuery = useQuery({
     queryKey: ['autosales-agents'],
     queryFn: fetchAgents,
@@ -243,7 +243,7 @@ export function AutoSalesAgentWorkspacePage() {
   const inProgress = inquiries.filter((inquiry) => ['CONTACTED', 'IN_PROGRESS', 'WAITING_CLIENT'].includes(inquiry.status)).length
   const reservationsActive = reservations.filter((reservation) => ['PENDING', 'CONFIRMED'].includes(reservation.status)).length
   const pendingPayments = payments.filter((payment) => payment.status === 'PENDING').length
-  const completedSales = reservations.filter((reservation) => reservation.status === 'COMPLETED' || reservation.paymentStatus === 'COMPLETED').length
+  const completedSales = reservations.filter((reservation) => reservation.status === 'COMPLETED').length
 
   if (!isOperationalAutoSalesUser(user)) {
     return (
@@ -442,7 +442,6 @@ export function AutoSalesAgentInquiryPage() {
 export function AutoSalesAgentInquiryDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
   const queryClient = useQueryClient()
   const [status, setStatus] = useState('NEW')
   const [internalNotes, setInternalNotes] = useState('')

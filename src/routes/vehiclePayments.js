@@ -7,6 +7,7 @@ const { validateVehiclePaymentCreate, validateVehiclePaymentUpdate } = require('
 
 router.use(authenticateToken);
 
+router.get('/', requirePermission('VIEW_RESERVATION'), vehiclePaymentController.listAllVehiclePayments);
 router.post('/', requirePermission('MANAGE_VEHICLE_RESERVATION'), validateVehiclePaymentCreate, vehiclePaymentController.createVehiclePayment);
 router.get('/reservation/:reservationId', requirePermission('VIEW_RESERVATION'), vehiclePaymentController.listVehiclePayments);
 router.get('/:id', requirePermission('VIEW_RESERVATION'), vehiclePaymentController.getVehiclePayment);

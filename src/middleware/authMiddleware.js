@@ -5,6 +5,7 @@ const env = require('../config/env');
 const prisma = require('../config/prisma');
 
 const { syncRolePermissionsForRole } = require('../services/rbacService');
+const { filterPermissionsForDepartment } = require('../config/rbac');
 
 const normalizePermissionNames = (user) => {
   const permissionNames = [];
@@ -25,21 +26,15 @@ const hydratePermissionsFromRole = async (user) => {
     await syncRolePermissionsForRole(user.role.name);
   }
 
-  const normalized = normalizePermissionNames(user);
-  if (normalized.length > 0) {
-    return normalized;
+  let names = normalizePermissionNames(user);
+  if (user?.roleId) {
+    const rolePermissions = await prisma.rolePermission.findMany({
+      where: { roleId: user.roleId },
+      include: { permission: true },
+    });
+    names = rolePermissions.map(({ permission }) => permission?.name).filter((name) => typeof name === 'string' && name.trim());
   }
-
-  if (!user?.roleId) {
-    return [];
-  }
-
-  const rolePermissions = await prisma.rolePermission.findMany({
-    where: { roleId: user.roleId },
-    include: { permission: true },
-  });
-
-  return [...new Set(rolePermissions.map(({ permission }) => permission?.name).filter((name) => typeof name === 'string' && name.trim()))];
+  return filterPermissionsForDepartment(user?.role?.name, user?.department?.type, names);
 };
 
 const buildUserFromToken = async (token) => {

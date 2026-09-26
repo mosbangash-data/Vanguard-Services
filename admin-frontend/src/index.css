@@ -190,6 +190,12 @@ h1, h2, h3, .header-title, .page-head h1, .login-brand-title, .modal-title {
 .autosales-vehicle .status-available { color: var(--color-success); }
 .autosales-vehicle .status-reserved { color: var(--color-warning); }
 .autosales-vehicle .status-sold { color: var(--color-medium-gray); }
+.autosales-status-list { display: grid; gap: 8px; }
+.autosales-status-list > div, .autosales-activity-row, .autosales-action-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg-light); }
+.autosales-activity-row, .autosales-action-row { display: grid; justify-content: stretch; color: inherit; text-decoration: none; margin-top: 8px; }
+.autosales-activity-row span { color: var(--color-medium-gray); font-size: .82rem; }
+.autosales-action-row { grid-template-columns: 1fr auto; }
+.autosales-action-row:hover, .autosales-activity-row:hover { border-color: var(--color-info); }
 
 .autosales-vehicles-page { display: grid; gap: 20px; }
 .vehicle-toolbar { padding: 18px 20px; }

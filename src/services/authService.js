@@ -11,7 +11,7 @@ const JWT_SECRET = env.jwtSecret;
 const JWT_EXPIRES_IN = env.jwtExpiresIn;
 
 const normalizeIdentifier = (value) => (typeof value === 'string' ? value.trim() : '');
-const { isRoleDepartmentCompatible } = require('../config/rbac');
+const { isRoleDepartmentCompatible, filterPermissionsForDepartment } = require('../config/rbac');
 const { syncRolePermissionsForRole } = require('./rbacService');
 
 const resolvePermissionNames = async (user) => {
@@ -29,24 +29,15 @@ const resolvePermissionNames = async (user) => {
     }
   }
 
-  if (permissionNames.length > 0) {
-    return [...new Set(permissionNames)];
+  let names = permissionNames;
+  if (user?.roleId) {
+    const rolePermissions = await prisma.rolePermission.findMany({
+      where: { roleId: user.roleId },
+      include: { permission: true },
+    });
+    names = rolePermissions.map(({ permission }) => permission?.name).filter((name) => typeof name === 'string' && name.trim());
   }
-
-  if (!user?.roleId) {
-    return [];
-  }
-
-  const rolePermissions = await prisma.rolePermission.findMany({
-    where: { roleId: user.roleId },
-    include: { permission: true },
-  });
-
-  const fallbackNames = rolePermissions
-    .map(({ permission }) => permission?.name)
-    .filter((name) => typeof name === 'string' && name.trim());
-
-  return [...new Set(fallbackNames)];
+  return filterPermissionsForDepartment(user?.role?.name, user?.department?.type, names);
 };
 
 const buildUserResponse = async (user) => {

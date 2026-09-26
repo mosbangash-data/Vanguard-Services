@@ -1,344 +1,87 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import {
-  CarFront,
-  FileSpreadsheet,
-  Ticket,
-  CreditCard,
-  Plus,
-  ArrowRight,
-  Layers,
-  CheckCircle2,
-  Clock,
-  RefreshCw,
-} from 'lucide-react'
+import { CarFront, FileSpreadsheet, Ticket, CreditCard, Plus, RefreshCw, CheckCircle2, Users, BadgeDollarSign } from 'lucide-react'
 import { api } from '../../../services/api'
 import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
 import { useLanguage } from '../../../i18n/useLanguage'
-import {
-  PageHeader,
-  StatCard,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Button,
-  StatusBadge,
-  LoadingState,
-  ErrorState,
-} from '../../../components/ui'
+import { PageHeader, StatCard, Card, CardHeader, CardTitle, CardContent, Button, StatusBadge, LoadingState, ErrorState, EmptyState } from '../../../components/ui'
 
-const toList = (data) => data?.items || data?.data?.items || data?.data || data || []
+const fetchDashboard = async () => (await api.get('/api/dashboard/autosales')).data?.data
+const statuses = (source, order) => order.map((status) => ({ status, count: source?.[status] || 0 }))
+const formatNumber = (value, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR').format(value || 0)
+const formatDate = (value, lang) => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'medium' }).format(new Date(value)) : '—'
+const money = (values, lang) => {
+  const entries = Object.entries(values || {})
+  if (!entries.length) return '—'
+  return entries.map(([currency, amount]) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(amount || 0))).join(' · ')
+}
 
-const formatMoney = (amount, currency, lang = 'fr') => {
-  const num = Number(amount || 0)
-  if (!Number.isFinite(num)) return '0'
-  const normalized = currency === 'CDF' ? 'CDF' : 'USD'
-  if (normalized === 'CDF') {
-    return `${new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
-      maximumFractionDigits: 0,
-    }).format(num)} CDF`
-  }
-  return `$ ${new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(num)}`
+function Panel({ title, to, children }) {
+  return <Card><CardHeader><CardTitle>{title}</CardTitle>{to && <Link to={to} style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'none' }}>Ouvrir →</Link>}</CardHeader><CardContent>{children}</CardContent></Card>
 }
 
 export function AutoSalesDashboardPage() {
   const { user } = useAuth()
-  const { lang, t } = useLanguage()
+  const { lang } = useLanguage()
   const navigate = useNavigate()
+  const query = useQuery({ queryKey: ['autosales-dashboard'], queryFn: fetchDashboard })
+  const data = query.data
+  const can = (permission) => hasPermission(user, permission)
 
-  const canViewVehicles = hasPermission(user, 'VIEW_VEHICLE') || user?.role === 'SUPER_ADMIN'
-  const canCreateVehicle = hasPermission(user, 'CREATE_VEHICLE') || user?.role === 'SUPER_ADMIN'
-  const canViewInquiries = hasPermission(user, 'VIEW_VEHICLE_INQUIRY') || user?.role === 'SUPER_ADMIN'
-  const canViewReservations = hasPermission(user, 'VIEW_RESERVATION') || user?.role === 'SUPER_ADMIN'
+  if (query.isPending) return <div className="page"><PageHeader eyebrow="VANGUARD SERVICES · AUTO SALES" title="Pilotage commercial" subtitle="Stock, demandes, réservations, paiements et ventes." /><LoadingState type="cards" cardCount={4} /></div>
+  if (query.isError) return <div className="page"><PageHeader eyebrow="VANGUARD SERVICES · AUTO SALES" title="Pilotage commercial" subtitle="Stock, demandes, réservations, paiements et ventes." /><ErrorState title={query.error?.response?.status === 403 ? 'Accès non autorisé' : 'Dashboard indisponible'} message={query.error?.response?.data?.message || 'Impossible de charger les données commerciales AutoSales.'} onRetry={() => query.refetch()} /></div>
 
-  const vehiclesQuery = useQuery({
-    queryKey: ['autosales-dashboard-vehicles'],
-    queryFn: async () => {
-      const response = await api.get('/api/vehicles', { params: { page: 1, limit: 100 } })
-      return response.data?.data || response.data
-    },
-    enabled: canViewVehicles,
-  })
-
-  const inquiriesQuery = useQuery({
-    queryKey: ['autosales-dashboard-inquiries'],
-    queryFn: async () => {
-      const response = await api.get('/api/vehicle-inquiries', { params: { page: 1, limit: 20 } })
-      return response.data?.data || response.data
-    },
-    enabled: canViewInquiries,
-  })
-
-  const reservationsQuery = useQuery({
-    queryKey: ['autosales-dashboard-reservations'],
-    queryFn: async () => {
-      const response = await api.get('/api/vehicle-reservations', { params: { page: 1, limit: 100 } })
-      return response.data?.data || response.data
-    },
-    enabled: canViewReservations,
-  })
-
-  const vehicleList = toList(vehiclesQuery.data)
-  const inquiryList = toList(inquiriesQuery.data)
-  const reservationList = toList(reservationsQuery.data)
-
-  const availableCount = vehicleList.filter((v) => String(v.status).toUpperCase() === 'AVAILABLE').length
-  const reservedCount = vehicleList.filter((v) => String(v.status).toUpperCase() === 'RESERVED').length
-  const soldCount = vehicleList.filter((v) => String(v.status).toUpperCase() === 'SOLD').length
-  const pendingInquiriesCount = inquiryList.filter((i) => ['NEW', 'IN_PROGRESS'].includes(String(i.status).toUpperCase())).length
-
-  const isPending = (canViewVehicles && vehiclesQuery.isPending) || (canViewInquiries && inquiriesQuery.isPending)
-  const isError = vehiclesQuery.isError || inquiriesQuery.isError
-
-  const handleRefreshAll = () => {
-    if (canViewVehicles) vehiclesQuery.refetch()
-    if (canViewInquiries) inquiriesQuery.refetch()
-    if (canViewReservations) reservationsQuery.refetch()
-  }
-
-  if (isPending) {
-    return (
-      <div className="page vanguard-autosales-dashboard">
-        <PageHeader
-          eyebrow="VANGUARD SERVICES · AUTOMOBILE"
-          title="Dashboard Automobile"
-          subtitle="Chargement des indicateurs du parc automobile…"
-        />
-        <LoadingState type="cards" cardCount={4} />
-      </div>
-    )
-  }
-
-  if (isError) {
-    return (
-      <div className="page vanguard-autosales-dashboard">
-        <PageHeader
-          eyebrow="VANGUARD SERVICES · AUTOMOBILE"
-          title="Dashboard Automobile"
-          subtitle="Supervision du stock automobile, des demandes et des réservations."
-        />
-        <ErrorState
-          title="Impossible de charger le tableau de bord Automobile"
-          message="Une erreur est survenue lors de la récupération des données de vente automobile."
-          onRetry={handleRefreshAll}
-        />
-      </div>
-    )
-  }
+  const stock = data.stock
+  const inquiries = data.inquiries
+  const reservations = data.reservations
+  const payments = data.payments
+  const sales = data.sales
+  const quickActions = [
+    can('CREATE_VEHICLE') && ['Ajouter un véhicule', '/automobile/vehicles', Plus],
+    can('VIEW_VEHICLE') && ['Voir le stock', '/automobile/vehicles', CarFront],
+    can('VIEW_VEHICLE_INQUIRY') && ['Voir les demandes', '/automobile/inquiries', FileSpreadsheet],
+    can('MANAGE_VEHICLE_RESERVATION') && ['Créer une réservation', '/automobile/reservations?create=1', Ticket],
+    can('VIEW_RESERVATION') && ['Voir les réservations', '/automobile/reservations', Ticket],
+    can('VIEW_RESERVATION') && ['Voir les paiements', '/automobile/payments', CreditCard],
+    can('MANAGE_VEHICLE_RESERVATION') && ['Enregistrer un paiement', '/automobile/payments?create=1', BadgeDollarSign],
+    can('VIEW_RESERVATION') && ['Voir les ventes', '/automobile/sales', CheckCircle2],
+    can('VIEW_USER') && ['Gérer les agents', '/automobile/agents', Users],
+  ].filter(Boolean)
+  const inquiryStatuses = statuses(inquiries?.byStatus, ['NEW', 'CONTACTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'CONVERTED', 'RESOLVED', 'CLOSED'])
+  const reservationStatuses = statuses(reservations?.byStatus, ['PENDING', 'CONFIRMED', 'EXPIRED', 'CANCELLED', 'COMPLETED'])
+  const paymentStatuses = statuses(payments?.byStatus, ['PENDING', 'VERIFIED', 'REJECTED', 'COMPLETED'])
 
   return (
-    <div className="page vanguard-autosales-dashboard">
-      <PageHeader
-        eyebrow="VANGUARD SERVICES · AUTOMOBILE"
-        title="Dashboard Automobile"
-        subtitle="Supervision du catalogue de véhicules, des demandes d'achat et des réservations."
-        actions={
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={RefreshCw}
-              onClick={handleRefreshAll}
-            >
-              Actualiser
-            </Button>
-            {canCreateVehicle && (
-              <Button
-                variant="primary"
-                size="sm"
-                icon={Plus}
-                onClick={() => navigate('/automobile/vehicles')}
-              >
-                Nouveau Véhicule
-              </Button>
-            )}
-          </div>
-        }
-      />
+    <div className="page autosales-dashboard">
+      <PageHeader eyebrow="VANGUARD SERVICES · AUTO SALES" title="Pilotage commercial" subtitle={`Vue opérationnelle du département automobile · Devise configurée ${data.scope?.currency || 'USD'}.`}
+        actions={<Button variant="secondary" size="sm" icon={RefreshCw} loading={query.isFetching} onClick={() => query.refetch()}>Actualiser</Button>} />
 
-      {/* KPI Cards */}
+      {quickActions.length > 0 && <section className="autosales-quick-actions"><h2>Actions rapides</h2><div>{quickActions.map(([label, path, Icon]) => <Button key={path + label} variant="outline" size="sm" icon={Icon} onClick={() => navigate(path)}>{label}</Button>)}</div></section>}
+
       <div className="vanguard-stats-grid">
-        <StatCard
-          title="Véhicules Disponibles"
-          value={availableCount}
-          subtitle={`Sur un total de ${vehicleList.length} véhicules`}
-          icon={CarFront}
-          accent="auto"
-          onClick={() => navigate('/automobile/vehicles')}
-        />
-        <StatCard
-          title="Demandes Clients"
-          value={pendingInquiriesCount}
-          subtitle="Demandes en attente de traitement"
-          icon={FileSpreadsheet}
-          accent="primary"
-          onClick={() => navigate('/automobile/inquiries')}
-        />
-        <StatCard
-          title="Réservations Actives"
-          value={reservedCount}
-          subtitle="Véhicules actuellement réservés"
-          icon={Ticket}
-          accent="warning"
-          onClick={() => navigate('/automobile/reservations')}
-        />
-        <StatCard
-          title="Véhicules Vendus"
-          value={soldCount}
-          subtitle="Ventes conclues avec succès"
-          icon={CheckCircle2}
-          accent="revenue"
-          onClick={() => navigate('/automobile/sales')}
-        />
+        <StatCard title="Véhicules en stock" value={stock ? formatNumber(stock.total, lang) : '—'} subtitle={stock ? `${formatNumber(stock.byStatus.AVAILABLE, lang)} disponibles · ${reservations ? formatNumber((reservations.byStatus.PENDING || 0) + (reservations.byStatus.CONFIRMED || 0), lang) : '—'} réservations actives` : 'Permission stock non attribuée'} icon={CarFront} accent="auto" onClick={stock ? () => navigate('/automobile/vehicles') : undefined} />
+        <StatCard title="Nouvelles demandes" value={inquiries ? formatNumber(inquiries.byStatus.NEW, lang) : '—'} subtitle={inquiries ? `${formatNumber(inquiries.total, lang)} demandes dans votre périmètre` : 'Permission demandes non attribuée'} icon={FileSpreadsheet} accent="primary" onClick={inquiries ? () => navigate('/automobile/inquiries') : undefined} />
+        <StatCard title="Réservations actives" value={reservations ? formatNumber((reservations.byStatus.PENDING || 0) + (reservations.byStatus.CONFIRMED || 0), lang) : '—'} subtitle="Statuts PENDING + CONFIRMED" icon={Ticket} accent="warning" onClick={reservations ? () => navigate('/automobile/reservations') : undefined} />
+        <StatCard title="Ventes finalisées" value={sales ? formatNumber(sales.count, lang) : '—'} subtitle={sales ? money(sales.revenueByCurrency, lang) : 'Permission réservations non attribuée'} icon={CheckCircle2} accent="revenue" onClick={sales ? () => navigate('/automobile/sales') : undefined} />
       </div>
 
-      {/* Quick Links & Actions */}
-      <Card style={{ marginBottom: '24px' }}>
-        <CardHeader style={{ padding: '14px 20px' }}>
-          <CardTitle style={{ fontSize: '0.95rem' }}>Gestion du Catalogue</CardTitle>
-        </CardHeader>
-        <CardContent style={{ padding: '16px 20px' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={CarFront}
-              onClick={() => navigate('/automobile/vehicles')}
-            >
-              Consulter le stock
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={Layers}
-              onClick={() => navigate('/automobile/templates')}
-            >
-              Véhicules Templates
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={FileSpreadsheet}
-              onClick={() => navigate('/automobile/inquiries')}
-            >
-              Demandes d’achat
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={CreditCard}
-              onClick={() => navigate('/automobile/payments')}
-            >
-              Paiements & Versements
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 20 }}>
+        <Panel title="Stock véhicules" to={stock ? '/automobile/vehicles' : null}>{stock ? <><div className="autosales-status-list">{statuses(stock.byStatus, ['AVAILABLE', 'RESERVED', 'SOLD', 'IN_MAINTENANCE']).map(({ status, count }) => <div key={status}><span>{status.replaceAll('_', ' ')}</span><StatusBadge label={formatNumber(count, lang)} status={status} /></div>)}</div><h3 style={{ margin: '18px 0 8px' }}>Derniers véhicules ajoutés</h3>{stock.recent.length ? stock.recent.map((vehicle) => <Link key={vehicle.id} to={`/automobile/vehicles/${vehicle.id}`} className="autosales-activity-row"><strong>{vehicle.brand} {vehicle.model} ({vehicle.year})</strong><span>{formatDate(vehicle.createdAt, lang)} · {money({ [vehicle.currency || data.scope.currency]: vehicle.price }, lang)}</span></Link>) : <p className="empty">Aucun véhicule enregistré.</p>}</> : <EmptyState title="Données de stock non accessibles" description="Votre rôle ne dispose pas de VIEW_VEHICLE." />}</Panel>
 
-      {/* Recent Vehicles & Recent Inquiries Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
-        {/* Recent Vehicles */}
-        <Card>
-          <CardHeader>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CarFront size={18} color="#16A34A" />
-                <CardTitle>Véhicules Récents</CardTitle>
-              </div>
-              <Link to="/automobile/vehicles" style={{ fontSize: '0.8125rem', color: '#2563EB', fontWeight: 600, textDecoration: 'none' }}>
-                Tout voir →
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {vehicleList.length === 0 ? (
-              <p style={{ margin: 0, color: '#64748B', fontSize: '0.84rem' }}>Aucun véhicule enregistré.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {vehicleList.slice(0, 5).map((vehicle) => (
-                  <div
-                    key={vehicle.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #E2E8F0',
-                      background: '#F8FAFC',
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => navigate(`/automobile/vehicles/${vehicle.id}`)}
-                  >
-                    <div>
-                      <strong style={{ fontSize: '0.88rem', color: '#0F172A' }}>
-                        {vehicle.brand} {vehicle.model}
-                      </strong>
-                      <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
-                        Année {vehicle.year} · {formatMoney(vehicle.price, vehicle.currency, lang)}
-                      </div>
-                    </div>
-                    <StatusBadge status={vehicle.status} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Panel title="Pipeline des demandes" to={inquiries ? '/automobile/inquiries' : null}>{inquiries ? <><div className="autosales-status-list">{inquiryStatuses.map(({ status, count }) => <div key={status}><span>{status.replaceAll('_', ' ')}</span><StatusBadge label={formatNumber(count, lang)} status={status} /></div>)}</div><h3 style={{ margin: '18px 0 8px' }}>Demandes récentes</h3>{inquiries.recent.length ? inquiries.recent.map((item) => <Link key={item.id} to={user?.role === 'AGENT' ? `/automobile/agent/inquiries/${item.id}` : '/automobile/inquiries'} className="autosales-activity-row"><strong>{item.customerName}</strong><span>{item.vehicle ? `${item.vehicle.brand} ${item.vehicle.model}` : 'Véhicule'} · {formatDate(item.createdAt, lang)} · {item.status}</span></Link>) : <p className="empty">Aucune demande dans votre périmètre.</p>}</> : <EmptyState title="Demandes non accessibles" description="Votre rôle ne dispose pas de VIEW_VEHICLE_INQUIRY." />}</Panel>
 
-        {/* Recent Inquiries */}
-        <Card>
-          <CardHeader>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileSpreadsheet size={18} color="#2563EB" />
-                <CardTitle>Dernières Demandes Clients</CardTitle>
-              </div>
-              <Link to="/automobile/inquiries" style={{ fontSize: '0.8125rem', color: '#2563EB', fontWeight: 600, textDecoration: 'none' }}>
-                Tout voir →
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {inquiryList.length === 0 ? (
-              <p style={{ margin: 0, color: '#64748B', fontSize: '0.84rem' }}>Aucune demande récente.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {inquiryList.slice(0, 5).map((inquiry) => (
-                  <div
-                    key={inquiry.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #E2E8F0',
-                      background: '#F8FAFC'
-                    }}
-                  >
-                    <div>
-                      <strong style={{ fontSize: '0.88rem', color: '#0F172A' }}>
-                        {inquiry.customerName || 'Client'}
-                      </strong>
-                      <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
-                        {inquiry.vehicle ? `${inquiry.vehicle.brand} ${inquiry.vehicle.model}` : 'Véhicule non spécifié'}
-                      </div>
-                    </div>
-                    <StatusBadge status={inquiry.status} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Panel title="Réservations" to={reservations ? '/automobile/reservations' : null}>{reservations ? <><div className="autosales-status-list">{reservationStatuses.map(({ status, count }) => <div key={status}><span>{status}</span><StatusBadge label={formatNumber(count, lang)} status={status} /></div>)}</div><h3 style={{ margin: '18px 0 8px' }}>Dernières réservations</h3>{reservations.recent.length ? reservations.recent.map((item) => <Link key={item.id} to="/automobile/reservations" className="autosales-activity-row"><strong>{item.reservationCode} · {item.customerName}</strong><span>{item.vehicle?.brand} {item.vehicle?.model} · {item.status} · {formatDate(item.createdAt, lang)}</span></Link>) : <p className="empty">Aucune réservation dans votre périmètre.</p>}</> : <EmptyState title="Réservations non accessibles" description="Votre rôle ne dispose pas de VIEW_RESERVATION." />}</Panel>
+
+        <Panel title="Paiements et encaissements" to={payments ? '/automobile/payments' : null}>{payments ? <><div className="autosales-status-list">{paymentStatuses.map(({ status, count }) => <div key={status}><span>{status}</span><StatusBadge label={formatNumber(count, lang)} status={status} /></div>)}</div><div style={{ display: 'grid', gap: 8, marginTop: 16 }}><div><strong>Encaissé</strong><div>{money(payments.collectedByCurrency, lang)}</div></div><div><strong>Solde des réservations actives et clôturées</strong><div>{money(payments.outstandingByCurrency, lang)}</div></div></div><h3 style={{ margin: '18px 0 8px' }}>Paiements récents</h3>{payments.recent.length ? payments.recent.map((item) => <Link key={item.id} to="/automobile/payments" className="autosales-activity-row"><strong>{item.reference || item.vehicleReservation?.reservationCode} · {item.vehicleReservation?.customerName}</strong><span>{money({ [item.currency || data.scope.currency]: item.amount }, lang)} · {item.status} · {formatDate(item.createdAt, lang)}</span></Link>) : <p className="empty">Aucun paiement enregistré.</p>}</> : <EmptyState title="Paiements non accessibles" description="Votre rôle ne dispose pas de VIEW_RESERVATION." />}</Panel>
+
+        <Panel title="Ventes finalisées" to={sales ? '/automobile/sales' : null}>{sales ? <><p><strong>{formatNumber(sales.count, lang)}</strong> réservations clôturées comme ventes</p><p>Montant des ventes : <strong>{money(sales.revenueByCurrency, lang)}</strong></p><p>Paiements encaissés : <strong>{money(sales.collectedByCurrency, lang)}</strong></p><p>Solde restant : <strong>{money(sales.outstandingByCurrency, lang)}</strong></p></> : <EmptyState title="Ventes non accessibles" description="Votre rôle ne dispose pas de VIEW_RESERVATION." />}</Panel>
+
+        <Panel title="Actions requises">{data.actionsRequired.length ? <div>{data.actionsRequired.map((action) => <Link key={action.type} to={action.path} className="autosales-action-row"><span><strong>{formatNumber(action.count, lang)}</strong> {action.label}</span><span aria-hidden="true">→</span></Link>)}</div> : <EmptyState title="Aucune action en attente" description="Aucune demande, réservation ou échéance ne nécessite actuellement votre intervention." icon={CheckCircle2} />}</Panel>
       </div>
+
+      {can('VIEW_USER') && <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}><Link to="/automobile/agents">Gestion des agents →</Link></div>}
     </div>
   )
 }
