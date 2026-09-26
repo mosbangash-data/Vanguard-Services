@@ -360,6 +360,15 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         <main className="app-main vanguard-app-main">
           <Outlet />
         </main>
+        {user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' && (
+          <nav className="agent-mobile-nav" aria-label="Navigation Agent">
+            <NavLink to="/transport" end className={({ isActive }) => isActive ? 'active' : ''}><Bus size={19} /><span>Accueil</span></NavLink>
+            {hasPermission(user, 'VIEW_RESERVATION') && <NavLink to="/transport/reservations" className={({ isActive }) => isActive ? 'active' : ''}><Ticket size={19} /><span>Réservations</span></NavLink>}
+            {hasPermission(user, 'VIEW_PAYMENT') && <NavLink to="/transport/operations" className={({ isActive }) => isActive ? 'active' : ''}><CreditCard size={19} /><span>Paiements</span></NavLink>}
+            {hasPermission(user, 'SCAN_TICKET') && <NavLink to="/transport/scanner" className={({ isActive }) => isActive ? 'active' : ''}><QrCode size={19} /><span>Scanner</span></NavLink>}
+            {hasPermission(user, 'CREATE_PARCEL') && <NavLink to="/transport/parcels" className={({ isActive }) => isActive ? 'active' : ''}><Package size={19} /><span>Colis</span></NavLink>}
+          </nav>
+        )}
       </div>
     </div>
   )

@@ -96,19 +96,12 @@ test('Full E2E flow: destination -> bus -> schedule -> trip -> reservation -> ti
   const reservationRes = await request('POST', '/api/reservations', { tripId: trip.id, customerName: 'John Doe', customerPhone: '+33123456789', seatNumber: '1' }, adminToken);
   assert.equal(reservationRes.status, 201);
   const reservation = reservationRes.data.data.reservation;
+  const payment = reservationRes.data.data.payment;
   assert.ok(reservation && reservation.id);
+  assert.ok(payment && payment.status === 'PENDING' && payment.method === 'CASH');
   created.reservationId = reservation.id;
 
   // payment validation triggers automatic ticket creation
-  const paymentRes = await request('POST', '/api/reservation-payments', {
-    reservationId: reservation.id,
-    amount: '25.00',
-    method: 'CASH',
-    reference: `INT-${Date.now()}`,
-  }, adminToken);
-  assert.equal(paymentRes.status, 201);
-  const payment = paymentRes.data.data.payment;
-
   const validatePaymentRes = await request('POST', `/api/reservation-payments/${payment.id}/validate`, null, adminToken);
   assert.equal(validatePaymentRes.status, 200);
   const ticket = validatePaymentRes.data.data.ticket;

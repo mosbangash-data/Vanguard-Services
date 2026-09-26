@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
+const env = require('../config/env');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const { getUserAgencyId, assertAgencyAccess, assertDepartmentIdForUser } = require('./departmentAccessService');
@@ -9,15 +10,27 @@ const VALIDATED_PAYMENT_STATUSES = ['VERIFIED', 'COMPLETED'];
 
 const buildTicketCode = () => `TCK-${crypto.randomUUID()}`;
 const buildSerialNumber = () => `SN-${Date.now()}-${crypto.randomInt(10000, 99999)}`;
-const buildQrCode = (ticketCode) => `vanguard://ticket/${ticketCode}`;
+const signTicketCode = (ticketCode) => crypto
+  .createHmac('sha256', env.ticketQrSecret)
+  .update(`vanguard-ticket:v1:${ticketCode}`)
+  .digest('base64url');
+const buildQrCode = (ticketCode) => `vanguard://ticket/${ticketCode}?v=1&sig=${signTicketCode(ticketCode)}`;
+const verifyTicketQrSignature = (value, ticketCode) => {
+  if (typeof value !== 'string' || !ticketCode) return false;
+  const match = value.trim().match(/^vanguard:\/\/ticket\/([A-Za-z0-9-]+)\?v=1&sig=([A-Za-z0-9_-]+)$/i);
+  if (!match || match[1] !== ticketCode) return false;
+  const expected = Buffer.from(signTicketCode(ticketCode));
+  const provided = Buffer.from(match[2]);
+  return expected.length === provided.length && crypto.timingSafeEqual(expected, provided);
+};
 const extractTicketCodeFromQr = (value) => {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  if (trimmed.startsWith('TCK-')) return trimmed;
-
-  const exactMatch = trimmed.match(/^vanguard:\/\/ticket\/([A-Za-z0-9-]+)$/i);
-  if (exactMatch) return exactMatch[1];
+  const signedMatch = trimmed.match(/^vanguard:\/\/ticket\/([A-Za-z0-9-]+)\?v=1&sig=[A-Za-z0-9_-]+$/i);
+  if (signedMatch) return signedMatch[1];
+  const legacyMatch = trimmed.match(/^vanguard:\/\/ticket\/([A-Za-z0-9-]+)$/i);
+  if (legacyMatch) return legacyMatch[1];
 
   return null;
 };
@@ -120,6 +133,7 @@ const getTicketByCode = async (ticketCode, currentUser = null) => {
     },
   });
   if (!ticket) throw new AppError('Ticket not found', 404);
+  ensureReservationReadyForTicket(ticket.reservation);
   if (currentUser) assertAgencyAccess(currentUser, ticket.reservation?.agencyId);
   return ticket;
 };
@@ -284,6 +298,7 @@ const scanTicketByQrCode = async (rawQrCode, currentUser) => {
     include: {
       reservation: {
         include: {
+          payments: { select: { status: true } },
           trip: {
             include: {
               schedule: {
@@ -319,9 +334,9 @@ const scanTicketByQrCode = async (rawQrCode, currentUser) => {
   await assertDepartmentIdForUser(currentUser, ticket.reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
   assertAgencyAccess(currentUser, ticket.reservation.agencyId);
 
-  const expectedQrCode = buildQrCode(ticketCode);
   const rawFromClient = typeof rawQrCode === 'string' ? rawQrCode.trim() : '';
-  const qrMatches = rawFromClient === expectedQrCode || rawFromClient === ticket.qrCode || rawFromClient === ticketCode;
+  const qrMatches = verifyTicketQrSignature(rawFromClient, ticketCode)
+    || (rawFromClient === ticket.qrCode && /^vanguard:\/\/ticket\/[A-Za-z0-9-]+$/i.test(rawFromClient));
 
   if (!qrMatches) {
     await prisma.ticketScan.create({
@@ -349,6 +364,14 @@ const scanTicketByQrCode = async (rawQrCode, currentUser) => {
       ...buildTicketScanResponse(ticket, 'INVALID', 'QR Code invalide.', false),
       ticketCode,
     };
+  }
+
+  if (ticket.reservation.status !== 'CONFIRMED' || !hasValidatedPayment(ticket.reservation.payments || [])) {
+    return { ...buildTicketScanResponse(ticket, 'INVALID', 'Réservation ou paiement non validé.', false), ticketCode };
+  }
+  if (ticket.reservation.trip.departureAt && new Date(ticket.reservation.trip.departureAt) < new Date()) {
+    await prisma.ticketScan.create({ data: { ticketId: ticket.id, scannedByUserId: currentUser.id, result: 'INVALID', notes: 'trip_departure_expired' } });
+    return { ...buildTicketScanResponse(ticket, 'EXPIRED', 'Billet expiré : le départ est passé.', false), ticketCode };
   }
 
   if (ticket.status === 'CANCELLED') {
@@ -701,5 +724,6 @@ module.exports = {
   scanTicketByQrCode,
   cancelTicketByCode,
   extractTicketCodeFromQr,
+  verifyTicketQrSignature,
   notifyCustomerAboutTicket,
 };

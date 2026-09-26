@@ -270,20 +270,6 @@ export function DynamicResourceForm({
   })
 
   const fields = resource.fields || []
-  if (!fields.length) {
-    return (
-      <Modal isOpen={isOpen} onClose={onClose} title={title} subtitle={subtitle} size="lg">
-        <div className="form-alert-info" role="status">
-          <AlertCircle size={18} className="alert-icon" />
-          <div className="alert-content">
-            <strong>Configuration du formulaire indisponible</strong>
-            <p>Aucune configuration de champ n’a été définie pour cette ressource. Le formulaire ne peut pas être affiché.</p>
-          </div>
-        </div>
-      </Modal>
-    )
-  }
-
   // Initialize form state
   useEffect(() => {
     if (!isOpen) return
@@ -336,6 +322,20 @@ export function DynamicResourceForm({
       deleted: [],
     })
   }, [isOpen, resource, initialData, mode])
+
+  if (!fields.length) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title={title} subtitle={subtitle} size="lg">
+        <div className="form-alert-info" role="status">
+          <AlertCircle size={18} className="alert-icon" />
+          <div className="alert-content">
+            <strong>Configuration du formulaire indisponible</strong>
+            <p>Aucune configuration de champ n’a été définie pour cette ressource. Le formulaire ne peut pas être affiché.</p>
+          </div>
+        </div>
+      </Modal>
+    )
+  }
 
   const handlePendingMediaChange = (newPending) => {
     setMediaState((prev) => ({ ...prev, pending: newPending }))

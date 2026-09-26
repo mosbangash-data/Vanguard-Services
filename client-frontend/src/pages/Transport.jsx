@@ -686,7 +686,7 @@ export default function Transport() {
                   {booking?.payment?.status === 'VERIFIED' || booking?.payment?.status === 'COMPLETED'
                     ? <p>Votre paiement est validé. Votre billet est disponible.</p>
                     : <p>Veuillez payer en espèces à l’agence de départ. Votre paiement sera vérifié par un agent Vanguard Services. Après validation, votre billet sera généré automatiquement.</p>}
-                  {booking?.tickets?.[0] && <Link className="btn btn-primary" to={`/ticket/${booking.tickets[0].ticketCode}`}>Voir mon billet</Link>}
+                  {booking?.tickets?.[0] && <Link className="btn btn-primary" to={`/tickets/${booking.tickets[0].ticketCode}`}>Voir mon billet</Link>}
                 </div>
 
                 <Link to="/" className="btn btn-outline">

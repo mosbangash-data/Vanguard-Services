@@ -104,27 +104,60 @@ const createReservation = async (data, currentUser) => {
   const existing = await prisma.reservation.findFirst({ where: { tripId, seatNumber: String(seatNumber) } });
   if (existing) throw new AppError('Seat already reserved', 409);
 
-  const reservationCode = `RSV-${Date.now()}`;
+  const reservationCode = `RSV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   const totalAmount = String(trip.schedule.price ?? '0.00');
 
   if (currentUser.role === 'AGENT' && trip.schedule.agencyId && trip.schedule.agencyId !== agencyId) {
     throw new AppError('Trip does not belong to your agency', 403);
   }
-  const reservation = await prisma.reservation.create({
-    data: {
-      reservationCode,
-      tripId,
-      agencyId: agencyId || trip.schedule.agencyId || null,
-      customerName,
-      customerPhone,
-      customerEmail,
-      seatNumber: String(seatNumber),
-      totalAmount,
-      createdByUserId: currentUser.id,
-    },
-  });
-  await auditService.log('create_reservation', currentUser.id, { targetReservationId: reservation.id });
-  return { reservation };
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const reservation = await tx.reservation.create({
+        data: {
+          reservationCode,
+          tripId,
+          agencyId: agencyId || trip.schedule.agencyId || null,
+          customerName,
+          customerPhone,
+          customerEmail,
+          seatNumber: String(seatNumber),
+          totalAmount,
+          status: 'PENDING',
+          createdByUserId: currentUser.id,
+        },
+      });
+      const settings = await tx.serviceSettings.findUnique({
+        where: { departmentId: trip.schedule.departmentId },
+        select: { currency: true },
+      });
+      const payment = await tx.payment.create({
+        data: {
+          reservationId: reservation.id,
+          agencyId: reservation.agencyId,
+          amount: reservation.totalAmount,
+          currency: settings?.currency || 'USD',
+          channel: 'AGENCY',
+          method: 'CASH',
+          provider: 'AGENCY',
+          status: 'PENDING',
+          reference: reservation.reservationCode,
+          idempotencyKey: `reservation:${reservation.id}:initial-cash`,
+          comment: 'Paiement en espèces à l’agence de départ',
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'create_reservation',
+          actorId: currentUser.id,
+          details: { targetReservationId: reservation.id, targetPaymentId: payment.id, paymentMethod: 'CASH' },
+        },
+      });
+      return { reservation, payment };
+    });
+  } catch (error) {
+    if (error?.code === 'P2002') throw new AppError('Seat already reserved', 409);
+    throw error;
+  }
 };
 
 const updateReservation = async (id, data, currentUser) => {
@@ -135,6 +168,9 @@ const updateReservation = async (id, data, currentUser) => {
   const effectiveAgencyId = reservation.agencyId || reservation.trip?.schedule?.agencyId;
   assertAgencyAccess(currentUser, effectiveAgencyId);
   const payload = {};
+  if (data.status && ['CONFIRMED', 'COMPLETED'].includes(data.status)) {
+    throw new AppError('Reservation status is managed by payment validation and trip completion workflows', 409);
+  }
   if (data.status) payload.status = data.status;
   if (data.customerName) payload.customerName = data.customerName;
   if (data.customerPhone) payload.customerPhone = data.customerPhone;

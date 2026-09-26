@@ -334,6 +334,7 @@ export const translations = {
       boardingAllowed: 'Embarquement autorisé',
       boardingDenied: 'Embarquement refusé',
       alreadyUsed: 'Billet déjà utilisé',
+      expired: 'Billet expiré',
       invalid: 'Billet invalide',
       cancelled: 'Billet annulé',
       notFound: 'Billet introuvable',
@@ -369,7 +370,7 @@ export const translations = {
       cameraError: 'Impossible d’accéder à la caméra.',
       noCamera: 'Aucune caméra détectée.',
       manualEntry: 'Saisie manuelle',
-      manualPlaceholder: 'Entrez le code du billet',
+      manualPlaceholder: 'Collez le contenu du QR sécurisé',
       submit: 'Vérifier',
     },
     icons: {
@@ -733,6 +734,7 @@ export const translations = {
       boardingAllowed: 'Boarding Allowed',
       boardingDenied: 'Boarding Denied',
       alreadyUsed: 'Ticket Already Used',
+      expired: 'Expired Ticket',
       invalid: 'Invalid Ticket',
       cancelled: 'Cancelled Ticket',
       notFound: 'Ticket Not Found',
@@ -772,7 +774,7 @@ export const translations = {
       cameraError: 'Unable to access camera.',
       noCamera: 'No camera detected.',
       manualEntry: 'Manual Entry',
-      manualPlaceholder: 'Enter ticket code',
+      manualPlaceholder: 'Paste the secure QR content',
       submit: 'Verify',
     },
     icons: {

@@ -21,6 +21,7 @@ module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   sessionSecret: String(process.env.SESSION_SECRET).trim(),
   jwtSecret: String(process.env.JWT_SECRET).trim(),
+  ticketQrSecret: String(process.env.TICKET_QR_SECRET || process.env.JWT_SECRET).trim(),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
   appName: process.env.APP_NAME || 'Vanguard Services',
   databaseUrl,

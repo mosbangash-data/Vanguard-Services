@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Html5Qrcode } from 'html5-qrcode'
 import { useLanguage } from '../../../i18n/useLanguage'
 import { api } from '../../../services/api'
 
 export function TicketScanner({ onClose, onSuccess }) {
   const { t } = useLanguage()
+  const navigate = useNavigate()
   const scannerRef = useRef(null)
   const isProcessingRef = useRef(false)
   const [isScanning, setIsScanning] = useState(false)
@@ -116,9 +118,11 @@ export function TicketScanner({ onClose, onSuccess }) {
       ? t('scan.alreadyUsed')
       : result?.status === 'NOT_FOUND'
         ? t('scan.notFound')
-        : result?.status === 'CANCELLED'
-          ? t('scan.cancelled')
-          : result
+    : result?.status === 'CANCELLED'
+      ? t('scan.cancelled')
+      : result?.status === 'EXPIRED'
+        ? t('scan.expired')
+      : result
             ? t('scan.invalid')
             : ''
 
@@ -126,7 +130,7 @@ export function TicketScanner({ onClose, onSuccess }) {
     <div className="scanner-modal">
       <div className="scanner-modal__header">
         <h2>{t('scan.title')}</h2>
-        <button type="button" className="scanner-modal__close" onClick={onClose} aria-label="Close">
+        <button type="button" className="scanner-modal__close" onClick={() => (onClose ? onClose() : navigate('/transport'))} aria-label="Close">
           ×
         </button>
       </div>

@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
 const app = require('../src/app');
+const prisma = require('../src/config/prisma');
 const { main: seedMain } = require('../prisma/seed');
 
 let server;
@@ -70,10 +71,9 @@ const createCoachTicketFixture = async () => {
   const reservationRes = await request('POST', '/api/reservations', { tripId, customerName: 'TicketUser', customerPhone: '777666555', seatNumber: '1' }, adminToken);
   assert.equal(reservationRes.status, 201);
   const reservationId = reservationRes.data.data.reservation.id;
-
-  const paymentRes = await request('POST', '/api/reservation-payments', { reservationId, amount: '12.00', method: 'CASH', reference: `TK-${Date.now()}` }, adminToken);
-  assert.equal(paymentRes.status, 201);
-  const payment = paymentRes.data.data.payment;
+  const payment = reservationRes.data.data.payment;
+  assert.equal(payment.status, 'PENDING');
+  assert.equal(Number(payment.amount), 12);
 
   const validateRes = await request('POST', `/api/reservation-payments/${payment.id}/validate`, null, adminToken);
   assert.equal(validateRes.status, 200);
@@ -107,6 +107,21 @@ test('ticket scan accepts a valid ticket and marks it used', async () => {
   assert.equal(fetchTicket.status, 200);
   assert.equal(fetchTicket.data.data.ticket.status, 'USED');
   assert.ok(fetchTicket.data.data.ticket.usedAt);
+});
+
+test('ticket scanner rejects a bare ticket code and a tampered QR signature', async () => {
+  const { ticket } = await createCoachTicketFixture();
+
+  const bareCode = await request('POST', '/api/tickets/scan', { qrCode: ticket.ticketCode }, adminToken);
+  assert.equal(bareCode.data.status, 'INVALID');
+
+  const tamperedQr = `${ticket.qrCode}x`;
+  const tampered = await request('POST', '/api/tickets/scan', { qrCode: tamperedQr }, adminToken);
+  assert.equal(tampered.data.valid, false);
+  assert.equal(tampered.data.status, 'INVALID');
+
+  const ticketAfterRejectedScans = await prisma.ticket.findUnique({ where: { id: ticket.id } });
+  assert.equal(ticketAfterRejectedScans.status, 'VALID');
 });
 
 test('ticket scan rejects an already used ticket', async () => {

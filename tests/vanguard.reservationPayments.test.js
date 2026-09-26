@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const http = require('http');
 const app = require('../src/app');
 const prisma = require('../src/config/prisma');
+const ticketService = require('../src/services/ticketService');
 const { main: seedMain } = require('../prisma/seed');
 
 let server;
@@ -126,23 +127,21 @@ const setupCoachReservation = async (adminToken) => {
   assert.equal(reservationRes.status, 201);
   const reservation = reservationRes.data.data.reservation;
   assert.equal(reservation.status, 'PENDING');
+  const payment = await prisma.payment.findFirst({ where: { reservationId: reservation.id, method: 'CASH' } });
+  assert.ok(payment);
+  assert.equal(payment.status, 'PENDING');
+  assert.equal(Number(payment.amount), Number(reservation.totalAmount));
+  assert.equal(await prisma.payment.count({
+    where: { reservationId: reservation.id, method: 'CASH', status: { in: ['PENDING', 'PROCESSING'] } },
+  }), 1);
 
-  return { department, tripId, reservation };
+  return { department, tripId, reservation, payment };
 };
 
 test('reservation payment confirms coach reservation after validation', async () => {
-  const { reservation } = await setupCoachReservation(adminToken);
-
-  const paymentRes = await request('POST', '/api/reservation-payments', {
-    reservationId: reservation.id,
-    amount: '15.00',
-    method: 'CASH',
-    reference: 'REF-COACH-01',
-  }, adminToken);
-  assert.equal(paymentRes.status, 201);
-  const payment = paymentRes.data.data.payment;
+  const { reservation, payment } = await setupCoachReservation(adminToken);
   assert.equal(payment.status, 'PENDING');
-  assert.equal(payment.reference, 'REF-COACH-01');
+  assert.equal(payment.method, 'CASH');
   assert.equal(await prisma.ticket.count({ where: { reservationId: reservation.id } }), 0);
 
   const validateRes = await request('POST', `/api/reservation-payments/${payment.id}/validate`, null, adminToken);
@@ -150,7 +149,8 @@ test('reservation payment confirms coach reservation after validation', async ()
   assert.equal(validateRes.data.data.payment.status, 'VERIFIED');
   assert.ok(validateRes.data.data.payment.validatedById);
   assert.ok(validateRes.data.data.payment.validatedAt);
-  assert.equal(validateRes.data.data.ticket.qrCode, `vanguard://ticket/${validateRes.data.data.ticket.ticketCode}`);
+  assert.equal(ticketService.verifyTicketQrSignature(validateRes.data.data.ticket.qrCode, validateRes.data.data.ticket.ticketCode), true);
+  assert.equal(ticketService.verifyTicketQrSignature(`${validateRes.data.data.ticket.qrCode}tampered`, validateRes.data.data.ticket.ticketCode), false);
   assert.equal(await prisma.ticket.count({ where: { reservationId: reservation.id } }), 1);
 
   const reservationAfterRes = await request('GET', `/api/reservations/${reservation.id}`, null, adminToken);
@@ -164,20 +164,11 @@ test('reservation payment confirms coach reservation after validation', async ()
 });
 
 test('double payment and duplicate validation are rejected correctly', async () => {
-  const { reservation } = await setupCoachReservation(adminToken);
-
-  const payment1Res = await request('POST', '/api/reservation-payments', {
-    reservationId: reservation.id,
-    amount: '10.00',
-    method: 'CASH',
-    reference: 'REF-COACH-01',
-  }, adminToken);
-  assert.equal(payment1Res.status, 201);
-  const payment1 = payment1Res.data.data.payment;
+  const { reservation, payment: payment1 } = await setupCoachReservation(adminToken);
 
   const payment2Res = await request('POST', '/api/reservation-payments', {
     reservationId: reservation.id,
-    amount: '5.00',
+    amount: '15.00',
     method: 'CASH',
     reference: 'REF-COACH-02',
   }, adminToken);
@@ -210,16 +201,9 @@ test('double payment and duplicate validation are rejected correctly', async () 
 });
 
 test('partial validated payment does not confirm reservation before full coverage is met', async () => {
-  const { reservation } = await setupCoachReservation(adminToken);
-
-  const partialPaymentRes = await request('POST', '/api/reservation-payments', {
-    reservationId: reservation.id,
-    amount: '10.00',
-    method: 'CASH',
-    reference: 'REF-PARTIAL-01',
-  }, adminToken);
-  assert.equal(partialPaymentRes.status, 201);
-  const partialPayment = partialPaymentRes.data.data.payment;
+  const { reservation, payment: partialPayment } = await setupCoachReservation(adminToken);
+  const updatePartialRes = await request('PUT', `/api/reservation-payments/${partialPayment.id}`, { amount: '10.00' }, adminToken);
+  assert.equal(updatePartialRes.status, 200);
 
   const validatePartialRes = await request('POST', `/api/reservation-payments/${partialPayment.id}/validate`, null, adminToken);
   assert.equal(validatePartialRes.status, 200);
@@ -280,15 +264,7 @@ test('permissions enforce coach department and manage reservation payment rights
   });
   const outsiderToken = await loginTestUser(outsider.email, 'Password123!');
 
-  const { reservation } = await setupCoachReservation(adminToken);
-
-  const coachPaymentRes = await request('POST', '/api/reservation-payments', {
-    reservationId: reservation.id,
-    amount: '15.00',
-    method: 'CASH',
-  }, coachToken);
-  assert.equal(coachPaymentRes.status, 201);
-  const payment = coachPaymentRes.data.data.payment;
+  const { reservation, payment } = await setupCoachReservation(adminToken);
 
   const noPermPaymentRes = await request('POST', '/api/reservation-payments', {
     reservationId: reservation.id,
@@ -329,16 +305,7 @@ const getTicketPrintPage = async (ticketCode, token = null) => {
 };
 
 test('validated payment stores validatedById and validatedAt correctly', async () => {
-  const { reservation } = await setupCoachReservation(adminToken);
-
-  const paymentRes = await request('POST', '/api/reservation-payments', {
-    reservationId: reservation.id,
-    amount: '15.00',
-    method: 'CASH',
-    reference: 'REF-COACH-VALID',
-  }, adminToken);
-  assert.equal(paymentRes.status, 201);
-  const payment = paymentRes.data.data.payment;
+  const { reservation, payment } = await setupCoachReservation(adminToken);
 
   const validateRes = await request('POST', `/api/reservation-payments/${payment.id}/validate`, null, adminToken);
   assert.equal(validateRes.status, 200);
@@ -349,7 +316,7 @@ test('validated payment stores validatedById and validatedAt correctly', async (
   assert.equal(validated.amount, '15.00');
   assert.equal(validated.method, 'CASH');
   assert.equal(validated.reservationId, reservation.id);
-  assert.equal(validated.reference, 'REF-COACH-VALID');
+  assert.equal(validated.reference, reservation.reservationCode);
 });
 
 test('reservation without validated payment cannot generate ticket', async () => {
@@ -359,16 +326,16 @@ test('reservation without validated payment cannot generate ticket', async () =>
   assert.equal(ticketRes.status, 409);
 });
 
-test('ticket is automatically generated after payment validation', async () => {
+test('reservation status cannot be manually confirmed outside payment validation', async () => {
   const { reservation } = await setupCoachReservation(adminToken);
+  const updateRes = await request('PUT', `/api/reservations/${reservation.id}`, { status: 'CONFIRMED' }, adminToken);
+  assert.equal(updateRes.status, 409);
+  const refreshed = await request('GET', `/api/reservations/${reservation.id}`, null, adminToken);
+  assert.equal(refreshed.data.data.reservation.status, 'PENDING');
+});
 
-  const paymentRes = await request('POST', '/api/reservation-payments', {
-    reservationId: reservation.id,
-    amount: '15.00',
-    method: 'CASH',
-  }, adminToken);
-  assert.equal(paymentRes.status, 201);
-  const payment = paymentRes.data.data.payment;
+test('ticket is automatically generated after payment validation', async () => {
+  const { reservation, payment } = await setupCoachReservation(adminToken);
 
   const validateRes = await request('POST', `/api/reservation-payments/${payment.id}/validate`, null, adminToken);
   assert.equal(validateRes.status, 200);

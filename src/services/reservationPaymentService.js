@@ -343,8 +343,10 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
       });
     }
 
-    await maybeConfirmReservation(tx, reservation, paymentCents);
-    const { ticket, created } = await ticketService.createTicketForReservationInTransaction(tx, reservation.id, currentUser);
+    const confirmed = await maybeConfirmReservation(tx, reservation, paymentCents);
+    const ticketResult = confirmed || reservation.status === 'CONFIRMED'
+      ? await ticketService.createTicketForReservationInTransaction(tx, reservation.id, currentUser)
+      : null;
 
     const updated = await tx.payment.findUnique({ where: { id: paymentId } });
     await tx.auditLog.create({
@@ -354,21 +356,24 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
         details: {
           targetReservationId: reservation.id,
           targetPaymentId: paymentId,
-          targetTicketId: ticket.id,
+          targetTicketId: ticketResult?.ticket.id || null,
           amount: updated.amount,
           status: updated.status,
           agencyId: resolvedAgencyId,
         },
       },
     });
-    return { payment: updated, ticket, created };
+    return { payment: updated, ticket: ticketResult?.ticket || null, created: ticketResult?.created || false };
   });
 
-  if (ticketResult.created) {
+  if (ticketResult.created && ticketResult.ticket) {
     await ticketService.notifyCustomerAboutTicket(ticketResult.ticket);
   }
 
-  return { payment: formatPayment(ticketResult.payment), ticket: await ticketService.getTicketByCode(ticketResult.ticket.ticketCode, currentUser) };
+  return {
+    payment: formatPayment(ticketResult.payment),
+    ticket: ticketResult.ticket ? await ticketService.getTicketByCode(ticketResult.ticket.ticketCode, currentUser) : null,
+  };
 };
 
 const getReservationPaymentReceipt = async (paymentId, currentUser) => {

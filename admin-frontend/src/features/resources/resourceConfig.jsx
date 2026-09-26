@@ -349,13 +349,6 @@ export const resourceGroups = {
         { name: 'customerPhone', label: 'Téléphone du client', type: 'tel', required: true, placeholder: 'Ex: +243 812 345 678' },
         { name: 'customerEmail', label: 'Email client', type: 'email', placeholder: 'Ex: jean@vanguard.cd' },
         { name: 'seatNumber', label: 'Numéro de siège', type: 'number', required: true, min: 1, placeholder: 'Ex: 12' },
-        { name: 'status', label: 'Statut', type: 'select', defaultValue: 'PENDING', options: [
-          { value: 'PENDING', label: 'En attente' },
-          { value: 'CONFIRMED', label: 'Confirmée' },
-          { value: 'CANCELLED', label: 'Annulée' },
-          { value: 'COMPLETED', label: 'Terminée' },
-        ]},
-        { name: 'totalAmount', label: 'Montant total', type: 'number', placeholder: 'Ex: 35.00', step: '0.01', min: 0 },
       ],
     }),
 
