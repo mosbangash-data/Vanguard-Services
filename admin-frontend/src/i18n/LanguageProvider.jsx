@@ -15,7 +15,8 @@ export function LanguageProvider({ children }) {
   })
 
   const changeLanguage = useCallback((nextLang) => {
-    if (nextLang === 'fr' || nextLang === 'en') setLang(nextLang)
+    const normalized = String(nextLang || '').toLowerCase().startsWith('en') ? 'en' : 'fr'
+    setLang(normalized)
   }, [])
 
   useEffect(() => {
@@ -29,22 +30,53 @@ export function LanguageProvider({ children }) {
 
   const value = useMemo(() => {
     const dict = translations[lang] || translations.fr
+    const fallbackDict = translations.fr
+
+    const resolveValue = (primary, secondary, keyPath) => {
+      let currentPrimary = primary
+      let foundInPrimary = true
+      for (const k of keyPath) {
+        if (currentPrimary && currentPrimary[k] !== undefined) {
+          currentPrimary = currentPrimary[k]
+        } else {
+          foundInPrimary = false
+          break
+        }
+      }
+      if (foundInPrimary && currentPrimary !== undefined) {
+        return currentPrimary
+      }
+
+      let currentSecondary = secondary
+      for (const k of keyPath) {
+        if (currentSecondary && currentSecondary[k] !== undefined) {
+          currentSecondary = currentSecondary[k]
+        } else {
+          return undefined
+        }
+      }
+      return currentSecondary
+    }
+
+    const t = (key, values = {}, defaultText = '') => {
+      if (!key) return defaultText || ''
+      const keys = String(key).split('.')
+      const res = resolveValue(dict, fallbackDict, keys)
+      if (res === undefined) {
+        return defaultText || key
+      }
+      if (typeof res !== 'string') return res
+      return res.replace(/\{(\w+)\}/g, (match, name) => values[name] === undefined ? match : String(values[name]))
+    }
+
     return {
       lang,
+      language: lang,
       setLang: changeLanguage,
-      t: (key, values = {}) => {
-        const keys = key.split('.')
-        let res = dict
-        for (const k of keys) {
-          if (res && res[k] !== undefined) {
-            res = res[k]
-          } else {
-            return key
-          }
-        }
-        if (typeof res !== 'string') return res
-        return res.replace(/\{(\w+)\}/g, (match, name) => values[name] === undefined ? match : String(values[name]))
-      },
+      setLanguage: changeLanguage,
+      isFrench: lang === 'fr',
+      isEnglish: lang === 'en',
+      t,
     }
   }, [lang, changeLanguage])
 

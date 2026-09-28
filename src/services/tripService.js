@@ -70,23 +70,63 @@ const listTrips = async (query = {}, currentUser) => {
           include: {
             route: true,
             bus: true,
+            agency: true,
           },
+        },
+        reservations: {
+          where: { status: { in: ['CONFIRMED', 'PENDING'] } },
+          select: { id: true, seatNumber: true },
         },
       },
     }),
     prisma.trip.count({ where }),
   ]);
 
-  return { items, page, limit, total };
+  const formattedItems = items.map((trip) => {
+    const totalSeats = trip.schedule?.bus?.seats || 0;
+    const seatsReserved = trip.reservations?.length || 0;
+    const seatsRemaining = Math.max(totalSeats - seatsReserved, 0);
+    return {
+      ...trip,
+      seatsReserved,
+      seatsRemaining,
+    };
+  });
+
+  return { items: formattedItems, page, limit, total };
 };
 
 const getTripById = async (id, currentUser) => {
   requireCoachOperational(currentUser, 'VIEW_TRIP');
-  const trip = await prisma.trip.findUnique({ where: { id }, include: { schedule: true } });
+  const trip = await prisma.trip.findUnique({
+    where: { id },
+    include: {
+      schedule: {
+        include: {
+          route: true,
+          bus: true,
+          agency: true,
+        },
+      },
+      reservations: {
+        where: { status: { in: ['CONFIRMED', 'PENDING'] } },
+        select: { id: true, seatNumber: true, status: true, customerName: true, customerPhone: true },
+      },
+    },
+  });
   if (!trip) throw new AppError('Trip not found', 404);
   await assertDepartmentIdForUser(currentUser, trip.schedule.departmentId, 'VANGUARD_COACH');
   if (currentUser.role === 'AGENT') assertAgencyAccess(currentUser, trip.schedule.agencyId);
-  return { trip };
+  const totalSeats = trip.schedule?.bus?.seats || 0;
+  const seatsReserved = trip.reservations?.length || 0;
+  const seatsRemaining = Math.max(totalSeats - seatsReserved, 0);
+  return {
+    trip: {
+      ...trip,
+      seatsReserved,
+      seatsRemaining,
+    },
+  };
 };
 
 const createTrip = async (data, currentUser) => {

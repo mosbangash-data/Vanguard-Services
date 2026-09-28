@@ -38,6 +38,20 @@ const STATUS_CONFIGS = {
   NEW: { label: 'Nouveau', variant: 'info' },
   CONTACTED: { label: 'Contacté', variant: 'primary' },
   CONVERTED: { label: 'Converti', variant: 'success' },
+
+  // Parcels & Payments
+  REGISTERED: { label: 'Enregistré', variant: 'info' },
+  IN_TRANSIT: { label: 'En transit', variant: 'primary' },
+  ARRIVED_AT_AGENCY: { label: 'Arrivé à l’agence', variant: 'warning' },
+  READY_FOR_PICKUP: { label: 'Prêt à retirer', variant: 'success' },
+  COLLECTED: { label: 'Retiré', variant: 'neutral' },
+  RETURNED: { label: 'Retourné', variant: 'danger' },
+  PAYMENT_PENDING: { label: 'Paiement en attente', variant: 'warning' },
+  PROCESSING: { label: 'Traitement', variant: 'warning' },
+  FAILED: { label: 'Échoué', variant: 'danger' },
+  REFUNDED: { label: 'Remboursé', variant: 'info' },
+  MAINTENANCE: { label: 'En maintenance', variant: 'warning' },
+  OUT_OF_SERVICE: { label: 'Hors service', variant: 'danger' },
 }
 
 export function StatusBadge({ status, label, variant, dot = true, className = '' }) {

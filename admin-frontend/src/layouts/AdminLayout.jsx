@@ -33,6 +33,45 @@ import { useAuth } from '../features/auth/authContext'
 import { hasPermission } from '../features/auth/permissions'
 import { useLanguage } from '../i18n/useLanguage'
 
+const PATH_KEYS = {
+  '/admin': 'dashboard',
+  '/admin/users': 'users',
+  '/admin/departments': 'departments',
+  '/admin/roles': 'roles',
+  '/admin/permissions': 'permissions',
+  '/admin/notifications': 'notifications',
+  '/admin/audit': 'audit',
+  '/admin/account': 'account',
+
+  '/transport': 'operations',
+  '/transport/agencies': 'agencies',
+  '/transport/buses': 'buses',
+  '/transport/drivers': 'drivers',
+  '/transport/destinations': 'destinations',
+  '/transport/schedules': 'schedules',
+  '/transport/trips': 'trips',
+  '/transport/reservations': 'reservations',
+  '/transport/tickets': 'tickets',
+  '/transport/payments': 'payments',
+  '/transport/parcels': 'parcels',
+  '/transport/scanner': 'scanner',
+
+  '/automobile': 'dashboard',
+  '/automobile/vehicles': 'vehicles',
+  '/automobile/templates': 'vehicleTemplates',
+  '/automobile/inquiries': 'inquiries',
+  '/automobile/reservations': 'reservations',
+  '/automobile/payments': 'payments',
+  '/automobile/sales': 'sales',
+  '/automobile/agents': 'agents',
+
+  '/construction': 'dashboard',
+  '/construction/projects': 'projects',
+  '/construction/templates': 'projectTemplates',
+  '/construction/customer-requests': 'customerRequests',
+  '/construction/quote-requests': 'quoteRequests',
+}
+
 export function AdminLayout({ customNavigation, pageTitleOverride }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
@@ -67,15 +106,33 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   // Navigation Items Definitions
   const navSections = useMemo(() => {
     if (customNavigation) {
+      let customTitle = pageTitleOverride || t('navigation.title', {}, 'Navigation')
+      if (location.pathname.startsWith('/transport')) {
+        customTitle = t('navigation.sections.coach')
+      } else if (location.pathname.startsWith('/automobile')) {
+        customTitle = t('navigation.sections.automobile')
+      } else if (location.pathname.startsWith('/construction')) {
+        customTitle = t('navigation.sections.construction')
+      }
+
       return [
         {
           id: 'custom',
-          title: pageTitleOverride || 'Navigation',
-          items: customNavigation.filter((item) => {
-            if (item.roles && !item.roles.includes(user?.role) && !isSuperAdmin) return false
-            if (item.excludeRoles && item.excludeRoles.includes(user?.role)) return false
-            return !item.permission || hasPermission(user, item.permission) || isSuperAdmin
-          }),
+          title: customTitle,
+          items: customNavigation
+            .filter((item) => {
+              if (item.roles && !item.roles.includes(user?.role) && !isSuperAdmin) return false
+              if (item.excludeRoles && item.excludeRoles.includes(user?.role)) return false
+              return !item.permission || hasPermission(user, item.permission) || isSuperAdmin
+            })
+            .map((item) => {
+              const label = item.labelKey
+                ? t(item.labelKey)
+                : PATH_KEYS[item.path]
+                ? t(`navigation.items.${PATH_KEYS[item.path]}`)
+                : item.label
+              return { ...item, label }
+            }),
         },
       ]
     }
@@ -184,16 +241,13 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     })
 
     const sectionKeys = { global: 'global', admin: 'admin', coach: 'coach', auto: 'automobile', construction: 'construction', system: 'system' }
-    const pathKeys = {
-      '/admin': 'dashboard', '/admin/users': 'users', '/admin/departments': 'departments', '/admin/roles': 'roles', '/admin/permissions': 'permissions', '/admin/notifications': 'notifications',
-      '/transport': 'operations', '/transport/agencies': 'agencies', '/transport/buses': 'buses', '/transport/drivers': 'drivers', '/transport/destinations': 'destinations', '/transport/schedules': 'schedules', '/transport/trips': 'trips', '/transport/reservations': 'reservations', '/transport/tickets': 'tickets', '/transport/payments': 'payments', '/transport/parcels': 'parcels', '/transport/scanner': 'scanner',
-      '/automobile': 'dashboard', '/automobile/vehicles': 'vehicles', '/automobile/templates': 'vehicleTemplates', '/automobile/inquiries': 'inquiries', '/automobile/reservations': 'reservations', '/automobile/payments': 'payments', '/automobile/sales': 'sales',
-      '/construction': 'dashboard', '/construction/projects': 'projects', '/construction/templates': 'projectTemplates', '/construction/customer-requests': 'customerRequests', '/construction/quote-requests': 'quoteRequests', '/admin/audit': 'audit', '/admin/account': 'account',
-    }
     return sections.map((section) => ({
       ...section,
       title: t(`navigation.sections.${sectionKeys[section.id]}`) || section.title,
-      items: section.items.map((item) => ({ ...item, label: pathKeys[item.path] ? (t(`navigation.items.${pathKeys[item.path]}`) || item.label) : item.label })),
+      items: section.items.map((item) => ({
+        ...item,
+        label: item.labelKey ? t(item.labelKey) : PATH_KEYS[item.path] ? (t(`navigation.items.${PATH_KEYS[item.path]}`) || item.label) : item.label,
+      })),
     }))
   }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t])
 
@@ -276,7 +330,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
                           onClick={() => setMobileOpen(false)}
                         >
                           <Icon className="vanguard-sidebar-icon" size={17} />
-                          <span className="vanguard-sidebar-label">{item.labelKey ? t(item.labelKey) : item.label}</span>
+                          <span className="vanguard-sidebar-label">{item.labelKey ? t(item.labelKey) : PATH_KEYS[item.path] ? t(`navigation.items.${PATH_KEYS[item.path]}`) : item.label}</span>
                         </NavLink>
                       )
                     })}

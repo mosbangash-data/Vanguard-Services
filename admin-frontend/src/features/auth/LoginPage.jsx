@@ -12,7 +12,7 @@ import { useAuth } from './authContext'
 function LoginPageContent() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
-  const { setLang, t } = useLanguage()
+  const { lang, setLang, t } = useLanguage()
 
   const [showPassword, setShowPassword] = useState(false)
   const [serverError, setServerError] = useState('')

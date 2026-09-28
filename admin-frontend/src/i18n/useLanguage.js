@@ -8,7 +8,11 @@ export function useLanguage() {
     const dict = translations.fr
     return {
       lang: 'fr',
+      language: 'fr',
       setLang: () => {},
+      setLanguage: () => {},
+      isFrench: true,
+      isEnglish: false,
       t: (key) => {
         const keys = key.split('.')
         let res = dict

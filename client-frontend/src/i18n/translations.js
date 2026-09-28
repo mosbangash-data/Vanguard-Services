@@ -323,7 +323,7 @@ export const translations = {
       reservationCodeLabel: 'Référence de réservation',
       // Colis
       parcelTitle: 'Expédition & Suivi de Colis',
-      parcelSubtitle: 'Enregistrez votre colis en ligne et déposez-le dans l\'une de nos agences.',
+      parcelSubtitle: 'Suivez en direct l\'acheminement de vos colis expédiés depuis nos agences.',
       parcelOriginAgency: 'Agence de départ',
       parcelDestinationAgency: 'Agence de destination',
       parcelSelectAgency: 'Sélectionner une agence',
@@ -864,7 +864,7 @@ export const translations = {
       reservationCodeLabel: 'Reservation reference',
       // Parcel
       parcelTitle: 'Parcel Shipment & Tracking',
-      parcelSubtitle: 'Register your parcel online and drop it off at one of our agencies.',
+      parcelSubtitle: 'Track your parcels shipped from our agency network in real time.',
       parcelOriginAgency: 'Origin agency',
       parcelDestinationAgency: 'Destination agency',
       parcelSelectAgency: 'Select an agency',

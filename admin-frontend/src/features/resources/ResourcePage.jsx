@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, RefreshCw, Search, X, Edit2, Trash2, KeyRound, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Plus, RefreshCw, Search, X, Edit2, Trash2, KeyRound, AlertTriangle, CheckCircle2, Eye, Ticket } from 'lucide-react'
 import { hasPermission } from '../auth/permissions'
 import { useAuth } from '../auth/authContext'
 import { useLanguage } from '../../i18n/useLanguage'
 import { getResourceTitle, getResourceSingular } from '../../i18n/resourceLabels'
 import { createResource, deleteResource, listResource, patchResource, updateResource } from './resourceApi'
 import { DynamicResourceForm } from './DynamicResourceForm'
+import { AgentParcelModal } from '../admin/coach/AgentParcelModal'
 import { api, uploadMedia } from '../../services/api'
 import { syncMediaRelations } from '../../utils/mediaSync'
 import { normalizeListResponse, getRelationValue } from '../../utils/apiResponse'
@@ -72,6 +74,12 @@ export function ResourcePage({ resource }) {
   const pageTitle = getResourceTitle(t, resource)
   const singularLabel = getResourceSingular(t, resource)
   const client = useQueryClient()
+  const navigate = useNavigate()
+
+  const [viewTripModal, setViewTripModal] = useState(null)
+  const isAgentTrips = user?.role === 'AGENT' && resource.endpoint === '/api/trips'
+  const isAgentParcels = user?.role === 'AGENT' && resource.endpoint === '/api/parcels'
+  const displayPageTitle = isAgentTrips ? t('trips.scheduledTrips') : pageTitle
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -257,15 +265,66 @@ export function ResourcePage({ resource }) {
     )
   }
 
+  const agentTripColumns = useMemo(() => [
+    {
+      key: 'departure',
+      label: t('trips.departure'),
+      render: (trip) => trip.schedule?.route?.departureCity || '—',
+    },
+    {
+      key: 'destination',
+      label: t('trips.destination'),
+      render: (trip) => trip.schedule?.route?.arrivalCity || '—',
+    },
+    {
+      key: 'date',
+      label: t('trips.date'),
+      render: (trip) => formatDate(trip.departureAt, false, lang),
+    },
+    {
+      key: 'time',
+      label: t('trips.time'),
+      render: (trip) => trip.schedule?.departureTime || (trip.departureAt ? new Date(trip.departureAt).toLocaleTimeString(lang === 'en' ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'),
+    },
+    {
+      key: 'bus',
+      label: t('trips.bus'),
+      render: (trip) => trip.schedule?.bus ? `${trip.schedule.bus.plateNumber} (${trip.schedule.bus.brand || ''})` : '—',
+    },
+    {
+      key: 'seatsAvailable',
+      label: t('trips.availableSeats'),
+      render: (trip) => {
+        const remaining = trip.seatsRemaining ?? Math.max((trip.schedule?.bus?.seats || 0) - (trip.seatsReserved || 0), 0)
+        const total = trip.schedule?.bus?.seats || 0
+        return (
+          <span className="vanguard-badge vanguard-badge--info" style={{ fontWeight: 600 }}>
+            {remaining} / {total}
+          </span>
+        )
+      },
+    },
+    {
+      key: 'status',
+      label: t('trips.status'),
+      badge: true,
+    },
+    {
+      key: 'agency',
+      label: t('trips.agency'),
+      render: (trip) => trip.schedule?.agency?.name ? `${trip.schedule.agency.name} (${trip.schedule.agency.city || ''})` : '—',
+    },
+  ], [lang, t])
+
   // Derive columns: prefer explicit resource.columns, else generate from first item
-  const columns = resource.columns || (
+  const columns = isAgentTrips ? agentTripColumns : (resource.columns || (
     items.length
       ? Object.keys(items[0])
           .filter((k) => !SENSITIVE_RESOURCE_KEYS.has(k.toLowerCase()) && k !== 'id' && k !== '_id' && k !== 'departmentId')
           .slice(0, 6)
           .map((key) => ({ key, label: key.charAt(0).toUpperCase() + key.slice(1) }))
       : []
-  )
+  ))
 
   const renderCell = (item, col) => {
     if (typeof col.render === 'function') {
@@ -301,7 +360,7 @@ export function ResourcePage({ resource }) {
     <section className="vanguard-page-container">
       {/* Page Header */}
       <PageHeader
-        title={pageTitle}
+        title={displayPageTitle}
         subtitle={resource.description}
         actions={
           canCreate && (
@@ -328,7 +387,7 @@ export function ResourcePage({ resource }) {
             className="resource-search-input"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={`${t('resourceUi.searchAmong')} ${pageTitle.toLowerCase()}…`}
+            placeholder={`${t('resourceUi.searchAmong')} ${displayPageTitle.toLowerCase()}…`}
           />
           {search && (
             <button
@@ -415,61 +474,87 @@ export function ResourcePage({ resource }) {
                         ))}
                         <td className="actions-cell">
                           <div className="action-buttons-wrap">
-                            {id && canUpdate && (
-                              <button
-                                type="button"
-                                className="table-action-btn edit-btn"
-                                onClick={() => {
-                                  setServerError('')
-                                  setFormState({ mode: 'edit', initialData: item })
-                                }}
-                                title={t('resourceUi.edit')}
-                                aria-label={t('resourceUi.edit')}
-                              >
-                                <Edit2 size={14} />
-                                <span className="btn-label-desktop">{t('resourceUi.edit')}</span>
-                              </button>
-                            )}
+                            {isAgentTrips ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="table-action-btn view-btn"
+                                  onClick={() => setViewTripModal(item)}
+                                  title={t('trips.view')}
+                                >
+                                  <Eye size={14} />
+                                  <span className="btn-label-desktop">{t('trips.view')}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="table-action-btn book-btn"
+                                  style={{ color: 'var(--primary)' }}
+                                  onClick={() => navigate(`/transport/reservations?tripId=${item.id}`)}
+                                  title={t('trips.book')}
+                                >
+                                  <Ticket size={14} />
+                                  <span className="btn-label-desktop">{t('trips.book')}</span>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {id && canUpdate && (
+                                  <button
+                                    type="button"
+                                    className="table-action-btn edit-btn"
+                                    onClick={() => {
+                                      setServerError('')
+                                      setFormState({ mode: 'edit', initialData: item })
+                                    }}
+                                    title={t('resourceUi.edit')}
+                                    aria-label={t('resourceUi.edit')}
+                                  >
+                                    <Edit2 size={14} />
+                                    <span className="btn-label-desktop">{t('resourceUi.edit')}</span>
+                                  </button>
+                                )}
 
-                            {id && resource.status && (
-                              <button
-                                type="button"
-                                className="table-action-btn status-btn"
-                                onClick={() =>
-                                  mutation.mutate({
-                                    action: 'status',
-                                    id,
-                                    data: { status: item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' },
-                                  })
-                                }
-                                title={t('resourceUi.changeStatus')}
-                              >
-                                <span>{item.status === 'ACTIVE' ? t('resourceUi.deactivate') : t('resourceUi.activate')}</span>
-                              </button>
-                            )}
+                                {id && resource.status && (
+                                  <button
+                                    type="button"
+                                    className="table-action-btn status-btn"
+                                    onClick={() =>
+                                      mutation.mutate({
+                                        action: 'status',
+                                        id,
+                                        data: { status: item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' },
+                                      })
+                                    }
+                                    title={t('resourceUi.changeStatus')}
+                                  >
+                                    <span>{item.status === 'ACTIVE' ? t('resourceUi.deactivate') : t('resourceUi.activate')}</span>
+                                  </button>
+                                )}
 
-                            {id && resource.passwordReset && (
-                              <button
-                                type="button"
-                                className="table-action-btn reset-btn"
-                                onClick={() => setPasswordModal({ id, item })}
-                                title={t('resourceUi.resetPassword')}
-                              >
-                                <KeyRound size={14} />
-                              </button>
-                            )}
+                                {id && resource.passwordReset && (
+                                  <button
+                                    type="button"
+                                    className="table-action-btn reset-btn"
+                                    onClick={() => setPasswordModal({ id, item })}
+                                    title={t('resourceUi.resetPassword')}
+                                  >
+                                    <KeyRound size={14} />
+                                  </button>
+                                )}
 
-                            {id && canDelete && (
-                              <button
-                                type="button"
-                                className="table-action-btn delete-btn"
-                                onClick={() => setDeleteDialog({ id, item })}
-                                title={t('resourceUi.delete')}
-                                aria-label={t('resourceUi.delete')}
-                              >
-                                <Trash2 size={14} />
-                                <span className="btn-label-desktop">{t('resourceUi.delete')}</span>
-                              </button>
+                                {id && canDelete && (
+                                  <button
+                                    type="button"
+                                    className="table-action-btn delete-btn"
+                                    onClick={() => setDeleteDialog({ id, item })}
+                                    title={t('resourceUi.delete')}
+                                    aria-label={t('resourceUi.delete')}
+                                  >
+                                    <Trash2 size={14} />
+                                    <span className="btn-label-desktop">{t('resourceUi.delete')}</span>
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         </td>
@@ -497,29 +582,54 @@ export function ResourcePage({ resource }) {
                   </div>
 
                   <div className="resource-mobile-card-actions">
-                    {id && canUpdate && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setServerError('')
-                          setFormState({ mode: 'edit', initialData: item })
-                        }}
-                      >
-                        <Edit2 size={14} />
-                        <span>{t('resourceUi.edit')}</span>
-                      </Button>
-                    )}
+                    {isAgentTrips ? (
+                      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          style={{ flex: 1 }}
+                          onClick={() => setViewTripModal(item)}
+                        >
+                          <Eye size={14} />
+                          <span>{t('trips.view')}</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          style={{ flex: 1 }}
+                          onClick={() => navigate(`/transport/reservations?tripId=${item.id}`)}
+                        >
+                          <Ticket size={14} />
+                          <span>{t('trips.book')}</span>
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        {id && canUpdate && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setServerError('')
+                              setFormState({ mode: 'edit', initialData: item })
+                            }}
+                          >
+                            <Edit2 size={14} />
+                            <span>{t('resourceUi.edit')}</span>
+                          </Button>
+                        )}
 
-                    {id && canDelete && (
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => setDeleteDialog({ id, item })}
-                      >
-                        <Trash2 size={14} />
-                        <span>{t('resourceUi.delete')}</span>
-                      </Button>
+                        {id && canDelete && (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => setDeleteDialog({ id, item })}
+                          >
+                            <Trash2 size={14} />
+                            <span>{t('resourceUi.delete')}</span>
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -529,8 +639,22 @@ export function ResourcePage({ resource }) {
         </div>
       )}
 
-      {/* Dynamic Creation / Modification Modal */}
-      {formState && (
+      {/* Creation / Modification Modal */}
+      {isAgentParcels ? (
+        <AgentParcelModal
+          isOpen={Boolean(formState && formState.mode === 'create')}
+          onClose={() => {
+            setFormState(null)
+            setServerError('')
+          }}
+          onSuccess={(parcel) => {
+            setFormState(null)
+            setNotice(`${t('resourceUi.parcelCreated')} ${parcel.amount} ${parcel.currency || 'USD'}`)
+            query.refetch()
+            setTimeout(() => setNotice(''), 4000)
+          }}
+        />
+      ) : formState && (
         <DynamicResourceForm
           resource={user?.role === 'AGENT' && resource.agentFields ? { ...resource, fields: resource.agentFields } : resource}
           isOpen={Boolean(formState)}
@@ -551,6 +675,70 @@ export function ResourcePage({ resource }) {
             })
           }}
         />
+      )}
+
+      {/* View Trip Modal for Agent */}
+      {viewTripModal && (
+        <Modal
+          isOpen={Boolean(viewTripModal)}
+          onClose={() => setViewTripModal(null)}
+          title={t('trips.tripDetails')}
+          size="md"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0.5rem 0' }}>
+            <div style={{ background: 'var(--surface-raised, #f9fafb)', padding: '1rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{t('trips.departure')} :</span>
+                <strong>{viewTripModal.schedule?.route?.departureCity || '—'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{t('trips.destination')} :</span>
+                <strong>{viewTripModal.schedule?.route?.arrivalCity || '—'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{t('trips.date')} :</span>
+                <strong>{formatDate(viewTripModal.departureAt, false, lang)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{t('trips.time')} :</span>
+                <strong>{viewTripModal.schedule?.departureTime || (viewTripModal.departureAt ? new Date(viewTripModal.departureAt).toLocaleTimeString(lang === 'en' ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—')}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{t('trips.bus')} :</span>
+                <strong>{viewTripModal.schedule?.bus ? `${viewTripModal.schedule.bus.plateNumber} (${viewTripModal.schedule.bus.brand || ''})` : '—'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{t('trips.availableSeats')} :</span>
+                <strong style={{ color: '#10b981' }}>
+                  {viewTripModal.seatsRemaining ?? Math.max((viewTripModal.schedule?.bus?.seats || 0) - (viewTripModal.seatsReserved || 0), 0)} / {viewTripModal.schedule?.bus?.seats || 0}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{t('trips.status')} :</span>
+                <StatusBadge status={viewTripModal.status} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{t('trips.agency')} :</span>
+                <strong>{viewTripModal.schedule?.agency?.name ? `${viewTripModal.schedule.agency.name} (${viewTripModal.schedule.agency.city || ''})` : '—'}</strong>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <Button variant="secondary" onClick={() => setViewTripModal(null)}>
+                {t('resourceUi.cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const id = viewTripModal.id
+                  setViewTripModal(null)
+                  navigate(`/transport/reservations?tripId=${id}`)
+                }}
+              >
+                <Ticket size={16} /> {t('trips.book')}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Confirm Delete Dialog */}

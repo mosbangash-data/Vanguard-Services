@@ -258,8 +258,26 @@ const createParcel = async (data, currentUser) => {
       include: {
         originAgency: true,
         destinationAgency: true,
+        payments: true,
       },
     });
+
+    if (data.paymentMethod) {
+      const paymentMethod = String(data.paymentMethod).toUpperCase();
+      await tx.payment.create({
+        data: {
+          parcelId: created.id,
+          agencyId: created.originAgencyId || null,
+          amount: created.amount,
+          currency: created.currency,
+          channel: 'AGENCY',
+          method: paymentMethod === 'MOBILE_MONEY' ? 'MOBILE_MONEY' : 'CASH',
+          status: 'PENDING',
+          provider: paymentMethod === 'MOBILE_MONEY' ? 'MOBILE_MONEY' : 'CASH',
+          comment: 'Initial payment recorded upon parcel registration',
+        },
+      });
+    }
 
     await tx.parcelStatusHistory.create({
       data: {
@@ -268,7 +286,7 @@ const createParcel = async (data, currentUser) => {
         newStatus: initialStatus,
         changedByUserId: currentUser?.id || null,
         reason: 'Initial parcel registration and physical reception',
-        details: { pricingBreakdown: pricing.breakdown },
+        details: { pricingBreakdown: pricing.breakdown, paymentMethod: data.paymentMethod || null },
       },
     });
 

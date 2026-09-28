@@ -1,0 +1,530 @@
+import React, { useState, useEffect, useMemo } from 'react'
+import { Modal, Button } from '../../../components/ui'
+import { useAuth } from '../../auth/authContext'
+import { useLanguage } from '../../../i18n/useLanguage'
+import { api } from '../../../services/api'
+import {
+  User,
+  Package,
+  MapPin,
+  Calculator,
+  CreditCard,
+  AlertCircle,
+  CheckCircle2,
+  Scale,
+  Box,
+} from 'lucide-react'
+
+export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
+  const { user } = useAuth()
+  const { t } = useLanguage()
+
+  // Form states
+  const [senderName, setSenderName] = useState('')
+  const [senderPhone, setSenderPhone] = useState('')
+  const [recipientName, setRecipientName] = useState('')
+  const [recipientPhone, setRecipientPhone] = useState('')
+  const [category, setCategory] = useState('STANDARD')
+  const [description, setDescription] = useState('')
+  const [pricingBasis, setPricingBasis] = useState('WEIGHT') // 'WEIGHT' | 'VOLUME'
+  const [weightKg, setWeightKg] = useState('')
+  const [volumeM3, setVolumeM3] = useState('')
+  const [destinationAgencyId, setDestinationAgencyId] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('CASH')
+
+  // API states
+  const [agencies, setAgencies] = useState([])
+  const [loadingAgencies, setLoadingAgencies] = useState(false)
+  const [quoteLoading, setQuoteLoading] = useState(false)
+  const [quote, setQuote] = useState(null)
+  const [quoteError, setQuoteError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [successResult, setSuccessResult] = useState(null)
+
+  // Agent origin agency info
+  const agentAgency = user?.agency || null
+  const originAgencyName = agentAgency?.name || (user?.agencyId ? `Agence (${user.agencyId})` : '')
+  const originCity = agentAgency?.city || ''
+
+  // Load agencies
+  useEffect(() => {
+    if (!isOpen) return
+    let isMounted = true
+    setLoadingAgencies(true)
+    api.get('/api/agencies?limit=100')
+      .then((res) => {
+        if (!isMounted) return
+        const list = res?.data?.items || res?.items || (Array.isArray(res?.data) ? res.data : [])
+        const activeList = list.filter((a) => a.isActive !== false)
+        setAgencies(activeList)
+      })
+      .catch((err) => {
+        console.error('Failed to load agencies', err)
+      })
+      .finally(() => {
+        if (isMounted) setLoadingAgencies(false)
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [isOpen])
+
+  // Destination agencies (exclude agent's current agency)
+  const destinationAgencies = useMemo(() => {
+    return agencies.filter((a) => a.id !== user?.agencyId)
+  }, [agencies, user?.agencyId])
+
+  const selectedDestinationAgency = useMemo(() => {
+    return agencies.find((a) => a.id === destinationAgencyId) || null
+  }, [agencies, destinationAgencyId])
+
+  // Reset modal state on open
+  useEffect(() => {
+    if (isOpen) {
+      setSenderName('')
+      setSenderPhone('')
+      setRecipientName('')
+      setRecipientPhone('')
+      setCategory('STANDARD')
+      setDescription('')
+      setPricingBasis('WEIGHT')
+      setWeightKg('')
+      setVolumeM3('')
+      setDestinationAgencyId('')
+      setPaymentMethod('CASH')
+      setQuote(null)
+      setQuoteError('')
+      setSubmitError('')
+      setSuccessResult(null)
+    }
+  }, [isOpen])
+
+  // Auto calculate quote when relevant fields change
+  useEffect(() => {
+    if (!isOpen || successResult) return
+
+    const destCity = selectedDestinationAgency?.city
+    const orgCity = originCity || (agentAgency?.city)
+
+    const numericWeight = pricingBasis === 'WEIGHT' ? parseFloat(weightKg) : 0
+    const numericVolume = pricingBasis === 'VOLUME' ? parseFloat(volumeM3) : 0
+
+    const hasDimension = pricingBasis === 'WEIGHT' ? (numericWeight > 0) : (numericVolume > 0)
+
+    if (!destCity || !hasDimension) {
+      setQuote(null)
+      setQuoteError('')
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setQuoteLoading(true)
+      setQuoteError('')
+      try {
+        const payload = {
+          originCity: orgCity || 'Kinshasa',
+          destinationCity: destCity,
+          pricingBasis,
+          weightKg: numericWeight,
+          volumeM3: numericVolume,
+          category,
+        }
+        const res = await api.post('/api/parcels/quote', payload)
+        const quoteData = res?.data || res
+        setQuote(quoteData)
+      } catch (err) {
+        setQuote(null)
+        setQuoteError(err?.response?.data?.message || err?.message || 'Erreur lors du calcul du tarif')
+      } finally {
+        setQuoteLoading(false)
+      }
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [isOpen, destinationAgencyId, selectedDestinationAgency, pricingBasis, weightKg, volumeM3, category, originCity, agentAgency, successResult])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSubmitError('')
+
+    if (!senderName.trim() || !senderPhone.trim()) {
+      setSubmitError(t('agentParcel.senderSection') + ' : ' + t('resourceUi.required'))
+      return
+    }
+    if (!recipientName.trim() || !recipientPhone.trim()) {
+      setSubmitError(t('agentParcel.recipientSection') + ' : ' + t('resourceUi.required'))
+      return
+    }
+    if (!destinationAgencyId) {
+      setSubmitError(t('agentParcel.selectDestination'))
+      return
+    }
+
+    const numericWeight = pricingBasis === 'WEIGHT' ? parseFloat(weightKg) : 0
+    const numericVolume = pricingBasis === 'VOLUME' ? parseFloat(volumeM3) : 0
+
+    if (pricingBasis === 'WEIGHT' && (!numericWeight || numericWeight <= 0)) {
+      setSubmitError(t('agentParcel.weightKg') + ' : ' + t('resourceUi.required'))
+      return
+    }
+    if (pricingBasis === 'VOLUME' && (!numericVolume || numericVolume <= 0)) {
+      setSubmitError(t('agentParcel.volumeM3') + ' : ' + t('resourceUi.required'))
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const payload = {
+        senderName: senderName.trim(),
+        senderPhone: senderPhone.trim(),
+        recipientName: recipientName.trim(),
+        recipientPhone: recipientPhone.trim(),
+        category,
+        description: description.trim() || undefined,
+        pricingBasis,
+        weightKg: numericWeight,
+        volumeM3: numericVolume,
+        originAgencyId: user?.agencyId || undefined,
+        originCity: originCity || agentAgency?.city || undefined,
+        destinationAgencyId,
+        destinationCity: selectedDestinationAgency?.city,
+        paymentMethod,
+      }
+
+      const res = await api.post('/api/parcels', payload)
+      const parcel = res?.data?.parcel || res?.parcel || res?.data
+      setSuccessResult(parcel)
+      if (onSuccess) {
+        onSuccess(parcel)
+      }
+    } catch (err) {
+      setSubmitError(err?.response?.data?.message || err?.message || t('resourceUi.operationFailed'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={t('agentParcel.modalTitle')}
+      subtitle={t('agentParcel.modalSubtitle')}
+      size="lg"
+    >
+      {successResult ? (
+        <div className="agent-parcel-success" style={{ padding: '1.5rem', textAlign: 'center' }}>
+          <div style={{ display: 'inline-flex', padding: '1rem', borderRadius: '50%', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', marginBottom: '1rem' }}>
+            <CheckCircle2 size={48} />
+          </div>
+          <h4 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+            {t('agentParcel.successTitle')}
+          </h4>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+            {t('agentParcel.trackingCodeLabel')} : <strong style={{ color: 'var(--primary)', fontSize: '1.1rem', letterSpacing: '0.05em' }}>{successResult.trackingCode}</strong>
+          </p>
+          <div style={{ background: 'var(--surface-raised, #f9fafb)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', textAlign: 'left', fontSize: '0.9rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span>{t('agentParcel.senderName')} :</span>
+              <strong>{successResult.senderName}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span>{t('agentParcel.recipientName')} :</span>
+              <strong>{successResult.recipientName}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span>{t('agentParcel.totalToPay')} :</span>
+              <strong style={{ color: '#10b981' }}>{successResult.amount} {successResult.currency}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>{t('agentParcel.paymentMethod')} :</span>
+              <span>{paymentMethod === 'CASH' ? t('agentParcel.cash') : t('agentParcel.mobileMoney')}</span>
+            </div>
+          </div>
+          <Button variant="primary" onClick={onClose}>
+            {t('resourceUi.cancel')} / {t('adminHome.title')}
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="agent-parcel-form" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {submitError && (
+            <div className="alert alert-danger" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontSize: '0.9rem' }}>
+              <AlertCircle size={18} />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          {/* Section 1: Expéditeur */}
+          <div className="form-section-card" style={{ border: '1px solid var(--border-color, #e5e7eb)', borderRadius: '8px', padding: '1rem' }}>
+            <h5 style={{ margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem', fontWeight: 600 }}>
+              <User size={16} /> {t('agentParcel.senderSection')}
+            </h5>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.senderName')} *</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  required
+                  placeholder="Ex: Jean Mukendi"
+                  value={senderName}
+                  onChange={(e) => setSenderName(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.senderPhone')} *</label>
+                <input
+                  type="tel"
+                  className="form-control"
+                  required
+                  placeholder="Ex: +243 812 345 678"
+                  value={senderPhone}
+                  onChange={(e) => setSenderPhone(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Destinataire */}
+          <div className="form-section-card" style={{ border: '1px solid var(--border-color, #e5e7eb)', borderRadius: '8px', padding: '1rem' }}>
+            <h5 style={{ margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem', fontWeight: 600 }}>
+              <User size={16} /> {t('agentParcel.recipientSection')}
+            </h5>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.recipientName')} *</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  required
+                  placeholder="Ex: Marie Kabila"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.recipientPhone')} *</label>
+                <input
+                  type="tel"
+                  className="form-control"
+                  required
+                  placeholder="Ex: +243 999 123 456"
+                  value={recipientPhone}
+                  onChange={(e) => setRecipientPhone(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Colis & Critère de tarification */}
+          <div className="form-section-card" style={{ border: '1px solid var(--border-color, #e5e7eb)', borderRadius: '8px', padding: '1rem' }}>
+            <h5 style={{ margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem', fontWeight: 600 }}>
+              <Package size={16} /> {t('agentParcel.parcelSection')}
+            </h5>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.parcelType')}</label>
+                <select
+                  className="form-control"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  <option value="STANDARD">Standard</option>
+                  <option value="DOCUMENT">Document</option>
+                  <option value="FRAGILE">Fragile</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.description')}</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ex: Vêtements, pièces électroniques…"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Mutually exclusive pricing criterion toggle */}
+            <div style={{ marginTop: '0.5rem' }}>
+              <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>
+                {t('agentParcel.pricingCriterion')} *
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <button
+                  type="button"
+                  className={`btn ${pricingBasis === 'WEIGHT' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                  }}
+                  onClick={() => {
+                    setPricingBasis('WEIGHT')
+                    setVolumeM3('')
+                  }}
+                >
+                  <Scale size={16} /> {t('agentParcel.criterionWeight')}
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${pricingBasis === 'VOLUME' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                  }}
+                  onClick={() => {
+                    setPricingBasis('VOLUME')
+                    setWeightKg('')
+                  }}
+                >
+                  <Box size={16} /> {t('agentParcel.criterionVolume')}
+                </button>
+              </div>
+
+              {pricingBasis === 'WEIGHT' ? (
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.weightKg')} *</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    className="form-control"
+                    required
+                    placeholder="Ex: 5.5"
+                    value={weightKg}
+                    onChange={(e) => setWeightKg(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.volumeM3')} *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    className="form-control"
+                    required
+                    placeholder="Ex: 0.15"
+                    value={volumeM3}
+                    onChange={(e) => setVolumeM3(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 4: Trajet / Agence */}
+          <div className="form-section-card" style={{ border: '1px solid var(--border-color, #e5e7eb)', borderRadius: '8px', padding: '1rem' }}>
+            <h5 style={{ margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem', fontWeight: 600 }}>
+              <MapPin size={16} /> {t('agentParcel.routeSection')}
+            </h5>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.originAgency')}</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  disabled
+                  readOnly
+                  value={originAgencyName ? `${originAgencyName}${originCity ? ` • ${originCity}` : ''}` : 'Agence connectée'}
+                  style={{ background: 'var(--surface-raised, #f3f4f6)', cursor: 'not-allowed', color: 'var(--text-muted)' }}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.destinationAgency')} *</label>
+                <select
+                  className="form-control"
+                  required
+                  value={destinationAgencyId}
+                  onChange={(e) => setDestinationAgencyId(e.target.value)}
+                  disabled={loadingAgencies}
+                >
+                  <option value="">{t('agentParcel.selectDestination')}</option>
+                  {destinationAgencies.map((agency) => (
+                    <option key={agency.id} value={agency.id}>
+                      {agency.name} ({agency.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Prix du colis */}
+          <div className="form-section-card" style={{ border: '1px solid var(--border-color, #e5e7eb)', borderRadius: '8px', padding: '1rem', background: 'var(--surface-raised, #f9fafb)' }}>
+            <h5 style={{ margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem', fontWeight: 600 }}>
+              <Calculator size={16} /> {t('agentParcel.pricingSection')}
+            </h5>
+            {quoteLoading ? (
+              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                {t('agentParcel.calculating')}
+              </p>
+            ) : quote ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.95rem', color: 'var(--text-muted)' }}>{t('agentParcel.totalToPay')} :</span>
+                <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--primary, #2563eb)' }}>
+                  {quote.amount} {quote.currency || 'USD'}
+                </span>
+              </div>
+            ) : quoteError ? (
+              <p style={{ margin: 0, color: '#ef4444', fontSize: '0.85rem' }}>{quoteError}</p>
+            ) : (
+              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                {t('agentParcel.fillRequired')}
+              </p>
+            )}
+          </div>
+
+          {/* Section 6: Paiement colis */}
+          <div className="form-section-card" style={{ border: '1px solid var(--border-color, #e5e7eb)', borderRadius: '8px', padding: '1rem' }}>
+            <h5 style={{ margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem', fontWeight: 600 }}>
+              <CreditCard size={16} /> {t('agentParcel.paymentSection')}
+            </h5>
+            <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+              <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.paymentMethod')} *</label>
+              <select
+                className="form-control"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+              >
+                <option value="CASH">{t('agentParcel.cash')}</option>
+                <option value="MOBILE_MONEY">{t('agentParcel.mobileMoney')}</option>
+              </select>
+            </div>
+            {paymentMethod === 'CASH' && (
+              <div style={{ fontSize: '0.85rem', color: '#b45309', background: 'rgba(245, 158, 11, 0.1)', padding: '0.6rem 0.8rem', borderRadius: '6px', borderLeft: '3px solid #f59e0b' }}>
+                {t('agentParcel.cashNotice')}
+              </div>
+            )}
+          </div>
+
+          {/* Modal Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
+              {t('resourceUi.cancel')}
+            </Button>
+            <Button type="submit" variant="primary" disabled={submitting || quoteLoading || !quote}>
+              {submitting ? t('agentParcel.submitting') : t('agentParcel.submit')}
+            </Button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  )
+}
