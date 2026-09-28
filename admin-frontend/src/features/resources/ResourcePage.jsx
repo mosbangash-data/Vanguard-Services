@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, RefreshCw, Search, X, Edit2, Trash2, KeyRound, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { hasPermission } from '../auth/permissions'
 import { useAuth } from '../auth/authContext'
+import { useLanguage } from '../../i18n/useLanguage'
+import { getResourceTitle, getResourceSingular } from '../../i18n/resourceLabels'
 import { createResource, deleteResource, listResource, patchResource, updateResource } from './resourceApi'
 import { DynamicResourceForm } from './DynamicResourceForm'
 import { api, uploadMedia } from '../../services/api'
@@ -21,25 +23,24 @@ import {
   Input,
 } from '../../components/ui'
 
-const errorMessage = (error) =>
+const errorMessage = (error, t) =>
   error?.response?.data?.message ||
   error?.message ||
-  'L’opération a échoué. Vérifiez les données saisies.'
+  t('resourceUi.operationFailed')
 
 const toList = (data) => normalizeListResponse(data)
 
 const getId = (item) => item.id || item._id || item.code || item.ticketCode
-
 const SENSITIVE_RESOURCE_KEYS = new Set([
   'password', 'passwordhash', 'token', 'resettoken', 'accesstoken',
   'refreshtoken', 'secret', 'apikey', 'databaseurl', 'database_url',
   'sessionsecret', 'session_secret', 'jwtsecret', 'jwt_secret', 'stack', 'rawdata', 'raw_data'
 ])
 
-const formatCellValue = (value, colKey = '') => {
+const formatCellValue = (value, colKey = '', t) => {
   if (SENSITIVE_RESOURCE_KEYS.has(String(colKey).toLowerCase())) return '—'
   if (value === null || value === undefined || value === '') return '—'
-  if (typeof value === 'boolean') return value ? 'Oui' : 'Non'
+  if (typeof value === 'boolean') return t ? t(value ? 'status.active' : 'status.inactive') : String(value)
   if (Array.isArray(value)) return value.length ? value.map((item) => getRelationValue(item)).filter(Boolean).join(', ') : '—'
   if (typeof value === 'object') {
     const label = getRelationValue(value)
@@ -49,12 +50,12 @@ const formatCellValue = (value, colKey = '') => {
   return String(value)
 }
 
-const formatDate = (val, includeTime = false) => {
+const formatDate = (val, includeTime = false, lang = 'fr') => {
   if (!val) return '—'
   try {
     const d = new Date(val)
     if (isNaN(d.getTime())) return String(val)
-    return d.toLocaleDateString('fr-FR', {
+    return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -67,6 +68,9 @@ const formatDate = (val, includeTime = false) => {
 
 export function ResourcePage({ resource }) {
   const { user } = useAuth()
+  const { t, lang } = useLanguage()
+  const pageTitle = getResourceTitle(t, resource)
+  const singularLabel = getResourceSingular(t, resource)
   const client = useQueryClient()
 
   const [search, setSearch] = useState('')
@@ -142,7 +146,7 @@ export function ResourcePage({ resource }) {
       if (!entityId) return result
 
       const mediaFailure = (operation, error, detail) => {
-        const reason = errorMessage(error)
+        const reason = errorMessage(error, t)
         const failure = new Error(`Media: ${operation}${detail ? ` (${detail})` : ''}: ${reason}`)
         failure.cause = error
         return failure
@@ -172,7 +176,7 @@ export function ResourcePage({ resource }) {
       setMediaProgress('')
       return result
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
       setFormState(null)
       setDeleteDialog(null)
       setPasswordModal(null)
@@ -181,10 +185,12 @@ export function ResourcePage({ resource }) {
       setMediaProgress('')
 
       const msg = variables.action === 'create'
-        ? 'Élément créé avec succès.'
+        ? resource.endpoint === '/api/parcels' && result?.parcel?.amount
+          ? `${t('resourceUi.parcelCreated')} ${result.parcel.amount} ${result.parcel.currency}`
+          : t('resourceUi.created')
         : variables.action === 'delete'
-        ? 'Élément supprimé.'
-        : 'Modifications enregistrées avec succès.'
+        ? t('resourceUi.deleted')
+        : t('resourceUi.saved')
       setNotice(msg)
 
       // Single targeted refetch of the active resource list (exactly 1 GET)
@@ -193,7 +199,7 @@ export function ResourcePage({ resource }) {
       setTimeout(() => setNotice(''), 4000)
     },
     onError: (err) => {
-      setServerError(errorMessage(err))
+      setServerError(errorMessage(err, t))
       setMediaProgress('')
     },
   })
@@ -225,15 +231,16 @@ export function ResourcePage({ resource }) {
     hasRequiredRole &&
     (!permission ? !resource.readOnly : hasPermission(user, permission) || user?.role === 'SUPER_ADMIN')
 
-  const canCreate = can(resource.createPermission) && !resource.readOnly
-  const canUpdate = can(resource.updatePermission) && !resource.readOnly
-  const canDelete = can(resource.deletePermission) && !resource.readOnly
+  const canWriteResource = !resource.writeRoles || resource.writeRoles.includes(user?.role)
+  const canCreate = can(resource.createPermission) && !resource.readOnly && canWriteResource
+  const canUpdate = can(resource.updatePermission) && !resource.readOnly && canWriteResource
+  const canDelete = can(resource.deletePermission) && !resource.readOnly && canWriteResource && (!resource.deleteRoles || resource.deleteRoles.includes(user?.role))
 
   if (resource.unavailable) {
     return (
       <section className="vanguard-page-container">
-        <PageHeader title={resource.label} subtitle="Module indisponible" />
-        <EmptyState title="Ressource non disponible" description={resource.unavailable} />
+        <PageHeader title={pageTitle} subtitle={t('resourceUi.moduleUnavailable')} />
+        <EmptyState title={t('resourceUi.resourceUnavailable')} description={resource.unavailable} />
       </section>
     )
   }
@@ -241,10 +248,10 @@ export function ResourcePage({ resource }) {
   if (!enabled) {
     return (
       <section className="vanguard-page-container">
-        <PageHeader title={resource.label} subtitle="Accès restreint" />
+        <PageHeader title={pageTitle} subtitle={t('resourceUi.restricted')} />
         <EmptyState
-          title="Accès non autorisé"
-          description="Vous ne disposez pas des permissions nécessaires pour consulter cette ressource administrative."
+          title={t('resourceUi.notAuthorized')}
+          description={t('resourceUi.resourceAccessDenied')}
         />
       </section>
     )
@@ -271,28 +278,31 @@ export function ResourcePage({ resource }) {
       const normalizedValue = typeof val === 'object' ? getRelationValue(val) : val
       if (col.badgeMap && col.badgeMap[normalizedValue] !== undefined) {
         const b = col.badgeMap[normalizedValue]
-        return <StatusBadge status={b.label} variant={b.variant} />
+        const badgeStatus = typeof normalizedValue === 'boolean'
+          ? normalizedValue ? 'ACTIVE' : 'INACTIVE'
+          : normalizedValue
+        return <StatusBadge status={badgeStatus} variant={b.variant} />
       }
       return <StatusBadge status={normalizedValue === undefined || normalizedValue === null || normalizedValue === '' ? '—' : String(normalizedValue)} />
     }
 
     if (col.type === 'date') {
-      return formatDate(val, false)
+      return formatDate(val, false, lang)
     }
 
     if (col.type === 'datetime') {
-      return formatDate(val, true)
+      return formatDate(val, true, lang)
     }
 
-    return formatCellValue(val, col.key)
+    return formatCellValue(val, col.key, t)
   }
 
   return (
     <section className="vanguard-page-container">
       {/* Page Header */}
       <PageHeader
-        title={resource.label}
-        subtitle={resource.description || `Gestion et suivi des ${resource.label.toLowerCase()}.`}
+        title={pageTitle}
+        subtitle={resource.description}
         actions={
           canCreate && (
             <Button
@@ -303,7 +313,7 @@ export function ResourcePage({ resource }) {
               }}
             >
               <Plus size={16} />
-              <span>Nouveau {resource.singularLabel || 'élément'}</span>
+              <span>{t('resourceUi.newItem')} {singularLabel}</span>
             </Button>
           )
         }
@@ -318,14 +328,14 @@ export function ResourcePage({ resource }) {
             className="resource-search-input"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={`Rechercher parmi les ${resource.label.toLowerCase()}…`}
+            placeholder={`${t('resourceUi.searchAmong')} ${pageTitle.toLowerCase()}…`}
           />
           {search && (
             <button
               type="button"
               className="clear-search-btn"
               onClick={() => setSearch('')}
-              aria-label="Effacer la recherche"
+              aria-label={t('resourceUi.clearSearch')}
             >
               <X size={14} />
             </button>
@@ -341,7 +351,7 @@ export function ResourcePage({ resource }) {
             className="refresh-btn"
           >
             <RefreshCw size={14} className={query.isFetching ? 'spin-icon' : ''} />
-            <span>Actualiser</span>
+            <span>{t('dashboard.refresh')}</span>
           </Button>
         </div>
       </div>
@@ -357,28 +367,28 @@ export function ResourcePage({ resource }) {
       {mutation.isError && !formState && (
         <div className="vanguard-alert vanguard-alert--danger" role="alert">
           <AlertTriangle size={16} />
-          <span>{errorMessage(mutation.error)}</span>
+          <span>{errorMessage(mutation.error, t)}</span>
         </div>
       )}
 
       {/* Main Content Area: Loading / Error / Empty / Data */}
       {query.isPending ? (
-        <LoadingState message={`Chargement des ${resource.label.toLowerCase()}…`} />
+        <LoadingState message={`${t('resourceUi.loading')} ${pageTitle.toLowerCase()}…`} />
       ) : query.isError ? (
         <ErrorState
-          title="Impossible de charger les données"
-          message={errorMessage(query.error)}
+          title={t('resourceUi.loadError')}
+          message={errorMessage(query.error, t)}
           onRetry={refresh}
         />
       ) : items.length === 0 ? (
         <EmptyState
-          title={search ? 'Aucun résultat trouvé' : 'Aucune donnée disponible'}
+          title={search ? t('resourceUi.noSearchResults') : t('resourceUi.noData')}
           description={
             search
-              ? `Aucun élément ne correspond à votre recherche "${search}".`
-              : `Aucun enregistrement n’a encore été créé dans ${resource.label}.`
+              ? `${t('resourceUi.noMatch')} « ${search} ».`
+              : `${t('resourceUi.noRecords')} ${pageTitle}.`
           }
-          actionLabel={canCreate && !search ? `Créer ${resource.singularLabel || 'un élément'}` : undefined}
+          actionLabel={canCreate && !search ? `${t('resourceUi.create')} ${singularLabel}` : undefined}
           onAction={canCreate && !search ? () => setFormState({ mode: 'create', initialData: {} }) : undefined}
         />
       ) : (
@@ -390,9 +400,9 @@ export function ResourcePage({ resource }) {
                 <thead>
                   <tr>
                     {columns.map((col) => (
-                      <th key={col.key}>{col.label}</th>
+                      <th key={col.key}>{t(`resourceFields.${col.key}`).startsWith('resourceFields.') ? col.label : t(`resourceFields.${col.key}`)}</th>
                     ))}
-                    <th className="th-actions">Actions</th>
+                    <th className="th-actions">{t('resourceUi.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -413,11 +423,11 @@ export function ResourcePage({ resource }) {
                                   setServerError('')
                                   setFormState({ mode: 'edit', initialData: item })
                                 }}
-                                title="Modifier"
-                                aria-label="Modifier"
+                                title={t('resourceUi.edit')}
+                                aria-label={t('resourceUi.edit')}
                               >
                                 <Edit2 size={14} />
-                                <span className="btn-label-desktop">Modifier</span>
+                                <span className="btn-label-desktop">{t('resourceUi.edit')}</span>
                               </button>
                             )}
 
@@ -432,9 +442,9 @@ export function ResourcePage({ resource }) {
                                     data: { status: item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' },
                                   })
                                 }
-                                title="Changer le statut"
+                                title={t('resourceUi.changeStatus')}
                               >
-                                <span>{item.status === 'ACTIVE' ? 'Désactiver' : 'Activer'}</span>
+                                <span>{item.status === 'ACTIVE' ? t('resourceUi.deactivate') : t('resourceUi.activate')}</span>
                               </button>
                             )}
 
@@ -443,7 +453,7 @@ export function ResourcePage({ resource }) {
                                 type="button"
                                 className="table-action-btn reset-btn"
                                 onClick={() => setPasswordModal({ id, item })}
-                                title="Réinitialiser le mot de passe"
+                                title={t('resourceUi.resetPassword')}
                               >
                                 <KeyRound size={14} />
                               </button>
@@ -454,11 +464,11 @@ export function ResourcePage({ resource }) {
                                 type="button"
                                 className="table-action-btn delete-btn"
                                 onClick={() => setDeleteDialog({ id, item })}
-                                title="Supprimer"
-                                aria-label="Supprimer"
+                                title={t('resourceUi.delete')}
+                                aria-label={t('resourceUi.delete')}
                               >
                                 <Trash2 size={14} />
-                                <span className="btn-label-desktop">Supprimer</span>
+                                <span className="btn-label-desktop">{t('resourceUi.delete')}</span>
                               </button>
                             )}
                           </div>
@@ -480,7 +490,7 @@ export function ResourcePage({ resource }) {
                   <div className="resource-mobile-card-body">
                     {columns.map((col) => (
                       <div key={col.key} className="resource-card-field-row">
-                        <span className="card-field-label">{col.label} :</span>
+                        <span className="card-field-label">{t(`resourceFields.${col.key}`).startsWith('resourceFields.') ? col.label : t(`resourceFields.${col.key}`)} :</span>
                         <span className="card-field-value">{renderCell(item, col)}</span>
                       </div>
                     ))}
@@ -497,7 +507,7 @@ export function ResourcePage({ resource }) {
                         }}
                       >
                         <Edit2 size={14} />
-                        <span>Modifier</span>
+                        <span>{t('resourceUi.edit')}</span>
                       </Button>
                     )}
 
@@ -508,7 +518,7 @@ export function ResourcePage({ resource }) {
                         onClick={() => setDeleteDialog({ id, item })}
                       >
                         <Trash2 size={14} />
-                        <span>Supprimer</span>
+                        <span>{t('resourceUi.delete')}</span>
                       </Button>
                     )}
                   </div>
@@ -522,7 +532,7 @@ export function ResourcePage({ resource }) {
       {/* Dynamic Creation / Modification Modal */}
       {formState && (
         <DynamicResourceForm
-          resource={resource}
+          resource={user?.role === 'AGENT' && resource.agentFields ? { ...resource, fields: resource.agentFields } : resource}
           isOpen={Boolean(formState)}
           mode={formState.mode}
           initialData={formState.initialData}
@@ -551,10 +561,10 @@ export function ResourcePage({ resource }) {
           onConfirm={() => {
             mutation.mutate({ action: 'delete', id: deleteDialog.id })
           }}
-          title={`Supprimer ce ${resource.singularLabel?.toLowerCase() || 'élément'} ?`}
-          message="Cette action est irréversible. Toutes les données associées seront supprimées du système."
-          confirmText="Supprimer définitivement"
-          cancelText="Annuler"
+          title={`${t('resourceUi.delete')} ${singularLabel.toLowerCase()} ?`}
+          message={t('resourceUi.deleteWarning')}
+          confirmText={t('resourceUi.confirmDelete')}
+          cancelText={t('resourceUi.cancel')}
           variant="danger"
           loading={mutation.isPending}
         />
@@ -568,8 +578,8 @@ export function ResourcePage({ resource }) {
             setPasswordModal(null)
             setNewPassword('')
           }}
-          title="Réinitialiser le mot de passe"
-          subtitle={`Pour : ${passwordModal.item?.email || passwordModal.item?.firstName || 'l’utilisateur'}`}
+          title={t('resourceUi.resetPassword')}
+          subtitle={`${t('resourceUi.forUser')} ${passwordModal.item?.email || passwordModal.item?.firstName || t('resourceUi.item')}`}
           size="sm"
         >
           <form
@@ -585,9 +595,9 @@ export function ResourcePage({ resource }) {
             className="password-reset-form"
           >
             <FormField
-              label="Nouveau mot de passe"
+              label={t('resourceUi.newPassword')}
               required
-              helper="Minimum 6 caractères"
+              helper={t('commonUi.minimumChars')}
               id="new-password-input"
             >
               <Input
@@ -610,10 +620,10 @@ export function ResourcePage({ resource }) {
                   setNewPassword('')
                 }}
               >
-                Annuler
+                {t('resourceUi.cancel')}
               </Button>
               <Button type="submit" variant="primary" disabled={newPassword.length < 6}>
-                Enregistrer
+                {t('resourceUi.save')}
               </Button>
             </div>
           </form>

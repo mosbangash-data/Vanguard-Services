@@ -1,14 +1,16 @@
 import React from 'react'
 import { Search, X, RefreshCw } from 'lucide-react'
 import { IconButton } from './IconButton'
+import { useLanguage } from '../../i18n/useLanguage'
 
 export function SearchBar({
   value,
   onChange,
-  placeholder = 'Rechercher…',
+  placeholder,
   onClear,
   className = '',
 }) {
+  const { t } = useLanguage()
   return (
     <div className={`vanguard-search-bar ${className}`}>
       <Search size={15} className="vanguard-search-icon" aria-hidden="true" />
@@ -16,7 +18,7 @@ export function SearchBar({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={placeholder || t('commonUi.search')}
         className="vanguard-search-input"
       />
       {value && (
@@ -24,7 +26,7 @@ export function SearchBar({
           type="button"
           onClick={() => (onClear ? onClear() : onChange(''))}
           className="vanguard-search-clear"
-          aria-label="Effacer la recherche"
+          aria-label={t('commonUi.clearSearch')}
         >
           <X size={14} />
         </button>
@@ -39,6 +41,7 @@ export function FilterBar({
   isRefreshing = false,
   className = '',
 }) {
+  const { t } = useLanguage()
   return (
     <div className={`vanguard-filter-bar ${className}`}>
       <div className="vanguard-filter-bar-controls">{children}</div>
@@ -47,7 +50,7 @@ export function FilterBar({
           <IconButton
             icon={RefreshCw}
             variant="outline"
-            title="Actualiser les données"
+            title={t('commonUi.refresh')}
             onClick={onRefresh}
             className={isRefreshing ? 'animate-spin' : ''}
             disabled={isRefreshing}

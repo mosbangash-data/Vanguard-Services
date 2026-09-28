@@ -2,7 +2,7 @@ const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const { requireDepartmentType } = require('./departmentAccessService');
-const { calculateOfficialPrice } = require('./parcelPricingService');
+const { calculateOfficialPrice, applyPricingBasis } = require('./parcelPricingService');
 const { encryptSensitiveData, decryptSensitiveData, maskIdNumber, generateSecureTrackingCode } = require('../utils/cryptoUtils');
 const { buildSignedQrPayload } = require('../utils/qrUtils');
 const { getProvider } = require('./payment');
@@ -25,6 +25,34 @@ const assertCoachAccess = (currentUser) => {
   if (currentUser.role !== 'SUPER_ADMIN' && currentUser.department?.type !== 'VANGUARD_COACH') {
     throw new AppError('Access denied', 403);
   }
+};
+
+const resolveOriginAgencyId = (requestedAgencyId, currentUser) => {
+  const assignedAgencyId = currentUser?.agencyId || currentUser?.agency?.id || null;
+  if (currentUser?.role === 'AGENT' && !assignedAgencyId) {
+    throw new AppError('Agent agency assignment is required', 403);
+  }
+  if (assignedAgencyId && currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SERVICE_ADMIN') {
+    if (requestedAgencyId && requestedAgencyId !== assignedAgencyId) {
+      throw new AppError('Access denied: You cannot register a parcel for another origin agency', 403);
+    }
+    return assignedAgencyId;
+  }
+  return requestedAgencyId || null;
+};
+
+const resolvePricingDimensions = (basis, weightKg, volumeM3) => {
+  const normalizedBasis = basis ? String(basis).toUpperCase() : null;
+  if (normalizedBasis && !['WEIGHT', 'VOLUME'].includes(normalizedBasis)) {
+    throw new AppError('pricingBasis must be WEIGHT or VOLUME', 400);
+  }
+  if (normalizedBasis === 'WEIGHT' && !(Number(weightKg) > 0)) {
+    throw new AppError('A positive weight is required for weight-based pricing', 400);
+  }
+  if (normalizedBasis === 'VOLUME' && !(Number(volumeM3) > 0)) {
+    throw new AppError('A positive volume is required for volume-based pricing', 400);
+  }
+  return applyPricingBasis(normalizedBasis, weightKg, volumeM3);
 };
 
 const assertParcelAgencyAccess = (currentUser, parcel, action = 'view') => {
@@ -155,21 +183,18 @@ const getParcelById = async (id, currentUser) => {
 
 const createParcel = async (data, currentUser) => {
   assertCoachAccess(currentUser);
-  const userAgencyId = currentUser.agencyId || currentUser.agency?.id;
-  if (userAgencyId && currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SERVICE_ADMIN') {
-    if (data.originAgencyId && data.originAgencyId !== userAgencyId) {
-      throw new AppError('Access denied: You cannot register a parcel for another origin agency', 403);
-    }
-    if (!data.originAgencyId) {
-      data.originAgencyId = userAgencyId;
-    }
-  }
+  const pricingBasis = data.pricingBasis ? String(data.pricingBasis).toUpperCase() : null;
+  const dept = await getCoachDepartment();
+  if (!dept) throw new AppError('Vanguard Coach department is not configured', 500);
+  const pricingDimensions = resolvePricingDimensions(pricingBasis, data.weightKg, data.volumeM3);
+  data.originAgencyId = resolveOriginAgencyId(data.originAgencyId, currentUser);
 
   if (data.originAgencyId) {
     const originAgency = await prisma.agency.findUnique({ where: { id: data.originAgencyId } });
     if (!originAgency || !originAgency.isActive) {
       throw new AppError('Origin agency not found or inactive', 400);
     }
+    if (originAgency.departmentId !== dept.id) throw new AppError('Origin agency must belong to Vanguard Coach', 400);
     if (!data.originCity && originAgency.city) {
       data.originCity = originAgency.city;
     }
@@ -180,6 +205,7 @@ const createParcel = async (data, currentUser) => {
     if (!destinationAgency || !destinationAgency.isActive) {
       throw new AppError('Destination agency not found or inactive', 400);
     }
+    if (destinationAgency.departmentId !== dept.id) throw new AppError('Destination agency must belong to Vanguard Coach', 400);
     if (!data.destinationCity && destinationAgency.city) {
       data.destinationCity = destinationAgency.city;
     }
@@ -193,12 +219,10 @@ const createParcel = async (data, currentUser) => {
     throw new AppError('Sender, recipient, and route (origin/destination) information are required', 400);
   }
 
-  const dept = await getCoachDepartment();
   const pricing = await calculateOfficialPrice({
     originCity: data.originCity,
     destinationCity: data.destinationCity,
-    weightKg: data.weightKg,
-    volumeM3: data.volumeM3,
+    ...pricingDimensions,
     category: data.category,
     declaredValue: data.declaredValue,
     departmentId: dept?.id,
@@ -223,8 +247,7 @@ const createParcel = async (data, currentUser) => {
         destinationAgencyId: data.destinationAgencyId || null,
         category: data.category ? String(data.category).trim().toUpperCase() : 'STANDARD',
         description: data.description ? String(data.description).trim() : null,
-        weightKg: Number(data.weightKg) || 0,
-        volumeM3: Number(data.volumeM3) || 0,
+        ...pricingDimensions,
         declaredValue: data.declaredValue ? Number(data.declaredValue) : null,
         amount: pricing.amount,
         currency: pricing.currency,
@@ -631,5 +654,7 @@ module.exports = {
   trackPublicParcel,
   updateParcel,
   deleteParcel,
+  resolveOriginAgencyId,
+  resolvePricingDimensions,
 };
 

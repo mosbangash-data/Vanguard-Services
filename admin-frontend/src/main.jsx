@@ -29,13 +29,13 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ErrorBoundary>
-      <LanguageProvider>
+    <LanguageProvider>
+      <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <App />
         </QueryClientProvider>
-      </LanguageProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </LanguageProvider>
   </StrictMode>,
 )
 

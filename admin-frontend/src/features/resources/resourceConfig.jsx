@@ -278,6 +278,7 @@ export const resourceGroups = {
     resource('/transport/trips', 'Voyages', '/api/trips', {
       singularLabel: 'Voyage',
       permission: 'VIEW_TRIP',
+      writeRoles: ['SUPER_ADMIN', 'SERVICE_ADMIN'],
       columns: [
         { key: 'schedule', label: 'Trajet', render: (t) => t.schedule?.route ? `${t.schedule.route.departureCity} → ${t.schedule.route.arrivalCity}` : t.schedule?.departureTime ? `Départ ${t.schedule.departureTime}` : '—' },
         { key: 'departureAt', label: 'Départ', type: 'datetime' },
@@ -416,6 +417,9 @@ export const resourceGroups = {
 
     resource('/transport/parcels', 'Colis', '/api/parcels', {
       singularLabel: 'Colis',
+      createPermission: 'CREATE_PARCEL',
+      updatePermission: 'UPDATE_PARCEL',
+      deleteRoles: ['SUPER_ADMIN', 'SERVICE_ADMIN'],
       columns: [
         { key: 'trackingCode', label: 'Code de suivi' },
         { key: 'senderName', label: 'Expéditeur' },
@@ -459,6 +463,24 @@ export const resourceGroups = {
         { name: 'currency', label: 'Devise', type: 'select', defaultValue: 'USD', options: [{ value: 'USD', label: 'USD ($)' }, { value: 'CDF', label: 'CDF (FC)' }] },
         { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Détails, fragilité, etc.', fullWidth: true },
       ],
+      agentFields: [
+        { name: 'senderName', label: 'Nom de l’expéditeur', type: 'text', required: true },
+        { name: 'senderPhone', label: 'Téléphone de l’expéditeur', type: 'tel', required: true },
+        { name: 'recipientName', label: 'Nom du destinataire', type: 'text', required: true },
+        { name: 'recipientPhone', label: 'Téléphone du destinataire', type: 'tel', required: true },
+        {
+          name: 'destinationAgencyId', label: 'Agence de destination', type: 'select', required: true,
+          optionsUrl: '/api/agencies',
+          optionsMapper: (item) => ({ value: item.id, label: `${item.name} (${item.code}) • ${item.city || '—'}` }),
+          placeholder: 'Sélectionner la destination',
+        },
+        { name: 'category', label: 'Type / description', type: 'select', defaultValue: 'STANDARD', options: [{ value: 'STANDARD', label: 'Standard' }, { value: 'DOCUMENT', label: 'Document' }, { value: 'FRAGILE', label: 'Fragile' }] },
+        { name: 'pricingBasis', label: 'Critère de tarification', type: 'select', required: true, defaultValue: 'WEIGHT', options: [{ value: 'WEIGHT', label: 'Tarification au poids' }, { value: 'VOLUME', label: 'Tarification au volume' }] },
+        { name: 'weightKg', label: 'Poids (kg)', type: 'number', required: true, min: 0, step: '0.01', visibleWhen: (values) => values.pricingBasis === 'WEIGHT' },
+        { name: 'volumeM3', label: 'Volume (m³)', type: 'number', required: true, min: 0, step: '0.01', visibleWhen: (values) => values.pricingBasis === 'VOLUME' },
+        { name: 'description', label: 'Description complémentaire', type: 'textarea', fullWidth: true },
+      ],
+      priceQuote: true,
     }),
 
     resource('/transport/seats', 'Sièges', '/api/seats', {

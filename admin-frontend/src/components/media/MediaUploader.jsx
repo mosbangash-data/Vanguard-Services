@@ -9,6 +9,7 @@ import {
   formatFileSize,
 } from '../../utils/media'
 import { MediaImage } from './MediaImage'
+import { useLanguage } from '../../i18n/useLanguage'
 
 export function MediaUploader({
   existingMedia = [],
@@ -21,9 +22,10 @@ export function MediaUploader({
   isUploading = false,
   uploadProgressText = '',
   maxFiles = 12,
-  label = 'Photos & Galerie',
-  helperText = 'Formats supportés : JPEG, PNG, WEBP, GIF. Taille maximale : 10 Mo par image.',
+  label,
+  helperText,
 }) {
+  const { t } = useLanguage()
   const fileInputRef = useRef(null)
   const pendingFilesRef = useRef(pendingFiles)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -45,13 +47,13 @@ export function MediaUploader({
     const mimeType = String(file.type || '').toLowerCase()
     const extension = `.${String(file.name || '').split('.').pop()}`.toLowerCase()
     if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {
-      return `Le format "${file.type || 'inconnu'}" n'est pas autorisé. Utilisez JPEG, PNG, WEBP ou GIF.`
+      return t('mediaUi.invalidMime').replace('{value}', file.type || t('mediaUi.unknown'))
     }
     if (!ALLOWED_IMAGE_EXTENSIONS.includes(extension)) {
-      return `L'extension "${extension || 'inconnue'}" n'est pas autorisée.`
+      return t('mediaUi.invalidExtension').replace('{value}', extension || t('mediaUi.unknown'))
     }
     if (file.size > MAX_IMAGE_SIZE) {
-      return `Le fichier "${file.name}" dépasse la taille maximale autorisée (10 Mo).`
+      return t('mediaUi.oversized').replace('{value}', file.name)
     }
     return null
   }
@@ -81,7 +83,7 @@ export function MediaUploader({
 
     const currentCount = existingMedia.length + pendingFiles.length
     if (currentCount + validFiles.length > maxFiles) {
-      setErrorMessage(`Vous ne pouvez pas ajouter plus de ${maxFiles} photos au total.`)
+      setErrorMessage(t('mediaUi.maxPhotos').replace('{count}', String(maxFiles)))
       return
     }
 
@@ -168,13 +170,13 @@ export function MediaUploader({
 
   return (
     <div className="media-uploader-container" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {label && (
+      {(label || t('mediaUi.photosGallery')) && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#334155' }}>
-            {label}
+            {label || t('mediaUi.photosGallery')}
           </label>
           <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
-            {existingMedia.length + pendingFiles.length} / {maxFiles} photos
+            {existingMedia.length + pendingFiles.length} / {maxFiles} {t('mediaUi.photoCount')}
           </span>
         </div>
       )}
@@ -218,7 +220,7 @@ export function MediaUploader({
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Loader2 size={32} className="animate-spin" style={{ color: '#2563EB' }} />
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#2563EB' }}>
-              {uploadProgressText || 'Téléversement des photos en cours…'}
+              {uploadProgressText || t('mediaUi.uploading')}
             </span>
           </div>
         ) : (
@@ -239,11 +241,11 @@ export function MediaUploader({
             </div>
             <div>
               <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: '#1E293B' }}>
-                Glissez-déposez vos photos ici, ou{' '}
-                <span style={{ color: '#2563EB', textDecoration: 'underline' }}>parcourez</span>
+                {t('mediaUi.dropPhotos')}{' '}
+                <span style={{ color: '#2563EB', textDecoration: 'underline' }}>{t('mediaUi.browse')}</span>
               </p>
               <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#64748B' }}>
-                {helperText}
+                {helperText || t('mediaUi.supportedFormats')}
               </p>
             </div>
           </>
@@ -334,7 +336,7 @@ export function MediaUploader({
                         gap: '3px',
                       }}
                     >
-                      <Star size={10} fill="#FFFFFF" /> Principale
+                    <Star size={10} fill="#FFFFFF" /> {t('mediaUi.primary')}
                     </span>
                   )}
                 </div>
@@ -369,16 +371,16 @@ export function MediaUploader({
                           textAlign: 'left',
                         }}
                       >
-                        Définir principale
+                        {t('mediaUi.setPrimary')}
                       </button>
                     ) : (
-                      <span style={{ fontSize: '0.7rem', color: '#16A34A', fontWeight: 600 }}>Active</span>
+                      <span style={{ fontSize: '0.7rem', color: '#16A34A', fontWeight: 600 }}>{t('mediaUi.active')}</span>
                     )}
 
                     {onDeleteExisting && (
                       <button
                         type="button"
-                        title="Supprimer la photo"
+                        title={t('mediaUi.deletePhoto')}
                         onClick={(e) => {
                           e.stopPropagation()
                           onDeleteExisting(mediaId)
@@ -443,7 +445,7 @@ export function MediaUploader({
                       borderRadius: '3px',
                     }}
                   >
-                    Nouveau
+                    {t('mediaUi.new')}
                   </span>
 
                   {/* Primary Badge */}
@@ -464,7 +466,7 @@ export function MediaUploader({
                         gap: '3px',
                       }}
                     >
-                      <Star size={10} fill="#FFFFFF" /> Principale
+                      <Star size={10} fill="#FFFFFF" /> {t('mediaUi.primary')}
                     </span>
                   )}
                 </div>
@@ -502,7 +504,7 @@ export function MediaUploader({
                       {!isPrimary && (
                         <button
                           type="button"
-                          title="Définir comme photo principale"
+                          title={t('mediaUi.setPrimaryTitle')}
                           onClick={() => handleSetPendingPrimary(pending.id)}
                           disabled={disabled || isUploading}
                           style={{
@@ -534,7 +536,7 @@ export function MediaUploader({
                           alignItems: 'center',
                         }}
                       >
-                        <X size={13} />
+                        <X size={13} aria-label={t('mediaUi.removePhoto')} />
                       </button>
                     </div>
                   </div>

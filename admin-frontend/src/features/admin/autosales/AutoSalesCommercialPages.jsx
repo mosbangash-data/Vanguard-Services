@@ -593,7 +593,7 @@ export function AutoSalesPaymentPage() {
                         <button type="button" className="button sm" onClick={() => validateMutation.mutate(payment.id)} disabled={validateMutation.isPending}>{t('autosalesCommercial.validate')}</button>
                       )}
                       {canValidatePayment && payment.status === 'PENDING' && (
-                        <button type="button" className="button danger sm" onClick={() => rejectMutation.mutate({ id: payment.id, reason: t('autosalesCommercial.rejectReason') })} disabled={rejectMutation.isPending}>{t('autosalesCommercial.reject')}</button>
+                  <button type="button" className="button danger sm" onClick={() => rejectMutation.mutate({ id: payment.id, reason: t('autosalesCommercial.rejectedReason') })} disabled={rejectMutation.isPending}>{t('autosalesCommercial.reject')}</button>
                       )}
                     </td>
                   </tr>

@@ -2,6 +2,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const publicController = require('../controllers/publicController');
+const { AppError } = require('../middleware/errorHandler');
 const {
   validatePublicReservationCreate,
   validatePublicCustomerRequestCreate,
@@ -45,8 +46,8 @@ router.post('/reservations', publicPostLimiter, validatePublicReservationCreate,
 // GET /api/public/reservations/:code
 router.get('/reservations/:code', publicController.getPublicReservationByCode);
 
-// POST /api/public/parcels
-router.post('/parcels', publicPostLimiter, publicController.createPublicParcel);
+// Parcel registration is reserved for authenticated agency staff.
+router.post('/parcels', (req, res, next) => next(new AppError('Parcel registration requires an authorized agency account', 403)));
 
 // GET /api/public/parcels/:trackingCode
 router.get('/parcels/:trackingCode', setNoStoreHeaders, publicController.getPublicParcelByTrackingCode);

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Search, RefreshCw, Eye, X, ShieldAlert, FileCode2, Clock, User, Layers } from 'lucide-react'
 import { api } from '../../../services/api'
+import { useLanguage } from '../../../i18n/useLanguage'
 import {
   PageHeader,
   Card,
@@ -25,6 +26,7 @@ async function fetchAuditLogs({ page, limit, search, action }) {
 }
 
 export function AuditLogsPage() {
+  const { t, lang } = useLanguage()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [actionFilter, setActionFilter] = useState('ALL')
@@ -42,7 +44,7 @@ export function AuditLogsPage() {
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
     try {
-      return new Date(dateStr).toLocaleString('fr-FR', {
+      return new Date(dateStr).toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR', {
         dateStyle: 'short',
         timeStyle: 'medium',
       })
@@ -51,57 +53,23 @@ export function AuditLogsPage() {
     }
   }
 
-  const ACTION_LABELS = {
-    login: 'Connexion',
-    logout: 'Déconnexion',
-    create_user: 'Création d’un utilisateur',
-    update_user: 'Modification d’un utilisateur',
-    delete_user: 'Suppression d’un utilisateur',
-    create_project: 'Création d’un projet',
-    update_project: 'Modification d’un projet',
-    delete_project: 'Suppression d’un projet',
-    create_agency: 'Création d’une agence',
-    update_agency: 'Modification d’une agence',
-    delete_agency: 'Suppression d’une agence',
-    create_vehicle: 'Ajout d’un véhicule',
-    update_vehicle: 'Modification d’un véhicule',
-    delete_vehicle: 'Suppression d’un véhicule',
-    create_customer_request: 'Création d’une demande client',
-    update_customer_request: 'Modification d’une demande client',
-    create_quote_request: 'Création d’une demande de devis',
-    update_quote_request: 'Modification d’une demande de devis',
-    create_reservation: 'Création d’une réservation',
-    update_reservation: 'Modification d’une réservation',
-    create_vehicle_inquiry: 'Création d’une demande véhicule',
-    update_vehicle_inquiry: 'Modification d’une demande véhicule',
-    assign_vehicle_inquiry: 'Attribution d’une demande véhicule',
-    create_vehicle_reservation: 'Création d’une réservation véhicule',
-    create_vehicle_payment: 'Création d’un paiement véhicule',
-    update_role_permissions: 'Mise à jour des accès',
-    forgot_password_requested: 'Demande de réinitialisation du mot de passe',
-    reset_password_completed: 'Réinitialisation du mot de passe',
-  }
-
   const getActionLabel = (action) => {
     const normalized = String(action || '').toLowerCase()
-    if (ACTION_LABELS[normalized]) return ACTION_LABELS[normalized]
-    if (normalized.startsWith('create_')) return 'Création d’une opération'
-    if (normalized.startsWith('update_')) return 'Modification d’une opération'
-    if (normalized.startsWith('delete_')) return 'Suppression d’une opération'
-    if (normalized.includes('login') || normalized.includes('auth')) return 'Événement de connexion'
-    return 'Action système'
+    const key = `auditUi.actions.${normalized}`
+    const translated = t(key)
+    if (translated !== key) return translated
+    if (normalized.startsWith('create_')) return t('auditUi.actionCreated')
+    if (normalized.startsWith('update_')) return t('auditUi.actionUpdated')
+    if (normalized.startsWith('delete_')) return t('auditUi.actionDeleted')
+    if (normalized.includes('login') || normalized.includes('auth')) return t('auditUi.actionLogin')
+    return t('auditUi.actionSystem')
   }
 
-  const ROLE_LABELS = {
-    SUPER_ADMIN: 'Administrateur système',
-    ADMIN: 'Administrateur',
-    SERVICE_ADMIN: 'Administrateur de service',
-    MANAGER: 'Responsable',
-    ENGINEER: 'Ingénieur',
-    AGENT: 'Agent',
+  const getRoleLabel = (role) => {
+    const key = `auditUi.roles.${String(role || '').toUpperCase()}`
+    const translated = t(key)
+    return translated === key ? t('auditUi.systemRole') : translated
   }
-
-  const getRoleLabel = (role) => ROLE_LABELS[String(role || '').toUpperCase()] || 'Rôle système'
 
   const getActionBadgeVariant = (action) => {
     const act = String(action || '').toLowerCase()
@@ -112,21 +80,12 @@ export function AuditLogsPage() {
     return 'neutral'
   }
 
-  const DETAIL_LABELS = {
-    role: 'Rôle',
-    department: 'Service',
-    departmentType: 'Service',
-    status: 'Résultat',
-    resultStatus: 'Résultat',
-    description: 'Description',
-    email: 'E-mail',
-    firstName: 'Prénom',
-    lastName: 'Nom',
-    amount: 'Montant',
-    currency: 'Devise',
-  }
   const HIDDEN_DETAIL_KEYS = new Set(['userid', 'targetuserid', 'roleid', 'departmentid', 'permissionids', 'permissions', 'ipaddress', 'providertransactionid', 'providerreference'])
-  const formatDetailLabel = (key) => DETAIL_LABELS[key] || 'Information'
+  const formatDetailLabel = (key) => {
+    const normalized = key[0]?.toUpperCase() + key.slice(1)
+    const label = t(`auditUi.detailFields.${normalized}`)
+    return label === `auditUi.detailFields.${normalized}` ? t('auditUi.information') : label
+  }
   const getReadableDetails = (details) => {
     if (!details || typeof details !== 'object') return []
     return Object.entries(details)
@@ -138,9 +97,9 @@ export function AuditLogsPage() {
   return (
     <div className="page vanguard-audit-page">
       <PageHeader
-        eyebrow="VANGUARD SERVICES · SÉCURITÉ & AUDIT"
-        title="Journal d’Audit Système"
-        subtitle="Historique détaillé de toutes les actions, connexions et modifications sensibles."
+        eyebrow={t('auditUi.eyebrow')}
+        title={t('auditUi.title')}
+        subtitle={t('auditUi.subtitle')}
         actions={
           <Button
             variant="secondary"
@@ -149,7 +108,7 @@ export function AuditLogsPage() {
             loading={isFetching}
             onClick={() => refetch()}
           >
-            Actualiser
+            {t('commonUi.refresh')}
           </Button>
         }
       />
@@ -161,7 +120,7 @@ export function AuditLogsPage() {
             setSearch(val)
             setPage(1)
           }}
-          placeholder="Rechercher par action, utilisateur, ID..."
+          placeholder={t('auditUi.searchPlaceholder')}
         />
         <select
           value={actionFilter}
@@ -172,30 +131,30 @@ export function AuditLogsPage() {
           className="vanguard-select"
           style={{ width: 'auto', minWidth: '180px' }}
         >
-          <option value="ALL">Toutes les actions</option>
-          <option value="login">Connexions</option>
-          <option value="create_user">Création utilisateur</option>
-          <option value="update_user">Modification utilisateur</option>
-          <option value="create_agency">Création agence</option>
-          <option value="update_agency">Modification agence</option>
-          <option value="delete_agency">Suppression agence</option>
-          <option value="create_vehicle">Création véhicule</option>
-          <option value="create_project">Création projet</option>
+          <option value="ALL">{t('auditUi.allActions')}</option>
+          <option value="login">{t('auditUi.logins')}</option>
+          <option value="create_user">{t('auditUi.actions.create_user')}</option>
+          <option value="update_user">{t('auditUi.actions.update_user')}</option>
+          <option value="create_agency">{t('auditUi.actions.create_agency')}</option>
+          <option value="update_agency">{t('auditUi.actions.update_agency')}</option>
+          <option value="delete_agency">{t('auditUi.actions.delete_agency')}</option>
+          <option value="create_vehicle">{t('auditUi.actions.create_vehicle')}</option>
+          <option value="create_project">{t('auditUi.actions.create_project')}</option>
         </select>
       </FilterBar>
 
       {isPending ? (
-        <LoadingState message="Chargement des événements d’audit..." />
+        <LoadingState message={t('auditUi.loading')} />
       ) : isError ? (
         <ErrorState
-          title="Erreur de chargement de l’audit"
-          message={error?.response?.data?.message || 'Impossible de récupérer les journaux d’audit.'}
+          title={t('auditUi.loadError')}
+          message={error?.response?.data?.message || t('auditUi.loadMessage')}
           onRetry={() => refetch()}
         />
       ) : rawItems.length === 0 ? (
         <EmptyState
-          title="Aucun événement d’audit trouvé"
-          description="Aucune opération ne correspond à vos critères de recherche ou de filtre."
+          title={t('auditUi.emptyTitle')}
+          description={t('auditUi.emptyDescription')}
           icon={ShieldAlert}
         />
       ) : (
@@ -204,11 +163,11 @@ export function AuditLogsPage() {
             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Date & Heure</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Action</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Acteur</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Aperçu des détails</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Détails</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('auditUi.dateTime')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('auditUi.action')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('auditUi.actor')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('auditUi.detailsPreview')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>{t('auditUi.details')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -237,7 +196,7 @@ export function AuditLogsPage() {
                       <td style={{ padding: '12px 16px', fontSize: '0.84rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <User size={13} color="#64748B" />
-                          <span>{log.actorId ? 'Utilisateur de la plateforme' : 'Système'}</span>
+                          <span>{log.actorId ? t('auditUi.platformUser') : t('auditUi.system')}</span>
                         </div>
                       </td>
                       <td style={{
@@ -249,7 +208,7 @@ export function AuditLogsPage() {
                         fontSize: '0.8125rem',
                         color: '#64748B'
                       }}>
-                        {detailsPreview.length > 0 ? detailsPreview.join(' · ') : 'Aucun détail complémentaire'}
+                        {detailsPreview.length > 0 ? detailsPreview.join(' · ') : t('auditUi.noDetails')}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                         <Button
@@ -261,7 +220,7 @@ export function AuditLogsPage() {
                             setViewingLog(log)
                           }}
                         >
-                          Inspecter
+                          {t('auditUi.inspect')}
                         </Button>
                       </td>
                     </tr>
@@ -282,7 +241,7 @@ export function AuditLogsPage() {
             gap: '12px'
           }}>
             <span style={{ fontSize: '0.8125rem', color: '#64748B' }}>
-              Page <strong>{page}</strong> sur <strong>{totalPages}</strong> ({totalLogs} événements au total)
+              {t('auditUi.pageSummary', { page, totalPages, total: totalLogs })}
             </span>
             <div style={{ display: 'flex', gap: '8px' }}>
               <Button
@@ -291,7 +250,7 @@ export function AuditLogsPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                Précédent
+                {t('commonUi.previous')}
               </Button>
               <Button
                 variant="secondary"
@@ -299,7 +258,7 @@ export function AuditLogsPage() {
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Suivant
+                {t('commonUi.next')}
               </Button>
             </div>
           </div>
@@ -311,48 +270,48 @@ export function AuditLogsPage() {
         <Modal
           isOpen={Boolean(viewingLog)}
           onClose={() => setViewingLog(null)}
-          title="Détails de l’événement d’audit"
-          subtitle="Événement enregistré dans le journal de sécurité"
+          title={t('auditUi.modalTitle')}
+          subtitle={t('auditUi.modalSubtitle')}
           size="lg"
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Action</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('auditUi.action')}</span>
                 <div style={{ marginTop: '4px' }}>
                   <StatusBadge label={getActionLabel(viewingLog.action)} variant={getActionBadgeVariant(viewingLog.action)} />
                 </div>
               </div>
 
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Date & Heure</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('auditUi.dateTime')}</span>
                 <div style={{ marginTop: '4px', fontWeight: 600, color: '#0F172A', fontSize: '0.88rem' }}>
                   {formatDate(viewingLog.createdAt)}
                 </div>
               </div>
 
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Utilisateur</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('auditUi.user')}</span>
                 <div style={{ marginTop: '4px', fontWeight: 600, color: '#0F172A', fontSize: '0.88rem' }}>
-                  {viewingLog.actorId ? 'Utilisateur de la plateforme' : 'Système (automatique)'}
+                  {viewingLog.actorId ? t('auditUi.platformUser') : t('auditUi.automaticSystem')}
                 </div>
               </div>
             </div>
 
             <div>
-              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Informations complémentaires</span>
+              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('auditUi.additionalInformation')}</span>
               <div style={{ marginTop: '6px', display: 'grid', gap: '8px' }}>
                 {getReadableDetails(viewingLog.details).length > 0 ? getReadableDetails(viewingLog.details).map((detail) => (
                   <div key={detail} style={{ padding: '10px 12px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', color: '#0F172A', fontSize: '0.84rem' }}>
                     {detail}
                   </div>
-                )) : <p style={{ margin: 0, color: '#64748B' }}>Aucune information complémentaire disponible.</p>}
+                )) : <p style={{ margin: 0, color: '#64748B' }}>{t('auditUi.noAdditionalInformation')}</p>}
               </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
               <Button variant="secondary" onClick={() => setViewingLog(null)}>
-                Fermer
+                {t('commonUi.close')}
               </Button>
             </div>
           </div>

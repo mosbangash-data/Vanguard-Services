@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback } from 'react'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getMediaUrl, normalizeMedia } from '../../utils/media'
+import { useLanguage } from '../../i18n/useLanguage'
 
 export function MediaViewer({
   isOpen,
@@ -9,6 +10,7 @@ export function MediaViewer({
   onClose,
   onChangeIndex,
 }) {
+  const { t } = useLanguage()
   const normalizedImages = (images || []).map((img) => normalizeMedia(img)).filter(Boolean)
   const total = normalizedImages.length
   const current = normalizedImages[currentIndex] || normalizedImages[0]
@@ -149,7 +151,7 @@ export function MediaViewer({
               e.stopPropagation()
               handlePrev()
             }}
-            aria-label="Image précédente"
+            aria-label={t('mediaUi.imagePrevious')}
             style={{
               position: 'absolute',
               left: '20px',
@@ -176,7 +178,7 @@ export function MediaViewer({
               e.stopPropagation()
               handleNext()
             }}
-            aria-label="Image suivante"
+            aria-label={t('mediaUi.imageNext')}
             style={{
               position: 'absolute',
               right: '20px',

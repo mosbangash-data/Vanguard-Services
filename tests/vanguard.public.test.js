@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
 const app = require('../src/app');
+const prisma = require('../src/config/prisma');
 const { main: seedMain } = require('../prisma/seed');
 
 let server;
@@ -60,6 +61,29 @@ test('GET /api/public/agencies — liste publique des agences actives', async ()
   assert.equal(res.data.success, true);
   assert.ok(Array.isArray(res.data.data.items));
   assert.ok(res.data.data.items.every((agency) => agency.isActive === undefined || agency.isActive === true));
+});
+
+test('POST /api/public/parcels — colis réservé aux comptes agence authentifiés', async () => {
+  const before = {
+    parcels: await prisma.parcel.count(),
+    parcelPayments: await prisma.payment.count({ where: { parcelId: { not: null } } }),
+    parcelHistory: await prisma.parcelStatusHistory.count(),
+    auditLogs: await prisma.auditLog.count(),
+    notifications: await prisma.notification.count(),
+  };
+  const res = await request('POST', '/api/public/parcels', {
+    senderName: 'Public Sender',
+    recipientName: 'Public Recipient',
+    amount: 1,
+  });
+  assert.equal(res.status, 403);
+  assert.deepEqual({
+    parcels: await prisma.parcel.count(),
+    parcelPayments: await prisma.payment.count({ where: { parcelId: { not: null } } }),
+    parcelHistory: await prisma.parcelStatusHistory.count(),
+    auditLogs: await prisma.auditLog.count(),
+    notifications: await prisma.notification.count(),
+  }, before, 'Rejected public parcel creation must not create partial records or trigger secondary mutations');
 });
 
 test('GET /api/public/trips — recherche publique sans JWT', async () => {

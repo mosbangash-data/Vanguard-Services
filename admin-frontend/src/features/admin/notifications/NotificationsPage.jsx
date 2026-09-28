@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../services/api'
+import { useLanguage } from '../../../i18n/useLanguage'
 import {
   Plus,
   RefreshCw,
@@ -20,6 +21,7 @@ async function fetchUsersList() {
 }
 
 export function NotificationsPage() {
+  const { t, lang } = useLanguage()
   const queryClient = useQueryClient()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [filterRead, setFilterRead] = useState('')
@@ -54,7 +56,7 @@ export function NotificationsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-notifications'] })
     },
     onError: (err) => {
-      alert(err?.response?.data?.message || 'Échec du marquage comme lue.')
+      alert(err?.response?.data?.message || t('notificationUi.markReadFailed'))
     },
   })
 
@@ -79,7 +81,7 @@ export function NotificationsPage() {
       setFormError('')
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Échec de l’envoi de la notification.')
+      setFormError(err?.response?.data?.message || t('notificationUi.sendFailed'))
     },
   })
 
@@ -96,7 +98,7 @@ export function NotificationsPage() {
     e.preventDefault()
     setFormError('')
     if (!createForm.title || !createForm.message) {
-      setFormError('Le titre et le message sont obligatoires.')
+      setFormError(t('notificationUi.requiredFields'))
       return
     }
     createNotificationMutation.mutate(createForm)
@@ -105,7 +107,7 @@ export function NotificationsPage() {
   const formatDate = (dateStr) => {
     if (!dateStr) return '-'
     try {
-      return new Date(dateStr).toLocaleString('fr-FR', {
+      return new Date(dateStr).toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR', {
         dateStyle: 'short',
         timeStyle: 'short',
       })
@@ -118,12 +120,12 @@ export function NotificationsPage() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Notifications</h1>
-          <p>Centre d’alertes et diffusion de notifications système</p>
+          <h1>{t('notificationUi.title')}</h1>
+          <p>{t('notificationUi.subtitle')}</p>
         </div>
         <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
           <Plus size={16} />
-          <span>Envoyer une notification</span>
+          <span>{t('notificationUi.send')}</span>
         </button>
       </div>
 
@@ -134,40 +136,40 @@ export function NotificationsPage() {
             value={filterRead}
             onChange={(e) => setFilterRead(e.target.value)}
           >
-            <option value="">Toutes les notifications</option>
-            <option value="unread">Non lues uniquement</option>
-            <option value="read">Lues uniquement</option>
+            <option value="">{t('notificationUi.all')}</option>
+            <option value="unread">{t('notificationUi.unreadOnly')}</option>
+            <option value="read">{t('notificationUi.readOnly')}</option>
           </select>
         </div>
         <button type="button" className="button secondary sm" onClick={() => notificationsQuery.refetch()}>
           <RefreshCw size={14} />
-          <span>Actualiser</span>
+          <span>{t('commonUi.refresh')}</span>
         </button>
       </div>
 
       <div className="table-container">
         {notificationsQuery.isPending ? (
-          <div className="state-container">Chargement des notifications...</div>
+          <div className="state-container">{t('notificationUi.loading')}</div>
         ) : notificationsQuery.isError ? (
           <div className="state-container">
             <AlertTriangle size={32} />
-            <p>Erreur lors du chargement des notifications.</p>
+            <p>{t('notificationUi.loadError')}</p>
             <button type="button" className="button secondary sm" onClick={() => notificationsQuery.refetch()}>
-              Réessayer
+              {t('commonUi.retry')}
             </button>
           </div>
         ) : notificationsList.length === 0 ? (
-          <div className="state-container">Aucune notification disponible.</div>
+          <div className="state-container">{t('notificationUi.empty')}</div>
         ) : (
           <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Titre & Message</th>
-                  <th>Canal</th>
-                  <th>Statut</th>
-                  <th>Date</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>{t('notificationUi.titleAndMessage')}</th>
+                  <th>{t('notificationUi.channel')}</th>
+                  <th>{t('notificationUi.status')}</th>
+                  <th>{t('notificationUi.date')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('notificationUi.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -186,7 +188,7 @@ export function NotificationsPage() {
                     </td>
                     <td>
                       <span className={`badge ${n.isRead ? 'gray' : 'warning'}`}>
-                        {n.isRead ? 'Lue' : 'Non lue'}
+                        {n.isRead ? t('notificationUi.read') : t('notificationUi.unread')}
                       </span>
                     </td>
                     <td>{formatDate(n.createdAt)}</td>
@@ -196,12 +198,12 @@ export function NotificationsPage() {
                           <button
                             type="button"
                             className="action-btn"
-                            title="Marquer comme lue"
+                            title={t('notificationUi.markRead')}
                             onClick={() => markReadMutation.mutate(n.id)}
                             disabled={markReadMutation.isPending}
                           >
                             <CheckCircle size={14} />
-                            <span>Marquer comme lue</span>
+                            <span>{t('notificationUi.markRead')}</span>
                           </button>
                         )}
                       </div>
@@ -219,7 +221,7 @@ export function NotificationsPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Envoyer une Notification</h3>
+              <h3 className="modal-title">{t('notificationUi.sendTitle')}</h3>
               <button type="button" className="modal-close" onClick={() => setIsCreateOpen(false)}>
                 <X size={18} />
               </button>
@@ -229,13 +231,13 @@ export function NotificationsPage() {
                 {formError && <div className="alert alert-danger">{formError}</div>}
                 
                 <div className="form-group">
-                  <label className="form-label">Destinataire (optionnel)</label>
+                  <label className="form-label">{t('notificationUi.recipientOptional')}</label>
                   <select
                     className="form-control"
                     value={createForm.userId}
                     onChange={(e) => setCreateForm({ ...createForm, userId: e.target.value })}
                   >
-                    <option value="">Moi-même / Tous les admins</option>
+                    <option value="">{t('notificationUi.defaultRecipient')}</option>
                     {usersList.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.firstName} {u.lastName} ({u.email})
@@ -245,13 +247,13 @@ export function NotificationsPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Canal de diffusion</label>
+                  <label className="form-label">{t('notificationUi.channel')}</label>
                   <select
                     className="form-control"
                     value={createForm.channel}
                     onChange={(e) => setCreateForm({ ...createForm, channel: e.target.value })}
                   >
-                    <option value="IN_APP">En application (IN_APP)</option>
+                    <option value="IN_APP">{t('notificationUi.inApp')}</option>
                     <option value="EMAIL">Email</option>
                     <option value="SMS">SMS</option>
                     <option value="WHATSAPP">WhatsApp</option>
@@ -259,7 +261,7 @@ export function NotificationsPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Titre *</label>
+                  <label className="form-label">{t('notificationUi.titleLabel')} *</label>
                   <input
                     type="text"
                     className="form-control"
@@ -270,7 +272,7 @@ export function NotificationsPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Message *</label>
+                  <label className="form-label">{t('notificationUi.message')} *</label>
                   <textarea
                     className="form-control"
                     rows="4"
@@ -282,10 +284,10 @@ export function NotificationsPage() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setIsCreateOpen(false)}>
-                  Annuler
+                  {t('commonUi.cancel')}
                 </button>
                 <button type="submit" className="button" disabled={createNotificationMutation.isPending}>
-                  {createNotificationMutation.isPending ? 'Envoi...' : 'Envoyer la notification'}
+                  {createNotificationMutation.isPending ? t('notificationUi.sending') : t('notificationUi.send')}
                 </button>
               </div>
             </form>

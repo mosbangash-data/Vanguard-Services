@@ -86,7 +86,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     if (isSuperAdmin) {
       sections.push({
         id: 'global',
-        title: 'Vue Globale',
+        title: t('navigation.sections.global'),
         items: [
           { path: '/admin', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
         ],
@@ -95,7 +95,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
       // 2. Global Administration
       sections.push({
         id: 'admin',
-        title: 'Administration',
+        title: t('navigation.sections.admin'),
         collapsible: true,
         items: [
           { path: '/admin/users', label: 'Utilisateurs', icon: Users, permission: 'VIEW_USER' },
@@ -111,8 +111,8 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     if (isSuperAdmin || userDept === 'VANGUARD_COACH') {
       sections.push({
         id: 'coach',
-        title: 'Vanguard Coach',
-        badge: 'Transport',
+        title: t('navigation.sections.coach'),
+        badge: t('layout.department'),
         badgeColor: 'coach',
         collapsible: isSuperAdmin,
         items: [
@@ -136,8 +136,8 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     if (isSuperAdmin || userDept === 'AUTO_SALES') {
       sections.push({
         id: 'auto',
-        title: 'Vanguard Automobile',
-        badge: 'Vente Auto',
+        title: t('navigation.sections.automobile'),
+        badge: t('layout.vehicleSales'),
         badgeColor: 'auto',
         collapsible: isSuperAdmin,
         items: [
@@ -156,8 +156,8 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     if (isSuperAdmin || userDept === 'CONSTRUCTION') {
       sections.push({
         id: 'construction',
-        title: 'Vanguard Construction',
-        badge: 'BTP & Génie',
+        title: t('navigation.sections.construction'),
+        badge: t('layout.construction'),
         badgeColor: 'construction',
         collapsible: isSuperAdmin,
         items: [
@@ -174,7 +174,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     // 6. System & Audit
     sections.push({
       id: 'system',
-      title: 'Système',
+      title: t('navigation.sections.system'),
       items: [
         ...(isSuperAdmin
           ? [{ path: '/admin/audit', label: 'Audit & Activité', icon: FileText }]
@@ -183,18 +183,29 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
       ],
     })
 
-    return sections
-  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user])
+    const sectionKeys = { global: 'global', admin: 'admin', coach: 'coach', auto: 'automobile', construction: 'construction', system: 'system' }
+    const pathKeys = {
+      '/admin': 'dashboard', '/admin/users': 'users', '/admin/departments': 'departments', '/admin/roles': 'roles', '/admin/permissions': 'permissions', '/admin/notifications': 'notifications',
+      '/transport': 'operations', '/transport/agencies': 'agencies', '/transport/buses': 'buses', '/transport/drivers': 'drivers', '/transport/destinations': 'destinations', '/transport/schedules': 'schedules', '/transport/trips': 'trips', '/transport/reservations': 'reservations', '/transport/tickets': 'tickets', '/transport/payments': 'payments', '/transport/parcels': 'parcels', '/transport/scanner': 'scanner',
+      '/automobile': 'dashboard', '/automobile/vehicles': 'vehicles', '/automobile/templates': 'vehicleTemplates', '/automobile/inquiries': 'inquiries', '/automobile/reservations': 'reservations', '/automobile/payments': 'payments', '/automobile/sales': 'sales',
+      '/construction': 'dashboard', '/construction/projects': 'projects', '/construction/templates': 'projectTemplates', '/construction/customer-requests': 'customerRequests', '/construction/quote-requests': 'quoteRequests', '/admin/audit': 'audit', '/admin/account': 'account',
+    }
+    return sections.map((section) => ({
+      ...section,
+      title: t(`navigation.sections.${sectionKeys[section.id]}`) || section.title,
+      items: section.items.map((item) => ({ ...item, label: pathKeys[item.path] ? (t(`navigation.items.${pathKeys[item.path]}`) || item.label) : item.label })),
+    }))
+  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t])
 
   // Get active page context title
   const currentPath = location.pathname
   const getContextTitle = () => {
-    if (currentPath.startsWith('/transport')) return 'Vanguard Coach'
-    if (currentPath.startsWith('/automobile')) return 'Vanguard Automobile'
-    if (currentPath.startsWith('/construction')) return 'Vanguard Construction'
-    if (currentPath === '/admin/audit') return 'Audit & Activité'
-    if (currentPath === '/admin/account') return 'Mon compte'
-    return 'Administration Générale'
+    if (currentPath.startsWith('/transport')) return t('navigation.sections.coach')
+    if (currentPath.startsWith('/automobile')) return t('navigation.sections.automobile')
+    if (currentPath.startsWith('/construction')) return t('navigation.sections.construction')
+    if (currentPath === '/admin/audit') return t('navigation.items.audit')
+    if (currentPath === '/admin/account') return t('navigation.items.account')
+    return t('navigation.sections.admin')
   }
 
   return (
@@ -214,7 +225,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           <Link to={isSuperAdmin ? '/admin' : userDept === 'VANGUARD_COACH' ? '/transport' : userDept === 'AUTO_SALES' ? '/automobile' : '/construction'} className="sidebar-brand-link">
             <img
               src={`${import.meta.env.BASE_URL}assets/logos/vanguard-admin-logo.svg`}
-              alt="Vanguard Services Administration"
+              alt={`Vanguard Services · ${t('authUi.administration')}`}
               className="sidebar-logo vanguard-sidebar-logo-svg"
               onError={(e) => {
                 e.target.onerror = null
@@ -284,7 +295,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
             </div>
             <div className="vanguard-sidebar-user-info">
               <span className="vanguard-sidebar-user-name">
-                {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : user?.email || 'Administrateur'}
+                {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : user?.email || t('layout.administrator')}
               </span>
               <span className="vanguard-sidebar-user-role">{user?.role || 'SUPER_ADMIN'}</span>
             </div>
@@ -300,7 +311,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
               type="button"
               className="mobile-toggle vanguard-mobile-toggle"
               onClick={() => setMobileOpen(!mobileOpen)}
-              aria-label="Menu"
+              aria-label={t(mobileOpen ? 'layout.closeMenu' : 'layout.openMenu')}
             >
               {mobileOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
@@ -311,7 +322,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
 
           <div className="header-right vanguard-header-right">
             {/* Language Switcher */}
-            <div className="language-selector" aria-label="Language selector">
+            <div className="language-selector" aria-label={t('layout.language')}>
               <button
                 type="button"
                 className={`lang-btn ${lang === 'fr' ? 'active' : ''}`}
@@ -331,13 +342,13 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
 
             {/* User Profile Pill & Dropdown */}
             <div className="vanguard-header-user-wrap">
-              <Link to="/admin/account" className="vanguard-header-user-btn" title="Gérer mon compte">
+              <Link to="/admin/account" className="vanguard-header-user-btn" title={t('layout.manageAccount')}>
                 <div className="vanguard-header-avatar">
                   {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
                 <div className="vanguard-header-user-details">
                   <span className="vanguard-header-name">
-                    {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : user?.email || 'Admin'}
+                {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : user?.email || t('layout.administrator')}
                   </span>
                   <span className="vanguard-header-role-badge">{user?.role || 'SUPER_ADMIN'}</span>
                 </div>
@@ -349,10 +360,10 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
               type="button"
               className="vanguard-btn vanguard-btn--secondary vanguard-btn--sm vanguard-logout-btn"
               onClick={handleLogout}
-              title="Se déconnecter"
+              title={t('layout.logout')}
             >
               <LogOut size={15} />
-              <span className="hide-on-mobile">Déconnexion</span>
+              <span className="hide-on-mobile">{t('layout.logout')}</span>
             </button>
           </div>
         </header>
@@ -361,12 +372,12 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           <Outlet />
         </main>
         {user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' && (
-          <nav className="agent-mobile-nav" aria-label="Navigation Agent">
-            <NavLink to="/transport" end className={({ isActive }) => isActive ? 'active' : ''}><Bus size={19} /><span>Accueil</span></NavLink>
-            {hasPermission(user, 'VIEW_RESERVATION') && <NavLink to="/transport/reservations" className={({ isActive }) => isActive ? 'active' : ''}><Ticket size={19} /><span>Réservations</span></NavLink>}
-            {hasPermission(user, 'VIEW_PAYMENT') && <NavLink to="/transport/operations" className={({ isActive }) => isActive ? 'active' : ''}><CreditCard size={19} /><span>Paiements</span></NavLink>}
-            {hasPermission(user, 'SCAN_TICKET') && <NavLink to="/transport/scanner" className={({ isActive }) => isActive ? 'active' : ''}><QrCode size={19} /><span>Scanner</span></NavLink>}
-            {hasPermission(user, 'CREATE_PARCEL') && <NavLink to="/transport/parcels" className={({ isActive }) => isActive ? 'active' : ''}><Package size={19} /><span>Colis</span></NavLink>}
+          <nav className="agent-mobile-nav" aria-label={t('navigation.sections.coach')}>
+            <NavLink to="/transport" end className={({ isActive }) => isActive ? 'active' : ''}><Bus size={19} /><span>{t('layout.home')}</span></NavLink>
+            {hasPermission(user, 'VIEW_RESERVATION') && <NavLink to="/transport/reservations" className={({ isActive }) => isActive ? 'active' : ''}><Ticket size={19} /><span>{t('layout.reservations')}</span></NavLink>}
+            {hasPermission(user, 'VIEW_PAYMENT') && <NavLink to="/transport/operations" className={({ isActive }) => isActive ? 'active' : ''}><CreditCard size={19} /><span>{t('layout.payments')}</span></NavLink>}
+            {hasPermission(user, 'SCAN_TICKET') && <NavLink to="/transport/scanner" className={({ isActive }) => isActive ? 'active' : ''}><QrCode size={19} /><span>{t('layout.scanner')}</span></NavLink>}
+            {hasPermission(user, 'CREATE_PARCEL') && <NavLink to="/transport/parcels" className={({ isActive }) => isActive ? 'active' : ''}><Package size={19} /><span>{t('layout.parcels')}</span></NavLink>}
           </nav>
         )}
       </div>

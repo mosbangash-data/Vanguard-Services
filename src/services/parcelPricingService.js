@@ -23,6 +23,12 @@ const CATEGORY_COEFFICIENTS = {
   ELECTRONICS: 1.25,
 };
 
+const applyPricingBasis = (basis, weightKg, volumeM3) => {
+  if (basis === 'WEIGHT') return { weightKg: Number(weightKg) || 0, volumeM3: 0 };
+  if (basis === 'VOLUME') return { weightKg: 0, volumeM3: Number(volumeM3) || 0 };
+  return { weightKg: Number(weightKg) || 0, volumeM3: Number(volumeM3) || 0 };
+};
+
 const calculateOfficialPrice = async ({
   originCity,
   destinationCity,
@@ -88,5 +94,6 @@ const calculateOfficialPrice = async ({
 module.exports = {
   calculateOfficialPrice,
   CATEGORY_COEFFICIENTS,
+  applyPricingBasis,
 };
 

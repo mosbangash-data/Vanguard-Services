@@ -3,7 +3,6 @@ import { ArrowRight, Eye, EyeOff, Lock, ShieldCheck, User } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
-import { LanguageProvider } from '../../i18n/LanguageProvider'
 import { useLanguage } from '../../i18n/useLanguage'
 import { login } from './authApi'
 import { loginSchema } from './loginSchema'
@@ -13,7 +12,7 @@ import { useAuth } from './authContext'
 function LoginPageContent() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
-  const { lang, setLang, t } = useLanguage()
+  const { setLang, t } = useLanguage()
 
   const [showPassword, setShowPassword] = useState(false)
   const [serverError, setServerError] = useState('')
@@ -71,8 +70,8 @@ function LoginPageContent() {
 
         <section className="login-panel">
           <div className="login-panel-topline">
-            <span className="login-panel-label"><ShieldCheck size={16} /> Administration</span>
-            <div className="language-selector" aria-label="Language selector">
+            <span className="login-panel-label"><ShieldCheck size={16} /> {t('authUi.administration')}</span>
+            <div className="language-selector" aria-label={t('layout.language')}>
               <button type="button" className={`lang-btn ${lang === 'fr' ? 'active' : ''}`} onClick={() => setLang('fr')}>FR</button>
               <span className="lang-divider">|</span>
               <button type="button" className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
@@ -81,8 +80,8 @@ function LoginPageContent() {
 
           <div className="login-panel-heading">
             <p className="login-panel-eyebrow">Vanguard Services</p>
-            <h2>Connexion</h2>
-            <p>Accédez à votre espace de gestion.</p>
+            <h2>{t('authUi.loginTitle')}</h2>
+            <p>{t('authUi.loginDescription')}</p>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -106,7 +105,7 @@ function LoginPageContent() {
               </div>
               {errors.identifier && (
                 <p className="form-error">
-                  {lang === 'en' ? 'Identifier is required.' : errors.identifier.message}
+                  {t('errors.requiredIdentifier')}
                 </p>
               )}
             </div>
@@ -137,7 +136,7 @@ function LoginPageContent() {
               </div>
               {errors.password && (
                 <p className="form-error">
-                  {lang === 'en' ? 'Password is required.' : errors.password.message}
+                  {t('errors.requiredPassword')}
                 </p>
               )}
             </div>
@@ -147,7 +146,7 @@ function LoginPageContent() {
               {!isSubmitting && <ArrowRight size={18} aria-hidden="true" />}
             </button>
             <Link to="/admin/forgot-password" className="login-forgot-link">
-              Mot de passe oublié ?
+              {t('authUi.forgotPassword')}
             </Link>
           </form>
           <div className="login-footer">
@@ -160,9 +159,5 @@ function LoginPageContent() {
 }
 
 export function LoginPage() {
-  return (
-    <LanguageProvider>
-      <LoginPageContent />
-    </LanguageProvider>
-  )
+  return <LoginPageContent />
 }

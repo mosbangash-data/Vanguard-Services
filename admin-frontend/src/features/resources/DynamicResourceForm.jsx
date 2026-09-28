@@ -2,15 +2,30 @@ import React, { useState, useEffect, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../services/api'
 import { useAuth } from '../auth/authContext'
+import { useLanguage } from '../../i18n/useLanguage'
+import { getResourceSingular } from '../../i18n/resourceLabels'
 import { FormField, Input, Select, Textarea, Button, Modal } from '../../components/ui'
 import { MediaUploader } from '../../components/media/MediaUploader'
 import { normalizeListResponse, unwrapApiResponse, getRelationValue } from '../../utils/apiResponse'
 import { AlertCircle, Check, Save, X, Loader2 } from 'lucide-react'
 
 const toOptionsList = (payload) => normalizeListResponse(payload)
+const getFieldLabel = (field, t) => {
+  const translated = t(`resourceFields.${field.name}`)
+  return translated.startsWith('resourceFields.') ? field.label : translated
+}
+const getFieldPlaceholder = (field, t) => {
+  const translated = t(`resourcePlaceholders.${field.name}`)
+  return translated.startsWith('resourcePlaceholders.') ? field.placeholder || '' : translated
+}
+const getFieldHelper = (field, t) => {
+  const translated = t(`resourceHelpers.${field.name}`)
+  return translated.startsWith('resourceHelpers.') ? field.helper : translated
+}
 
 // Relational select field that loads options asynchronously only when optionsUrl is provided
 function RelationalSelectField({ field, value, onChange, disabled, hasError, inputId }) {
+  const { t } = useLanguage()
   const { data: remoteOptions = [], isLoading } = useQuery({
     queryKey: ['resource-options', field.optionsUrl],
     queryFn: async () => {
@@ -42,7 +57,7 @@ function RelationalSelectField({ field, value, onChange, disabled, hasError, inp
       disabled={disabled || isLoading}
       hasError={hasError}
     >
-      <option value="">{isLoading ? 'Chargement des options…' : (field.placeholder || 'Sélectionner…')}</option>
+      <option value="">{isLoading ? t('resourceUi.loading') : (getFieldPlaceholder(field, t) || t('resourceUi.selectOption'))}</option>
       {remoteOptions.map((opt) => (
         <option key={String(opt.value)} value={String(opt.value)}>
           {opt.label}
@@ -67,6 +82,8 @@ function DynamicField({
   mediaProgress,
 }) {
   const inputId = useId()
+  const { t } = useLanguage()
+  const label = getFieldLabel(field, t)
 
   const handleChange = (e) => {
     let val = e.target.value
@@ -97,15 +114,15 @@ function DynamicField({
     return (
       <FormField
         id={inputId}
-        label={field.label}
+        label={label}
         required={field.required}
-        helper={field.helper}
+        helper={getFieldHelper(field, t)}
         error={error}
         className={field.fullWidth ? 'field-full-width' : ''}
       >
         <MediaUploader
-          label={field.label}
-          helperText={field.helper}
+          label={label}
+          helperText={getFieldHelper(field, t)}
           existingMedia={mediaState?.existing || []}
           pendingFiles={mediaState?.pending || []}
           onPendingChange={onPendingMediaChange}
@@ -113,7 +130,7 @@ function DynamicField({
           onDeleteExisting={onDeleteExistingMedia}
           disabled={disabled}
           isUploading={disabled}
-          uploadProgressText={mediaProgress || 'Enregistrement et traitement des médias…'}
+          uploadProgressText={mediaProgress || t('resourceUi.saving')}
           maxFiles={field.maxFiles || 12}
         />
       </FormField>
@@ -123,9 +140,9 @@ function DynamicField({
   return (
     <FormField
       id={inputId}
-      label={field.label}
+      label={label}
       required={field.required}
-      helper={field.helper}
+      helper={getFieldHelper(field, t)}
       error={error}
       className={field.fullWidth ? 'field-full-width' : ''}
     >
@@ -152,19 +169,24 @@ function DynamicField({
           disabled={disabled}
           hasError={Boolean(error)}
         >
-          <option value="">{field.placeholder || 'Sélectionner…'}</option>
-          {staticOptions.map((opt) => (
+          <option value="">{getFieldPlaceholder(field, t) || t('resourceUi.selectOption')}</option>
+          {staticOptions.map((opt) => {
+            const valueKey = typeof opt.value === 'boolean' ? (opt.value ? 'active' : 'inactive') : String(opt.value)
+            const optionTranslation = t(`resourceOptions.${field.name}.${valueKey}`)
+            const translatedOption = optionTranslation.startsWith('resourceOptions.') ? t(`status.${String(opt.value).toLowerCase()}`) : optionTranslation
+            return (
             <option key={String(opt.value)} value={String(opt.value)}>
-              {opt.label}
+              {translatedOption.startsWith('status.') ? opt.label : translatedOption.startsWith('resourceOptions.') ? opt.label : translatedOption}
             </option>
-          ))}
+            )
+          })}
         </Select>
       ) : field.type === 'textarea' ? (
         <Textarea
           id={inputId}
           value={value ?? ''}
           onChange={handleChange}
-          placeholder={field.placeholder || ''}
+          placeholder={getFieldPlaceholder(field, t)}
           rows={field.rows || 3}
           disabled={disabled}
           hasError={Boolean(error)}
@@ -204,7 +226,7 @@ function DynamicField({
           type={field.type || 'text'}
           value={value ?? ''}
           onChange={handleChange}
-          placeholder={field.placeholder || ''}
+          placeholder={getFieldPlaceholder(field, t)}
           min={field.min}
           max={field.max}
           step={field.step}
@@ -228,16 +250,19 @@ export function DynamicResourceForm({
   serverError = '',
   mediaProgress = '',
 }) {
+  const [priceQuote, setPriceQuote] = useState(null)
   const { user } = useAuth()
+  const { t } = useLanguage()
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
 
+  const resourceSingular = getResourceSingular(t, resource)
   const title = mode === 'create'
-    ? `Nouveau ${resource.singularLabel || resource.label}`
-    : `Modifier ${resource.singularLabel || resource.label}`
+    ? `${t('resourceUi.newItem')} ${resourceSingular}`
+    : `${t('resourceUi.edit')} ${resourceSingular}`
 
   const subtitle = mode === 'create'
-    ? `Remplissez les informations ci-dessous pour ajouter un nouvel enregistrement.`
-    : `Mettez à jour les informations de cet enregistrement.`
+    ? t('resourceUi.fillNew')
+    : t('resourceUi.updateRecord')
 
   // Fetch departments to auto-resolve departmentId for transport resources when SuperAdmin
   const { data: departments = [] } = useQuery({
@@ -269,7 +294,34 @@ export function DynamicResourceForm({
     deleted: [],
   })
 
-  const fields = resource.fields || []
+  const allFields = resource.fields || []
+  const fields = allFields.filter((field) => !field.visibleWhen || field.visibleWhen(formData))
+
+  useEffect(() => {
+    if (!isOpen || !resource.priceQuote || !formData.pricingBasis) {
+      setPriceQuote(null)
+      return undefined
+    }
+    const basis = formData.pricingBasis
+    const value = basis === 'WEIGHT' ? formData.weightKg : formData.volumeM3
+    if (value === undefined || value === null || value === '') {
+      setPriceQuote(null)
+      return undefined
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const response = await api.post('/api/parcels/quote', {
+          weightKg: basis === 'WEIGHT' ? value : 0,
+          volumeM3: basis === 'VOLUME' ? value : 0,
+          category: formData.category,
+        })
+        setPriceQuote(response.data?.data || null)
+      } catch {
+        setPriceQuote(null)
+      }
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [isOpen, resource.priceQuote, formData.pricingBasis, formData.weightKg, formData.volumeM3, formData.category])
   // Initialize form state
   useEffect(() => {
     if (!isOpen) return
@@ -329,8 +381,8 @@ export function DynamicResourceForm({
         <div className="form-alert-info" role="status">
           <AlertCircle size={18} className="alert-icon" />
           <div className="alert-content">
-            <strong>Configuration du formulaire indisponible</strong>
-            <p>Aucune configuration de champ n’a été définie pour cette ressource. Le formulaire ne peut pas être affiché.</p>
+            <strong>{t('resourceUi.configurationUnavailable')}</strong>
+            <p>{t('resourceUi.noFields')}</p>
           </div>
         </div>
       </Modal>
@@ -409,29 +461,29 @@ export function DynamicResourceForm({
       const val = formData[field.name]
       if (field.required) {
         if (val === undefined || val === null || val === '') {
-          nextErrors[field.name] = `${field.label} est obligatoire.`
+          nextErrors[field.name] = `${getFieldLabel(field, t)} ${t('resourceUi.required')}`
         } else if (field.type === 'multiselect' && Array.isArray(val) && val.length === 0) {
-          nextErrors[field.name] = `Veuillez sélectionner au moins un élément.`
+          nextErrors[field.name] = t('resourceUi.selectItem')
         }
       }
 
       if (field.type === 'email' && val) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(String(val).trim())) {
-          nextErrors[field.name] = 'Format d’adresse email invalide.'
+          nextErrors[field.name] = t('resourceUi.invalidEmail')
         }
       }
 
       if (field.type === 'number' && val !== '' && val !== undefined && val !== null) {
         const num = Number(val)
         if (isNaN(num)) {
-          nextErrors[field.name] = 'Ce champ doit être un nombre valide.'
+          nextErrors[field.name] = t('resourceUi.validNumber')
         } else {
           if (field.min !== undefined && num < field.min) {
-            nextErrors[field.name] = `La valeur minimale autorisée est ${field.min}.`
+            nextErrors[field.name] = `${t('resourceUi.minValue')} ${field.min}.`
           }
           if (field.max !== undefined && num > field.max) {
-            nextErrors[field.name] = `La valeur maximale autorisée est ${field.max}.`
+            nextErrors[field.name] = `${t('resourceUi.maxValue')} ${field.max}.`
           }
         }
       }
@@ -493,11 +545,16 @@ export function DynamicResourceForm({
       className="resource-form-modal"
     >
       <form onSubmit={handleSubmit} className="resource-dynamic-form" noValidate>
+        {user?.role === 'AGENT' && resource.agentFields && (
+          <div className="form-alert-info" role="status">
+            {t('agent.originAgency')}: <strong>{user.agency?.name || user.agency?.code || user.agencyId || '—'}</strong>
+          </div>
+        )}
         {serverError && (
           <div className="form-alert-error" role="alert">
             <AlertCircle size={18} className="alert-icon" />
             <div className="alert-content">
-              <strong>Une erreur est survenue :</strong>
+          <strong>{t('resourceUi.errorOccurred')}</strong>
               <p>{serverError}</p>
             </div>
           </div>
@@ -529,6 +586,12 @@ export function DynamicResourceForm({
           ))}
         </div>
 
+        {resource.priceQuote && priceQuote && (
+          <div className="form-alert-info" role="status">
+            <span>{t('resourceUi.amountDue')} <strong>{priceQuote.amount} {priceQuote.currency}</strong></span>
+          </div>
+        )}
+
         <div className="resource-form-footer">
           <Button
             type="button"
@@ -537,7 +600,7 @@ export function DynamicResourceForm({
             disabled={isSubmitting}
           >
             <X size={16} />
-            <span>Annuler</span>
+            <span>{t('resourceUi.cancel')}</span>
           </Button>
 
           <Button
@@ -549,12 +612,12 @@ export function DynamicResourceForm({
             {isSubmitting ? (
               <>
                 <Loader2 size={16} className="spin-icon" />
-                <span>Enregistrement…</span>
+                <span>{t('resourceUi.saving')}</span>
               </>
             ) : (
               <>
                 <Save size={16} />
-                <span>{mode === 'create' ? 'Créer' : 'Enregistrer'}</span>
+                <span>{mode === 'create' ? t('resourceUi.create') : t('resourceUi.save')}</span>
               </>
             )}
           </Button>

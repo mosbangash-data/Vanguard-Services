@@ -108,7 +108,7 @@ export function CoachDashboard() {
               <th>{t('driver')}</th>
               <th>{t('seatsReserved')}</th>
               <th>{t('seatsAvailable')}</th>
-              <th>{t('status')}</th>
+              <th>{t('statusLabel')}</th>
             </tr>
           </thead>
           <tbody>

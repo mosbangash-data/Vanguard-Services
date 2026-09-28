@@ -26,6 +26,10 @@ test('an old JWT is refused when the account is no longer active', async () => {
 
 test('authenticated users receive their agency from the persisted user relation', async () => {
   const original = authService.getUserForAuth;
+  const originalRoleFindUnique = prisma.role.findUnique;
+  const originalRolePermissionFindMany = prisma.rolePermission.findMany;
+  prisma.role.findUnique = async () => null;
+  prisma.rolePermission.findMany = async () => [{ permission: { name: 'VIEW_PARCEL' } }];
   authService.getUserForAuth = async () => ({
     id: 'agent-1',
     email: 'agent@example.com',
@@ -47,6 +51,8 @@ test('authenticated users receive their agency from the persisted user relation'
   });
   assert.deepEqual(user.permissions, ['VIEW_PARCEL']);
   authService.getUserForAuth = original;
+  prisma.role.findUnique = originalRoleFindUnique;
+  prisma.rolePermission.findMany = originalRolePermissionFindMany;
 });
 
 test('parcels allow Transport administration and reject Construction and Automobile', async () => {
@@ -64,9 +70,11 @@ test('parcels allow Transport administration and reject Construction and Automob
 test('Coach agents can read only trips assigned to their agency', async () => {
   const originalFindMany = prisma.trip.findMany;
   const originalCount = prisma.trip.count;
+  const originalDepartmentFindUnique = prisma.department.findUnique;
   let where;
   prisma.trip.findMany = async (args) => { where = args.where; return []; };
   prisma.trip.count = async () => 0;
+  prisma.department.findUnique = async () => ({ id: 'coach-department' });
 
   await assert.doesNotReject(() => tripService.listTrips({}, {
     id: 'agent-1',
@@ -85,6 +93,13 @@ test('Coach agents can read only trips assigned to their agency', async () => {
 
   prisma.trip.findMany = originalFindMany;
   prisma.trip.count = originalCount;
+  prisma.department.findUnique = originalDepartmentFindUnique;
+});
+
+test('agents cannot create, update, or delete scheduled trips', async () => {
+  await assert.rejects(() => tripService.createTrip({ scheduleId: 'schedule-1' }, agent), { statusCode: 403 });
+  await assert.rejects(() => tripService.updateTrip('trip-1', { status: 'CANCELLED' }, agent), { statusCode: 403 });
+  await assert.rejects(() => tripService.deleteTrip('trip-1', agent), { statusCode: 403 });
 });
 
 test('seats allow Transport and reject Construction and Automobile', async () => {

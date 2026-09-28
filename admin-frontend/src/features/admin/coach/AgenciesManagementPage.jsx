@@ -207,9 +207,9 @@ export function AgenciesManagementPage() {
   return (
     <div className="page vanguard-agencies-page">
       <PageHeader
-        eyebrow="VANGUARD SERVICES · COACH TRANSPORT"
-        title="Gestion des Agences"
-        subtitle="Réseau d’agences physiques, points de vente et gares routières Vanguard Coach."
+        eyebrow={t('agencyUi.eyebrow')}
+        title={t('agencyUi.title')}
+        subtitle={t('agencyUi.subtitle')}
         actions={
           <div style={{ display: 'flex', gap: '10px' }}>
             <Button
@@ -219,7 +219,7 @@ export function AgenciesManagementPage() {
               loading={agenciesQuery.isFetching}
               onClick={() => agenciesQuery.refetch()}
             >
-              Actualiser
+              {t('commonUi.refresh')}
             </Button>
             {canManage && (
               <Button
@@ -228,7 +228,7 @@ export function AgenciesManagementPage() {
                 icon={Plus}
                 onClick={openCreateForm}
               >
-                Nouvelle Agence
+                {t('agencyUi.new')}
               </Button>
             )}
           </div>
@@ -238,23 +238,23 @@ export function AgenciesManagementPage() {
       {/* KPI Cards */}
       <div className="vanguard-stats-grid">
         <StatCard
-          title="Total Agences"
+          title={t('agencyUi.total')}
           value={totalCount}
-          subtitle="Gares & points de vente du réseau"
+          subtitle={t('agencyUi.networkSubtitle')}
           icon={Building2}
           accent="coach"
         />
         <StatCard
-          title="Agences Actives"
+          title={t('agencyUi.active')}
           value={activeCount}
-          subtitle="Opérationnelles et ouvertes à la vente"
+          subtitle={t('agencyUi.activeSubtitle')}
           icon={CheckCircle2}
           accent="revenue"
         />
         <StatCard
-          title="Agences Inactives"
+          title={t('agencyUi.inactive')}
           value={inactiveCount}
-          subtitle="Temporairement fermées ou désactivées"
+          subtitle={t('agencyUi.inactiveSubtitle')}
           icon={XCircle}
           accent="warning"
         />
@@ -264,16 +264,16 @@ export function AgenciesManagementPage() {
         <SearchBar
           value={search}
           onChange={(val) => setSearch(val)}
-          placeholder="Rechercher par nom, code, ville, responsable..."
+          placeholder={t('agencyUi.searchPlaceholder')}
         />
         <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           style={{ width: 'auto', minWidth: '170px' }}
         >
-          <option value="ALL">Tous les statuts ({totalCount})</option>
-          <option value="ACTIVE">Actives ({activeCount})</option>
-          <option value="INACTIVE">Inactives ({inactiveCount})</option>
+          <option value="ALL">{t('agencyUi.allStatuses', { count: totalCount })}</option>
+          <option value="ACTIVE">{t('agencyUi.activeCount', { count: activeCount })}</option>
+          <option value="INACTIVE">{t('agencyUi.inactiveCount', { count: inactiveCount })}</option>
         </Select>
       </FilterBar>
 
@@ -292,19 +292,19 @@ export function AgenciesManagementPage() {
       )}
 
       {agenciesQuery.isPending ? (
-        <LoadingState message="Chargement des agences..." />
+        <LoadingState message={t('agencyUi.loading')} />
       ) : agenciesQuery.isError ? (
         <ErrorState
-          title="Erreur de chargement des agences"
-          message={agenciesQuery.error?.response?.data?.message || 'Impossible de récupérer la liste des agences.'}
+          title={t('agencyUi.loadError')}
+          message={agenciesQuery.error?.response?.data?.message || t('agencyUi.loadMessage')}
           onRetry={() => agenciesQuery.refetch()}
         />
       ) : filteredAgencies.length === 0 ? (
         <EmptyState
-          title="Aucune agence trouvée"
-          description="Aucune agence ne correspond à vos critères de recherche ou de filtre."
+          title={t('agencyUi.emptyTitle')}
+          description={t('agencyUi.emptyDescription')}
           icon={Building2}
-          actionLabel={canManage ? "Créer une agence" : undefined}
+          actionLabel={canManage ? t('agencyUi.create') : undefined}
           onAction={openCreateForm}
           actionIcon={Plus}
         />
@@ -314,12 +314,12 @@ export function AgenciesManagementPage() {
             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Agence & Code</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Ville & Adresse</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Responsable</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Contact</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Statut</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('agencyUi.agencyCode')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('agencyUi.cityAddress')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('agencyUi.manager')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('agencyUi.contact')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('commonUi.status')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>{t('commonUi.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -374,7 +374,7 @@ export function AgenciesManagementPage() {
                           <span>{agency.managerName}</span>
                         </div>
                       ) : (
-                        <span style={{ color: '#94A3B8' }}>Non assigné</span>
+                        <span style={{ color: '#94A3B8' }}>{t('agencyUi.unassigned')}</span>
                       )}
                     </td>
 
@@ -397,7 +397,7 @@ export function AgenciesManagementPage() {
                     <td style={{ padding: '12px 16px' }}>
                       <StatusBadge
                         status={agency.isActive ? 'ACTIVE' : 'INACTIVE'}
-                        label={agency.isActive ? 'Active' : 'Inactive'}
+                        status={agency.isActive ? 'ACTIVE' : 'INACTIVE'}
                         variant={agency.isActive ? 'success' : 'neutral'}
                       />
                     </td>
@@ -418,7 +418,7 @@ export function AgenciesManagementPage() {
                                   onClick: () => openEditForm(agency),
                                 },
                                 {
-                                  label: agency.isActive ? 'Désactiver l’agence' : 'Activer l’agence',
+                                  label: agency.isActive ? t('agencyUi.deactivate') : t('agencyUi.activate'),
                                   icon: Power,
                                   onClick: () => toggleStatusMutation.mutate({ id: agency.id, isActive: !agency.isActive }),
                                 },
@@ -447,66 +447,66 @@ export function AgenciesManagementPage() {
         <Modal
           isOpen={Boolean(formState)}
           onClose={() => setFormState(null)}
-          title={formState.mode === 'create' ? 'Nouvelle agence Coach' : 'Modifier l’agence'}
-          subtitle="Configurez les coordonnées, la localisation et le responsable de l’agence."
+          title={formState.mode === 'create' ? t('agencyUi.newCoach') : t('agencyUi.editTitle')}
+          subtitle={t('agencyUi.formSubtitle')}
           size="lg"
         >
           <form onSubmit={handleFormSubmit}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <FormField label="Nom de l’agence" required>
+              <FormField label={t('agencyUi.name')} required>
                 <Input
                   value={formState.values.name}
                   onChange={(e) => setFormState({ ...formState, values: { ...formState.values, name: e.target.value } })}
-                  placeholder="Ex: Agence Principale Gombe"
+                  placeholder={t('agencyUi.nameExample')}
                   required
                 />
               </FormField>
 
-              <FormField label="Code Agence" helper="Identifiant unique majuscule" required>
+              <FormField label={t('agencyUi.code')} helper={t('agencyUi.codeHelper')} required>
                 <Input
                   value={formState.values.code}
                   onChange={(e) => setFormState({ ...formState, values: { ...formState.values, code: e.target.value.toUpperCase() } })}
-                  placeholder="Ex: KIN-GMB"
+                  placeholder={t('agencyUi.codeExample')}
                   disabled={formState.mode === 'edit'}
                   required
                 />
               </FormField>
 
-              <FormField label="Ville" required>
+              <FormField label={t('agencyUi.city')} required>
                 <Input
                   value={formState.values.city}
                   onChange={(e) => setFormState({ ...formState, values: { ...formState.values, city: e.target.value } })}
-                  placeholder="Ex: Kinshasa, Lubumbashi, Matadi"
+                  placeholder={t('agencyUi.cityExample')}
                   required
                 />
               </FormField>
 
-              <FormField label="Nom du Responsable">
+              <FormField label={t('agencyUi.manager')}>
                 <Input
                   value={formState.values.managerName}
                   onChange={(e) => setFormState({ ...formState, values: { ...formState.values, managerName: e.target.value } })}
-                  placeholder="Ex: Jean-Luc Kabamba"
+                  placeholder={t('agencyUi.managerExample')}
                 />
               </FormField>
 
-              <FormField label="Téléphone de contact">
+              <FormField label={t('agencyUi.phone')}>
                 <Input
                   value={formState.values.phone}
                   onChange={(e) => setFormState({ ...formState, values: { ...formState.values, phone: e.target.value } })}
-                  placeholder="Ex: +243 81 000 0000"
+                  placeholder={t('agencyUi.phoneExample')}
                 />
               </FormField>
 
-              <FormField label="Email professionnel">
+              <FormField label={t('agencyUi.email')}>
                 <Input
                   type="email"
                   value={formState.values.email}
                   onChange={(e) => setFormState({ ...formState, values: { ...formState.values, email: e.target.value } })}
-                  placeholder="Ex: gombe@vanguard.cd"
+                  placeholder={t('agencyUi.emailExample')}
                 />
               </FormField>
 
-              <FormField label="Horaires d’ouverture">
+              <FormField label={t('agencyUi.openingHours')}>
                 <Input
                   value={formState.values.openingHours}
                   onChange={(e) => setFormState({ ...formState, values: { ...formState.values, openingHours: e.target.value } })}
@@ -514,23 +514,23 @@ export function AgenciesManagementPage() {
                 />
               </FormField>
 
-              <FormField label="Statut initial">
+              <FormField label={t('agencyUi.initialStatus')}>
                 <Select
                   value={formState.values.isActive ? 'ACTIVE' : 'INACTIVE'}
                   onChange={(e) => setFormState({ ...formState, values: { ...formState.values, isActive: e.target.value === 'ACTIVE' } })}
                 >
-                  <option value="ACTIVE">Active (Ouverte)</option>
-                  <option value="INACTIVE">Inactive (Fermée)</option>
+                  <option value="ACTIVE">{t('agencyUi.openStatus')}</option>
+                  <option value="INACTIVE">{t('agencyUi.closedStatus')}</option>
                 </Select>
               </FormField>
 
               <div style={{ gridColumn: 'span 2' }}>
-                <FormField label="Adresse physique précise">
+                <FormField label={t('agencyUi.address')}>
                   <Textarea
                     rows={2}
                     value={formState.values.address}
                     onChange={(e) => setFormState({ ...formState, values: { ...formState.values, address: e.target.value } })}
-                    placeholder="Ex: 45 Boulevard du 30 Juin, Commune de la Gombe"
+                    placeholder={t('agencyUi.addressExample')}
                   />
                 </FormField>
               </div>
@@ -541,7 +541,7 @@ export function AgenciesManagementPage() {
                 Annuler
               </Button>
               <Button type="submit" variant="primary" loading={saveMutation.isPending}>
-                {formState.mode === 'create' ? 'Créer l’agence' : 'Enregistrer les modifications'}
+                {formState.mode === 'create' ? t('agencyUi.create') : t('agencyUi.save')}
               </Button>
             </div>
           </form>
@@ -554,9 +554,9 @@ export function AgenciesManagementPage() {
           isOpen={Boolean(deletingAgency)}
           onClose={() => setDeletingAgency(null)}
           onConfirm={() => deleteMutation.mutate(deletingAgency.id)}
-          title="Supprimer cette agence ?"
-          message={`Êtes-vous sûr de vouloir supprimer définitivement l’agence "${deletingAgency.name}" (${deletingAgency.code}) ? Cette action est irréversible.`}
-          confirmText="Supprimer définitivement"
+          title={t('agencyUi.confirmDelete')}
+          message={t('agencyUi.deletePrompt', { name: deletingAgency.name, code: deletingAgency.code })}
+          confirmText={t('agencyUi.deletePermanently')}
           loading={deleteMutation.isPending}
           variant="danger"
         />

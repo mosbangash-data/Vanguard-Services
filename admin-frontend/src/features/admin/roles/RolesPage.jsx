@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../services/api'
+import { useLanguage } from '../../../i18n/useLanguage'
 import {
   Plus,
   Search,
@@ -22,7 +23,10 @@ const ROLE_DESCRIPTIONS = {
   MANAGER: 'Responsable opérationnel d\u2019un service. Il supervise les activités qui lui sont attribuées selon ses permissions et son périmètre de service.',
 }
 
-const getRoleDescription = (roleName) => ROLE_DESCRIPTIONS[roleName] || ''
+const getRoleDescription = (roleName, t) => {
+  const value = t(`roleUi.roleDescriptions.${roleName}`)
+  return value.startsWith('roleUi.') ? '' : value
+}
 
 const PERMISSION_DESCRIPTIONS = {
   ASSIGN_VEHICLE_INQUIRY: 'Permet d\u2019attribuer une demande véhicule à un agent ou responsable.',
@@ -71,7 +75,10 @@ const PERMISSION_DESCRIPTIONS = {
   VIEW_VEHICLE_INQUIRY: 'Permet de consulter les demandes véhicules.',
 }
 
-const getPermissionDescription = (permissionName) => PERMISSION_DESCRIPTIONS[permissionName] || ''
+const getPermissionDescription = (permissionName, t) => {
+  const value = t(`roleUi.permissionDescriptions.${permissionName}`)
+  return value.startsWith('roleUi.') ? '' : value
+}
 
 // Regroupement visuel des permissions par module (aucun impact sur la logique)
 const PERMISSION_GROUP_ORDER = [
@@ -142,13 +149,9 @@ const PERMISSION_GROUPS = {
   ],
 }
 
-const PERMISSION_GROUP_LABELS = {
-  'GLOBAL / ADMINISTRATION': 'Global / Administration',
-  'TRANSPORT': 'Transport',
-  'CONSTRUCTION': 'Construction',
-  'AUTOMOBILE': 'Automobile',
-  'UTILISATEURS': 'Utilisateurs',
-  'RÔLES & PERMISSIONS': 'Rôles & Permissions',
+const PERMISSION_GROUP_KEYS = {
+  'GLOBAL / ADMINISTRATION': 'global', TRANSPORT: 'transport', CONSTRUCTION: 'construction',
+  AUTOMOBILE: 'automotive', UTILISATEURS: 'users', 'RÔLES & PERMISSIONS': 'rolesPermissions',
 }
 
 const getPermissionGroup = (permissionName) => {
@@ -196,6 +199,7 @@ async function fetchAllPermissions() {
 }
 
 export function RolesPage() {
+  const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -243,7 +247,7 @@ export function RolesPage() {
       setFormError('')
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Échec de la création du rôle.')
+      setFormError(err?.response?.data?.message || t('roleUi.createFailed'))
     },
   })
 
@@ -258,7 +262,7 @@ export function RolesPage() {
       setFormError('')
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Échec de la modification du rôle.')
+      setFormError(err?.response?.data?.message || t('roleUi.updateFailed'))
     },
   })
 
@@ -272,7 +276,7 @@ export function RolesPage() {
       setDeletingRole(null)
     },
     onError: (err) => {
-      alert(err?.response?.data?.message || 'Échec de la suppression du rôle.')
+      alert(err?.response?.data?.message || t('roleUi.deleteFailed'))
     },
   })
 
@@ -288,7 +292,7 @@ export function RolesPage() {
       setSelectedPermissionIds([])
     },
     onError: (err) => {
-      alert(err?.response?.data?.message || 'Échec de la mise à jour des permissions.')
+      alert(err?.response?.data?.message || t('roleUi.permissionsFailed'))
     },
   })
 
@@ -367,8 +371,8 @@ export function RolesPage() {
         />
         <span className="permission-check-label">
           <strong>{p.name}</strong>
-          {getPermissionDescription(p.name) ? (
-            <small>{getPermissionDescription(p.name)}</small>
+          {getPermissionDescription(p.name, t) ? (
+            <small>{getPermissionDescription(p.name, t)}</small>
           ) : null}
         </span>
       </label>
@@ -379,12 +383,12 @@ export function RolesPage() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Rôles</h1>
-          <p>Gestion des rôles système et attribution de leurs privilèges</p>
+          <h1>{t('roleUi.title')}</h1>
+          <p>{t('roleUi.subtitle')}</p>
         </div>
         <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
           <Plus size={16} />
-          <span>Nouveau rôle</span>
+          <span>{t('roleUi.newRole')}</span>
         </button>
       </div>
 
@@ -395,7 +399,7 @@ export function RolesPage() {
             <input
               type="text"
               className="search-input"
-              placeholder="Rechercher rôle ou description..."
+              placeholder={t('roleUi.searchPlaceholder')}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             />
@@ -403,33 +407,33 @@ export function RolesPage() {
         </div>
         <button type="button" className="button secondary sm" onClick={() => rolesQuery.refetch()}>
           <RefreshCw size={14} />
-          <span>Actualiser</span>
+          <span>{t('commonUi.refresh')}</span>
         </button>
       </div>
 
       <div className="table-container">
         {rolesQuery.isPending ? (
-          <div className="state-container">Chargement des rôles...</div>
+          <div className="state-container">{t('roleUi.loading')}</div>
         ) : rolesQuery.isError ? (
           <div className="state-container">
             <AlertTriangle size={32} />
-            <p>Erreur lors du chargement des rôles.</p>
+            <p>{t('roleUi.loadError')}</p>
             <button type="button" className="button secondary sm" onClick={() => rolesQuery.refetch()}>
-              Réessayer
+              {t('commonUi.retry')}
             </button>
           </div>
         ) : rolesList.length === 0 ? (
-          <div className="state-container">Aucun rôle disponible.</div>
+          <div className="state-container">{t('roleUi.empty')}</div>
         ) : (
           <>
             <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Nom du rôle</th>
-                    <th>Description</th>
-                    <th>Permissions</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th>{t('roleUi.roleName')}</th>
+                    <th>{t('roleUi.description')}</th>
+                    <th>{t('roleUi.permissions')}</th>
+                    <th style={{ textAlign: 'right' }}>{t('roleUi.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -438,13 +442,13 @@ export function RolesPage() {
                       <td>
                         <div className="role-cell">
                           <strong className="role-code">{r.name}</strong>
-                          <span className="role-description">{getRoleDescription(r.name)}</span>
+                          <span className="role-description">{getRoleDescription(r.name, t)}</span>
                         </div>
                       </td>
-                      <td>{r.description || 'Aucune description'}</td>
+                      <td>{r.description || t('roleUi.noDescription')}</td>
                       <td>
                         <span className="badge info">
-                          {Array.isArray(r.permissions) ? r.permissions.length : 0} permission(s)
+                          {t('roleUi.permissionCount', { count: Array.isArray(r.permissions) ? r.permissions.length : 0 })}
                         </span>
                       </td>
                       <td>
@@ -452,16 +456,16 @@ export function RolesPage() {
                           <button
                             type="button"
                             className="action-btn"
-                            title="Gérer les permissions"
+                            title={t('roleUi.managePermissions')}
                             onClick={() => startManagePermissions(r)}
                           >
                             <Key size={14} />
-                            <span>Permissions</span>
+                            <span>{t('roleUi.permissions')}</span>
                           </button>
                           <button
                             type="button"
                             className="action-btn"
-                            title="Modifier"
+                            title={t('roleUi.edit')}
                             onClick={() => startEdit(r)}
                           >
                             <Edit2 size={14} />
@@ -469,7 +473,7 @@ export function RolesPage() {
                           <button
                             type="button"
                             className="action-btn danger"
-                            title="Supprimer"
+                            title={t('roleUi.delete')}
                             onClick={() => setDeletingRole(r)}
                           >
                             <Trash2 size={14} />
@@ -484,7 +488,7 @@ export function RolesPage() {
 
             <div className="pagination-wrap">
               <span>
-                Page {page} sur {totalPages} ({totalRoles} rôles au total)
+                {t('roleUi.pageSummary', { page, totalPages, total: totalRoles })}
               </span>
               <div className="pagination-controls">
                 <button
@@ -493,7 +497,7 @@ export function RolesPage() {
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  Précédent
+                  {t('commonUi.previous')}
                 </button>
                 <button
                   type="button"
@@ -501,7 +505,7 @@ export function RolesPage() {
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Suivant
+                  {t('commonUi.next')}
                 </button>
               </div>
             </div>
@@ -515,8 +519,8 @@ export function RolesPage() {
           <div className="modal-dialog">
             <div className="modal-header">
               <div className="modal-header-text">
-                <h3 className="modal-title">Créer un Rôle</h3>
-                <p className="modal-subtitle">Définissez un nouveau rôle système</p>
+                <h3 className="modal-title">{t('roleUi.createTitle')}</h3>
+                <p className="modal-subtitle">{t('roleUi.createSubtitle')}</p>
               </div>
               <button type="button" className="modal-close" onClick={() => setIsCreateOpen(false)}>
                 <X size={18} />
@@ -526,7 +530,7 @@ export function RolesPage() {
               <div className="modal-body">
                 {formError && <div className="alert alert-danger">{formError}</div>}
                 <div className="form-group">
-                  <label className="form-label">Nom du rôle *</label>
+                  <label className="form-label">{t('roleUi.roleName')} *</label>
                   <select
                     className="form-control"
                     required
@@ -540,7 +544,7 @@ export function RolesPage() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Description</label>
+                  <label className="form-label">{t('roleUi.description')}</label>
                   <textarea
                     className="form-control"
                     rows="3"
@@ -551,10 +555,10 @@ export function RolesPage() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setIsCreateOpen(false)}>
-                  Annuler
+                  {t('commonUi.cancel')}
                 </button>
                 <button type="submit" className="button" disabled={createRoleMutation.isPending}>
-                  {createRoleMutation.isPending ? 'Création...' : 'Créer'}
+                  {createRoleMutation.isPending ? t('roleUi.creating') : t('roleUi.create')}
                 </button>
               </div>
             </form>
@@ -568,8 +572,8 @@ export function RolesPage() {
           <div className="modal-dialog">
             <div className="modal-header">
               <div className="modal-header-text">
-                <h3 className="modal-title">Modifier Rôle</h3>
-                <p className="modal-subtitle">Mettez à jour les informations du rôle</p>
+                <h3 className="modal-title">{t('roleUi.editTitle')}</h3>
+                <p className="modal-subtitle">{t('roleUi.editSubtitle')}</p>
               </div>
               <button type="button" className="modal-close" onClick={() => setEditingRole(null)}>
                 <X size={18} />
@@ -579,7 +583,7 @@ export function RolesPage() {
               <div className="modal-body">
                 {formError && <div className="alert alert-danger">{formError}</div>}
                 <div className="form-group">
-                  <label className="form-label">Nom du rôle</label>
+                  <label className="form-label">{t('roleUi.roleName')}</label>
                   <input
                     type="text"
                     className="form-control"
@@ -588,7 +592,7 @@ export function RolesPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Description</label>
+                  <label className="form-label">{t('roleUi.description')}</label>
                   <textarea
                     className="form-control"
                     rows="3"
@@ -599,10 +603,10 @@ export function RolesPage() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setEditingRole(null)}>
-                  Annuler
+                  {t('commonUi.cancel')}
                 </button>
                 <button type="submit" className="button" disabled={updateRoleMutation.isPending}>
-                  {updateRoleMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+                  {updateRoleMutation.isPending ? t('roleUi.saving') : t('roleUi.save')}
                 </button>
               </div>
             </form>
@@ -616,8 +620,8 @@ export function RolesPage() {
           <div className="modal-dialog modal-dialog-lg">
             <div className="modal-header">
               <div className="modal-header-text">
-                <h3 className="modal-title">Permissions du rôle : {managingPermissionsRole.name}</h3>
-                <p className="modal-subtitle">Cochez les permissions à attribuer à ce rôle</p>
+                <h3 className="modal-title">{t('roleUi.permissionsTitle', { role: managingPermissionsRole.name })}</h3>
+                <p className="modal-subtitle">{t('roleUi.permissionsSubtitle')}</p>
               </div>
               <button type="button" className="modal-close" onClick={() => setManagingPermissionsRole(null)}>
                 <X size={18} />
@@ -625,9 +629,9 @@ export function RolesPage() {
             </div>
             <div className="modal-body">
               {allPermissionsQuery.isPending ? (
-                <p>Chargement des permissions disponibles...</p>
+                <p>{t('roleUi.permissionsLoading')}</p>
               ) : allPermissionsQuery.isError ? (
-                <p className="form-error">Erreur lors de la récupération des permissions.</p>
+                <p className="form-error">{t('roleUi.permissionsLoadError')}</p>
               ) : (
                 <>
                   <div className="permissions-toolbar">
@@ -637,18 +641,18 @@ export function RolesPage() {
                       onClick={handleSelectAllPermissions}
                     >
                       {selectedPermissionIds.length === allPermissionsList.length
-                        ? 'Tout décocher'
-                        : 'Tout cocher'}
+                        ? t('roleUi.deselectAll')
+                        : t('roleUi.selectAll')}
                     </button>
                     <span className="permissions-count">
-                      {selectedPermissionIds.length} / {allPermissionsList.length} sélectionnée(s)
+                      {t('roleUi.selectedCount', { selected: selectedPermissionIds.length, total: allPermissionsList.length })}
                     </span>
                   </div>
 
                   {groupedPermissions.map(([groupName, perms]) => (
                     <div key={groupName} className="permission-group">
                       <h4 className="permission-group-title">
-                        {PERMISSION_GROUP_LABELS[groupName] || groupName}
+                        {t(`roleUi.groups.${PERMISSION_GROUP_KEYS[groupName]}`)}
                         <span className="permission-group-count">
                           {perms.filter((p) => selectedPermissionIds.includes(p.id)).length}/{perms.length}
                         </span>
@@ -662,7 +666,7 @@ export function RolesPage() {
                   {ungrouped.length > 0 && (
                     <div className="permission-group">
                       <h4 className="permission-group-title">
-                        Autres permissions
+                        {t('roleUi.otherPermissions')}
                         <span className="permission-group-count">
                           {ungrouped.filter((p) => selectedPermissionIds.includes(p.id)).length}/{ungrouped.length}
                         </span>
@@ -677,7 +681,7 @@ export function RolesPage() {
             </div>
             <div className="modal-footer">
               <button type="button" className="button secondary" onClick={() => setManagingPermissionsRole(null)}>
-                Annuler
+                {t('commonUi.cancel')}
               </button>
               <button
                 type="button"
@@ -685,7 +689,7 @@ export function RolesPage() {
                 disabled={updateRolePermissionsMutation.isPending}
                 onClick={handleSavePermissions}
               >
-                {updateRolePermissionsMutation.isPending ? 'Enregistrement...' : 'Enregistrer les permissions'}
+                {updateRolePermissionsMutation.isPending ? t('roleUi.saving') : t('roleUi.savePermissions')}
               </button>
             </div>
           </div>
@@ -697,22 +701,22 @@ export function RolesPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Confirmer la suppression</h3>
+              <h3 className="modal-title">{t('roleUi.confirmDelete')}</h3>
               <button type="button" className="modal-close" onClick={() => setDeletingRole(null)}>
                 <X size={18} />
               </button>
             </div>
             <div className="modal-body">
               <p>
-                Êtes-vous sûr de vouloir supprimer le rôle <strong>{deletingRole.name}</strong> ?
+                {t('roleUi.deletePrompt', { role: deletingRole.name })}
               </p>
               <p style={{ fontSize: '0.85rem', color: 'var(--color-medium-gray)' }}>
-                Cette action est irréversible. Un rôle attribué à des utilisateurs ne peut pas être supprimé.
+                {t('roleUi.deleteWarning')}
               </p>
             </div>
             <div className="modal-footer">
               <button type="button" className="button secondary" onClick={() => setDeletingRole(null)}>
-                Annuler
+                {t('commonUi.cancel')}
               </button>
               <button
                 type="button"
@@ -720,7 +724,7 @@ export function RolesPage() {
                 disabled={deleteRoleMutation.isPending}
                 onClick={() => deleteRoleMutation.mutate(deletingRole.id)}
               >
-                {deleteRoleMutation.isPending ? 'Suppression...' : 'Supprimer définitivement'}
+                {deleteRoleMutation.isPending ? t('roleUi.deleting') : t('roleUi.deletePermanently')}
               </button>
             </div>
           </div>

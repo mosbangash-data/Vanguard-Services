@@ -1,17 +1,20 @@
 import React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useLanguage } from '../../i18n/useLanguage'
 
 export function LoadingState({
-  message = 'Chargement des données en cours…',
+  message,
   type = 'skeleton', // 'skeleton', 'spinner', 'cards'
   cardCount = 4,
   className = '',
 }) {
+  const { t } = useLanguage()
+  const loadingMessage = message || t('commonUi.loading')
   if (type === 'spinner') {
     return (
       <div className={`vanguard-loading-spinner-wrap ${className}`}>
         <Loader2 size={32} className="animate-spin text-primary" />
-        <p className="vanguard-loading-text">{message}</p>
+        <p className="vanguard-loading-text">{loadingMessage}</p>
       </div>
     )
   }

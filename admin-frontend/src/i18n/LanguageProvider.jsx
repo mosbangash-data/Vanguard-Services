@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { LanguageContext } from './LanguageContext'
 import { translations } from './translations'
 
@@ -14,7 +14,12 @@ export function LanguageProvider({ children }) {
     }
   })
 
+  const changeLanguage = useCallback((nextLang) => {
+    if (nextLang === 'fr' || nextLang === 'en') setLang(nextLang)
+  }, [])
+
   useEffect(() => {
+    document.documentElement.lang = lang
     try {
       localStorage.setItem(LANG_KEY, lang)
     } catch {
@@ -26,8 +31,8 @@ export function LanguageProvider({ children }) {
     const dict = translations[lang] || translations.fr
     return {
       lang,
-      setLang,
-      t: (key) => {
+      setLang: changeLanguage,
+      t: (key, values = {}) => {
         const keys = key.split('.')
         let res = dict
         for (const k of keys) {
@@ -37,10 +42,11 @@ export function LanguageProvider({ children }) {
             return key
           }
         }
-        return res
+        if (typeof res !== 'string') return res
+        return res.replace(/\{(\w+)\}/g, (match, name) => values[name] === undefined ? match : String(values[name]))
       },
     }
-  }, [lang])
+  }, [lang, changeLanguage])
 
   return (
     <LanguageContext.Provider value={value}>

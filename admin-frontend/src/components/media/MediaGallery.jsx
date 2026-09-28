@@ -4,6 +4,7 @@ import { MediaImage } from './MediaImage'
 import { MediaViewer } from './MediaViewer'
 import { MediaEmptyState } from './MediaEmptyState'
 import { Maximize2 } from 'lucide-react'
+import { useLanguage } from '../../i18n/useLanguage'
 
 export function MediaGallery({
   items = [],
@@ -17,6 +18,7 @@ export function MediaGallery({
   aspectRatio = '16/9',
   minHeight = 240,
 }) {
+  const { t } = useLanguage()
   const ordered = useMemo(() => getMediaList(items), [items])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isViewerOpen, setIsViewerOpen] = useState(false)
@@ -31,8 +33,8 @@ export function MediaGallery({
     return (
       <MediaEmptyState
         size="lg"
-        title="Aucune photo disponible"
-        description="Ce véhicule ou ce bus ne dispose pas encore de photos dans sa galerie."
+        title={t('mediaUi.noImage')}
+        description={t('mediaUi.galleryEmpty')}
         className={className}
       />
     )
@@ -56,7 +58,7 @@ export function MediaGallery({
         onClick={() => {
           if (allowViewer) setIsViewerOpen(true)
         }}
-        title={allowViewer ? 'Cliquer pour agrandir' : undefined}
+        title={allowViewer ? t('mediaUi.clickToEnlarge') : undefined}
       >
         <MediaImage
           media={selected}
@@ -85,7 +87,7 @@ export function MediaGallery({
             }}
           >
             <Maximize2 size={13} />
-            <span>Agrandir</span>
+            <span>{t('mediaUi.enlarge')}</span>
           </div>
         )}
       </div>

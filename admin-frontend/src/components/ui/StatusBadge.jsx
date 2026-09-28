@@ -1,4 +1,5 @@
 import React from 'react'
+import { useLanguage } from '../../i18n/useLanguage'
 
 const STATUS_CONFIGS = {
   // Vehicle / General statuses
@@ -40,6 +41,7 @@ const STATUS_CONFIGS = {
 }
 
 export function StatusBadge({ status, label, variant, dot = true, className = '' }) {
+  const { t } = useLanguage()
   const normalized = String(status || '').toUpperCase()
   const config = STATUS_CONFIGS[normalized] || {
     label: label || status || '—',
@@ -47,7 +49,8 @@ export function StatusBadge({ status, label, variant, dot = true, className = ''
   }
 
   const finalVariant = variant || config.variant || 'neutral'
-  const displayLabel = label || config.label || normalized
+  const translatedStatus = t(`status.${normalized.toLowerCase()}`)
+  const displayLabel = label || (translatedStatus.startsWith('status.') ? config.label : translatedStatus) || normalized
 
   return (
     <span className={`vanguard-badge vanguard-badge--${finalVariant} ${className}`}>

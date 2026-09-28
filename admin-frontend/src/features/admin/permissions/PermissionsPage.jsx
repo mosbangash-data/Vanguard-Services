@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../services/api'
+import { useLanguage } from '../../../i18n/useLanguage'
 import {
   Plus,
   Search,
@@ -19,6 +20,7 @@ async function fetchPermissions({ page, limit, search }) {
 }
 
 export function PermissionsPage() {
+  const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -51,7 +53,7 @@ export function PermissionsPage() {
       setFormError('')
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Échec de la création de la permission.')
+      setFormError(err?.response?.data?.message || t('permissionUi.createFailed'))
     },
   })
 
@@ -66,7 +68,7 @@ export function PermissionsPage() {
       setFormError('')
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Échec de la modification.')
+      setFormError(err?.response?.data?.message || t('permissionUi.updateFailed'))
     },
   })
 
@@ -80,7 +82,7 @@ export function PermissionsPage() {
       setDeletingPermission(null)
     },
     onError: (err) => {
-      alert(err?.response?.data?.message || 'Échec de la suppression de la permission.')
+      alert(err?.response?.data?.message || t('permissionUi.deleteFailed'))
     },
   })
 
@@ -122,12 +124,12 @@ export function PermissionsPage() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Permissions</h1>
-          <p>Liste des droits d'accès granulaires disponibles dans l’application</p>
+          <h1>{t('permissionUi.title')}</h1>
+          <p>{t('permissionUi.subtitle')}</p>
         </div>
         <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
           <Plus size={16} />
-          <span>Nouvelle permission</span>
+          <span>{t('permissionUi.new')}</span>
         </button>
       </div>
 
@@ -138,7 +140,7 @@ export function PermissionsPage() {
             <input
               type="text"
               className="search-input"
-              placeholder="Rechercher nom ou description..."
+              placeholder={t('permissionUi.searchPlaceholder')}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             />
@@ -146,33 +148,33 @@ export function PermissionsPage() {
         </div>
         <button type="button" className="button secondary sm" onClick={() => permissionsQuery.refetch()}>
           <RefreshCw size={14} />
-          <span>Actualiser</span>
+          <span>{t('commonUi.refresh')}</span>
         </button>
       </div>
 
       <div className="table-container">
         {permissionsQuery.isPending ? (
-          <div className="state-container">Chargement des permissions...</div>
+          <div className="state-container">{t('permissionUi.loading')}</div>
         ) : permissionsQuery.isError ? (
           <div className="state-container">
             <AlertTriangle size={32} />
-            <p>Erreur lors du chargement des permissions.</p>
+            <p>{t('permissionUi.loadError')}</p>
             <button type="button" className="button secondary sm" onClick={() => permissionsQuery.refetch()}>
-              Réessayer
+              {t('commonUi.retry')}
             </button>
           </div>
         ) : permissionsList.length === 0 ? (
-          <div className="state-container">Aucune donnée disponible.</div>
+          <div className="state-container">{t('permissionUi.empty')}</div>
         ) : (
           <>
             <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Nom de la permission</th>
-                    <th>Domaine</th>
-                    <th>Description</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th>{t('permissionUi.name')}</th>
+                    <th>{t('permissionUi.domain')}</th>
+                    <th>{t('permissionUi.description')}</th>
+                    <th style={{ textAlign: 'right' }}>{t('commonUi.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -184,13 +186,13 @@ export function PermissionsPage() {
                       <td>
                         <span className="badge gray">{getDomain(p.name)}</span>
                       </td>
-                      <td>{p.description || 'Aucune description'}</td>
+                      <td>{p.description || t('permissionUi.noDescription')}</td>
                       <td>
                         <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
                           <button
                             type="button"
                             className="action-btn"
-                            title="Modifier"
+                            title={t('commonUi.edit')}
                             onClick={() => startEdit(p)}
                           >
                             <Edit2 size={14} />
@@ -198,7 +200,7 @@ export function PermissionsPage() {
                           <button
                             type="button"
                             className="action-btn danger"
-                            title="Supprimer"
+                            title={t('commonUi.delete')}
                             onClick={() => setDeletingPermission(p)}
                           >
                             <Trash2 size={14} />
@@ -213,7 +215,7 @@ export function PermissionsPage() {
 
             <div className="pagination-wrap">
               <span>
-                Page {page} sur {totalPages} ({totalPermissions} permissions au total)
+                {t('permissionUi.pageSummary', { page, totalPages, total: totalPermissions })}
               </span>
               <div className="pagination-controls">
                 <button
@@ -222,7 +224,7 @@ export function PermissionsPage() {
                   disabled={page <= 1}
                   onClick={() => setPage((pr) => Math.max(1, pr - 1))}
                 >
-                  Précédent
+                  {t('commonUi.previous')}
                 </button>
                 <button
                   type="button"
@@ -230,7 +232,7 @@ export function PermissionsPage() {
                   disabled={page >= totalPages}
                   onClick={() => setPage((pr) => pr + 1)}
                 >
-                  Suivant
+                  {t('commonUi.next')}
                 </button>
               </div>
             </div>
@@ -243,7 +245,7 @@ export function PermissionsPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Créer une Permission</h3>
+              <h3 className="modal-title">{t('permissionUi.createTitle')}</h3>
               <button type="button" className="modal-close" onClick={() => setIsCreateOpen(false)}>
                 <X size={18} />
               </button>
@@ -252,7 +254,7 @@ export function PermissionsPage() {
               <div className="modal-body">
                 {formError && <div className="alert alert-danger">{formError}</div>}
                 <div className="form-group">
-                  <label className="form-label">Nom de la permission * (ex: VIEW_USER)</label>
+                  <label className="form-label">{t('permissionUi.name')} * ({t('permissionUi.example')}: VIEW_USER)</label>
                   <input
                     type="text"
                     className="form-control"
@@ -262,7 +264,7 @@ export function PermissionsPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Description</label>
+                  <label className="form-label">{t('permissionUi.description')}</label>
                   <textarea
                     className="form-control"
                     rows="3"
@@ -273,10 +275,10 @@ export function PermissionsPage() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setIsCreateOpen(false)}>
-                  Annuler
+                  {t('commonUi.cancel')}
                 </button>
                 <button type="submit" className="button" disabled={createPermissionMutation.isPending}>
-                  {createPermissionMutation.isPending ? 'Création...' : 'Créer'}
+                  {createPermissionMutation.isPending ? t('permissionUi.creating') : t('permissionUi.create')}
                 </button>
               </div>
             </form>
@@ -289,7 +291,7 @@ export function PermissionsPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Modifier la Permission</h3>
+              <h3 className="modal-title">{t('permissionUi.editTitle')}</h3>
               <button type="button" className="modal-close" onClick={() => setEditingPermission(null)}>
                 <X size={18} />
               </button>
@@ -298,7 +300,7 @@ export function PermissionsPage() {
               <div className="modal-body">
                 {formError && <div className="alert alert-danger">{formError}</div>}
                 <div className="form-group">
-                  <label className="form-label">Nom de la permission</label>
+                  <label className="form-label">{t('permissionUi.name')}</label>
                   <input
                     type="text"
                     className="form-control"
@@ -307,7 +309,7 @@ export function PermissionsPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Description</label>
+                  <label className="form-label">{t('permissionUi.description')}</label>
                   <textarea
                     className="form-control"
                     rows="3"
@@ -318,10 +320,10 @@ export function PermissionsPage() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setEditingPermission(null)}>
-                  Annuler
+                  {t('commonUi.cancel')}
                 </button>
                 <button type="submit" className="button" disabled={updatePermissionMutation.isPending}>
-                  {updatePermissionMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+                  {updatePermissionMutation.isPending ? t('permissionUi.saving') : t('permissionUi.save')}
                 </button>
               </div>
             </form>
@@ -334,22 +336,22 @@ export function PermissionsPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Confirmer la suppression</h3>
+              <h3 className="modal-title">{t('permissionUi.confirmDelete')}</h3>
               <button type="button" className="modal-close" onClick={() => setDeletingPermission(null)}>
                 <X size={18} />
               </button>
             </div>
             <div className="modal-body">
               <p>
-                Êtes-vous sûr de vouloir supprimer la permission <strong>{deletingPermission.name}</strong> ?
+                {t('permissionUi.deletePrompt', { name: deletingPermission.name })}
               </p>
               <p style={{ fontSize: '0.85rem', color: 'var(--color-medium-gray)' }}>
-                Cette action est irréversible. Une permission associée à un rôle ne peut pas être supprimée.
+                {t('permissionUi.deleteWarning')}
               </p>
             </div>
             <div className="modal-footer">
               <button type="button" className="button secondary" onClick={() => setDeletingPermission(null)}>
-                Annuler
+                {t('commonUi.cancel')}
               </button>
               <button
                 type="button"
@@ -357,7 +359,7 @@ export function PermissionsPage() {
                 disabled={deletePermissionMutation.isPending}
                 onClick={() => deletePermissionMutation.mutate(deletingPermission.id)}
               >
-                {deletePermissionMutation.isPending ? 'Suppression...' : 'Supprimer'}
+                {deletePermissionMutation.isPending ? t('permissionUi.deleting') : t('permissionUi.delete')}
               </button>
             </div>
           </div>

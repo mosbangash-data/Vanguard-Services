@@ -1,54 +1,72 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './features/auth/AuthProvider'
-import { LoginPage } from './features/auth/LoginPage'
-import { PasswordRecoveryPage } from './features/auth/PasswordRecoveryPage'
-import { ForbiddenPage, NotFoundPage, PublicTicketPage } from './components/Pages'
+const LoginPage = lazy(() => import('./features/auth/LoginPage').then((m) => ({ default: m.LoginPage })))
+const PasswordRecoveryPage = lazy(() => import('./features/auth/PasswordRecoveryPage').then((m) => ({ default: m.PasswordRecoveryPage })))
+const ForbiddenPage = lazy(() => import('./components/Pages').then((m) => ({ default: m.ForbiddenPage })))
+const NotFoundPage = lazy(() => import('./components/Pages').then((m) => ({ default: m.NotFoundPage })))
+const PublicTicketPage = lazy(() => import('./components/Pages').then((m) => ({ default: m.PublicTicketPage })))
 import { DepartmentRoute, ProtectedRoute, RoleRoute } from './routes/guards'
 import { AppLayout } from './layouts/AppLayout'
 import { AdminLayout } from './layouts/AdminLayout'
 
-// Admin Features
-import { AdminDashboardPage } from './features/admin/dashboard/AdminDashboardPage'
-import { UsersPage } from './features/admin/users/UsersPage'
-import { RolesPage } from './features/admin/roles/RolesPage'
-import { PermissionsPage } from './features/admin/permissions/PermissionsPage'
-import { DepartmentsPage } from './features/admin/departments/DepartmentsPage'
-import { AuditLogsPage } from './features/admin/audit/AuditLogsPage'
-import { NotificationsPage } from './features/admin/notifications/NotificationsPage'
-import { AccountPage } from './features/admin/account/AccountPage'
+// Admin Features are loaded on demand so agent mobile sessions download only the page they open.
+const AdminDashboardPage = lazy(() => import('./features/admin/dashboard/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })))
+const UsersPage = lazy(() => import('./features/admin/users/UsersPage').then((m) => ({ default: m.UsersPage })))
+const RolesPage = lazy(() => import('./features/admin/roles/RolesPage').then((m) => ({ default: m.RolesPage })))
+const PermissionsPage = lazy(() => import('./features/admin/permissions/PermissionsPage').then((m) => ({ default: m.PermissionsPage })))
+const DepartmentsPage = lazy(() => import('./features/admin/departments/DepartmentsPage').then((m) => ({ default: m.DepartmentsPage })))
+const AuditLogsPage = lazy(() => import('./features/admin/audit/AuditLogsPage').then((m) => ({ default: m.AuditLogsPage })))
+const NotificationsPage = lazy(() => import('./features/admin/notifications/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
+const AccountPage = lazy(() => import('./features/admin/account/AccountPage').then((m) => ({ default: m.AccountPage })))
 
 // Other Features & Resources
-import { DashboardPage } from './features/admin/DashboardPage'
-import { ProjectDetailPage } from './features/construction/ProjectDetailPage'
-import { ConstructionDashboardPage } from './features/construction/ConstructionDashboardPage'
-import { ProjectListPage } from './features/construction/ProjectListPage'
-import { ProjectFormPage } from './features/construction/ProjectFormPage'
-import { ConstructionTemplatesPage } from './features/construction/ConstructionTemplatesPage'
-import { CustomerRequestsPage, CustomerRequestDetailPage } from './features/construction/CustomerRequestsPage'
-import { QuoteRequestsPage, QuoteRequestDetailPage } from './features/construction/QuoteRequestsPage'
-import { ResourcePage } from './features/resources/ResourcePage'
-import { CoachOperationsPage } from './features/admin/coach/CoachOperationsPage'
-import { AgentDashboard } from './features/admin/coach/AgentDashboard'
-import { AgenciesManagementPage } from './features/admin/coach/AgenciesManagementPage'
-import { AgencyDetailPage } from './features/admin/coach/AgencyDetailPage'
-import { TicketScanner } from './features/admin/coach/TicketScanner'
-import { AutoSalesDashboardPage } from './features/admin/autosales/AutoSalesDashboardPage'
-import { AutoSalesAgentManagementPage, AutoSalesAgentWorkspacePage, AutoSalesAgentInquiryPage, AutoSalesAgentInquiryDetailPage } from './features/admin/autosales/AutoSalesAgentWorkspacePage'
-import { AutoSalesAgentReservationsPage } from './features/admin/autosales/AutoSalesAgentReservationsPage'
-import { AutoSalesAgentPaymentsPage } from './features/admin/autosales/AutoSalesAgentPaymentsPage'
-import { AutoSalesAgentSalesPage } from './features/admin/autosales/AutoSalesAgentSalesPage'
-import { AutoSalesInquiryPage, AutoSalesReservationPage, AutoSalesPaymentPage, AutoSalesSalesPage } from './features/admin/autosales/AutoSalesCommercialPages'
-import { VehicleManagementPage, VehicleDetailPage } from './features/admin/autosales/VehicleManagementPage'
-import { VehicleTemplatesPage } from './features/admin/autosales/VehicleTemplatesPage'
+const DashboardPage = lazy(() => import('./features/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const ProjectDetailPage = lazy(() => import('./features/construction/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage })))
+const ConstructionDashboardPage = lazy(() => import('./features/construction/ConstructionDashboardPage').then((m) => ({ default: m.ConstructionDashboardPage })))
+const ProjectListPage = lazy(() => import('./features/construction/ProjectListPage').then((m) => ({ default: m.ProjectListPage })))
+const ProjectFormPage = lazy(() => import('./features/construction/ProjectFormPage').then((m) => ({ default: m.ProjectFormPage })))
+const ConstructionTemplatesPage = lazy(() => import('./features/construction/ConstructionTemplatesPage').then((m) => ({ default: m.ConstructionTemplatesPage })))
+const CustomerRequestsPage = lazy(() => import('./features/construction/CustomerRequestsPage').then((m) => ({ default: m.CustomerRequestsPage })))
+const CustomerRequestDetailPage = lazy(() => import('./features/construction/CustomerRequestsPage').then((m) => ({ default: m.CustomerRequestDetailPage })))
+const QuoteRequestsPage = lazy(() => import('./features/construction/QuoteRequestsPage').then((m) => ({ default: m.QuoteRequestsPage })))
+const QuoteRequestDetailPage = lazy(() => import('./features/construction/QuoteRequestsPage').then((m) => ({ default: m.QuoteRequestDetailPage })))
+const ResourcePage = lazy(() => import('./features/resources/ResourcePage').then((m) => ({ default: m.ResourcePage })))
+const CoachOperationsPage = lazy(() => import('./features/admin/coach/CoachOperationsPage').then((m) => ({ default: m.CoachOperationsPage })))
+const AgentDashboard = lazy(() => import('./features/admin/coach/AgentDashboard').then((m) => ({ default: m.AgentDashboard })))
+const AgenciesManagementPage = lazy(() => import('./features/admin/coach/AgenciesManagementPage').then((m) => ({ default: m.AgenciesManagementPage })))
+const AgencyDetailPage = lazy(() => import('./features/admin/coach/AgencyDetailPage').then((m) => ({ default: m.AgencyDetailPage })))
+const TicketScanner = lazy(() => import('./features/admin/coach/TicketScanner').then((m) => ({ default: m.TicketScanner })))
+const AutoSalesDashboardPage = lazy(() => import('./features/admin/autosales/AutoSalesDashboardPage').then((m) => ({ default: m.AutoSalesDashboardPage })))
+const AutoSalesAgentManagementPage = lazy(() => import('./features/admin/autosales/AutoSalesAgentWorkspacePage').then((m) => ({ default: m.AutoSalesAgentManagementPage })))
+const AutoSalesAgentWorkspacePage = lazy(() => import('./features/admin/autosales/AutoSalesAgentWorkspacePage').then((m) => ({ default: m.AutoSalesAgentWorkspacePage })))
+const AutoSalesAgentInquiryPage = lazy(() => import('./features/admin/autosales/AutoSalesAgentWorkspacePage').then((m) => ({ default: m.AutoSalesAgentInquiryPage })))
+const AutoSalesAgentInquiryDetailPage = lazy(() => import('./features/admin/autosales/AutoSalesAgentWorkspacePage').then((m) => ({ default: m.AutoSalesAgentInquiryDetailPage })))
+const AutoSalesAgentReservationsPage = lazy(() => import('./features/admin/autosales/AutoSalesAgentReservationsPage').then((m) => ({ default: m.AutoSalesAgentReservationsPage })))
+const AutoSalesAgentPaymentsPage = lazy(() => import('./features/admin/autosales/AutoSalesAgentPaymentsPage').then((m) => ({ default: m.AutoSalesAgentPaymentsPage })))
+const AutoSalesAgentSalesPage = lazy(() => import('./features/admin/autosales/AutoSalesAgentSalesPage').then((m) => ({ default: m.AutoSalesAgentSalesPage })))
+const AutoSalesInquiryPage = lazy(() => import('./features/admin/autosales/AutoSalesCommercialPages').then((m) => ({ default: m.AutoSalesInquiryPage })))
+const AutoSalesReservationPage = lazy(() => import('./features/admin/autosales/AutoSalesCommercialPages').then((m) => ({ default: m.AutoSalesReservationPage })))
+const AutoSalesPaymentPage = lazy(() => import('./features/admin/autosales/AutoSalesCommercialPages').then((m) => ({ default: m.AutoSalesPaymentPage })))
+const AutoSalesSalesPage = lazy(() => import('./features/admin/autosales/AutoSalesCommercialPages').then((m) => ({ default: m.AutoSalesSalesPage })))
+const VehicleManagementPage = lazy(() => import('./features/admin/autosales/VehicleManagementPage').then((m) => ({ default: m.VehicleManagementPage })))
+const VehicleDetailPage = lazy(() => import('./features/admin/autosales/VehicleManagementPage').then((m) => ({ default: m.VehicleDetailPage })))
+const VehicleTemplatesPage = lazy(() => import('./features/admin/autosales/VehicleTemplatesPage').then((m) => ({ default: m.VehicleTemplatesPage })))
 import { resourceByPath, resourceGroups } from './features/resources/resourceConfig'
 import { useAuth } from './features/auth/authContext'
 import { getDestination } from './features/auth/session'
+import { useLanguage } from './i18n/useLanguage'
+
+function RouteLoadingFallback() {
+  const { t } = useLanguage()
+  return <div role="status" className="vanguard-loading-text">{t('dashboard.loading')}</div>
+}
 
 function ResourceRoute({ path }) {
   const resource = resourceByPath[path]
   return <ResourcePage resource={resource} />
 }
-import { ManagerDashboard } from './features/admin/coach/ManagerDashboard'
+const ManagerDashboard = lazy(() => import('./features/admin/coach/ManagerDashboard').then((m) => ({ default: m.ManagerDashboard })))
 
 function TransportDashboardRouter() {
   const { user } = useAuth()
@@ -139,6 +157,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <Suspense fallback={<RouteLoadingFallback />}>
         <Routes>
           <Route path="/admin/login" element={<LoginPage />} />
           <Route path="/admin/forgot-password" element={<PasswordRecoveryPage />} />
@@ -176,6 +195,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/admin/login" replace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
   )

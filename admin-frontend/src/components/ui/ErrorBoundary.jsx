@@ -1,7 +1,9 @@
 import React from 'react'
 import { AlertOctagon, RefreshCw, Home } from 'lucide-react'
+import { LanguageContext } from '../../i18n/LanguageContext'
 
 export class ErrorBoundary extends React.Component {
+  static contextType = LanguageContext
   constructor(props) {
     super(props)
     this.state = { hasError: false, error: null }
@@ -21,6 +23,7 @@ export class ErrorBoundary extends React.Component {
   }
 
   render() {
+    const t = this.context?.t || ((key) => key)
     if (this.state.hasError) {
       return (
         <div className="vanguard-error-boundary-screen">
@@ -28,9 +31,9 @@ export class ErrorBoundary extends React.Component {
             <div className="vanguard-error-boundary-icon">
               <AlertOctagon size={40} />
             </div>
-            <h2>Une erreur inattendue est survenue</h2>
+            <h2>{t('errorBoundary.title')}</h2>
             <p>
-              L’application a rencontré un problème d’affichage. Aucune donnée n’a été perdue.
+              {t('errorBoundary.description')}
             </p>
             {this.state.error?.message && (
               <pre className="vanguard-error-boundary-details">
@@ -44,7 +47,7 @@ export class ErrorBoundary extends React.Component {
                 onClick={() => { window.location.href = '/admin' }}
               >
                 <Home size={16} />
-                <span>Retour à l’accueil</span>
+                <span>{t('errorBoundary.home')}</span>
               </button>
               <button
                 type="button"
@@ -52,7 +55,7 @@ export class ErrorBoundary extends React.Component {
                 onClick={this.handleReset}
               >
                 <RefreshCw size={16} />
-                <span>Recharger la page</span>
+                <span>{t('errorBoundary.reload')}</span>
               </button>
             </div>
           </div>

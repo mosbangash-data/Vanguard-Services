@@ -1,5 +1,8 @@
 ﻿const validateCreate = (req, res, next) => {
   const body = req.body || {};
+  if (body.pricingBasis && !['WEIGHT', 'VOLUME'].includes(String(body.pricingBasis).toUpperCase())) {
+    return res.status(400).json({ success: false, message: 'pricingBasis must be WEIGHT or VOLUME' });
+  }
   if (!body.senderName || typeof body.senderName !== 'string' || !body.senderName.trim()) {
     return res.status(400).json({ success: false, message: 'senderName is required' });
   }
@@ -12,10 +15,11 @@
   if (!body.recipientPhone || typeof body.recipientPhone !== 'string' || !body.recipientPhone.trim()) {
     return res.status(400).json({ success: false, message: 'recipientPhone is required' });
   }
-  if (!body.originCity || typeof body.originCity !== 'string' || !body.originCity.trim()) {
+  const hasAssignedAgency = Boolean(req.user?.agencyId || req.user?.agency?.id);
+  if (!hasAssignedAgency && (!body.originCity || typeof body.originCity !== 'string' || !body.originCity.trim())) {
     return res.status(400).json({ success: false, message: 'originCity is required' });
   }
-  if (!body.destinationCity || typeof body.destinationCity !== 'string' || !body.destinationCity.trim()) {
+  if (!body.destinationAgencyId && (!body.destinationCity || typeof body.destinationCity !== 'string' || !body.destinationCity.trim())) {
     return res.status(400).json({ success: false, message: 'destinationCity is required' });
   }
   next();

@@ -174,12 +174,6 @@ export const api = {
     apiClient.get('/api/public/agencies', { params }).then(unwrap),
 
   /**
-   * Enregistrer / calculer le prix d'un colis en ligne.
-   */
-  createPublicParcel: (payload) =>
-    apiClient.post('/api/public/parcels', payload).then(unwrap),
-
-  /**
    * Suivre un colis par son code de suivi.
    */
   getPublicParcel: (trackingCode) =>

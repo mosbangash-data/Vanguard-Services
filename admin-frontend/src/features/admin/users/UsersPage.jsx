@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../services/api'
+import { useLanguage } from '../../../i18n/useLanguage'
 import {
   UserPlus,
   Search,
@@ -40,6 +41,7 @@ async function fetchAgencies() {
 }
 
 export function UsersPage() {
+  const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -119,7 +121,7 @@ export function UsersPage() {
       })
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Échec de la création de l’utilisateur.')
+      setFormError(err?.response?.data?.message || t('userAdmin.createFailed'))
     },
   })
 
@@ -134,7 +136,7 @@ export function UsersPage() {
       setFormError('')
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Échec de la modification.')
+      setFormError(err?.response?.data?.message || t('userAdmin.updateFailed'))
     },
   })
 
@@ -148,7 +150,7 @@ export function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
     },
     onError: (err) => {
-      alert(err?.response?.data?.message || 'Échec du changement de statut.')
+      alert(err?.response?.data?.message || t('userAdmin.statusFailed'))
     },
   })
 
@@ -161,7 +163,7 @@ export function UsersPage() {
       setTempPassword(data?.data?.temporaryPassword || '')
     },
     onError: (err) => {
-      alert(err?.response?.data?.message || 'Échec de la réinitialisation du mot de passe.')
+      alert(err?.response?.data?.message || t('userAdmin.resetFailed'))
     },
   })
 
@@ -177,7 +179,7 @@ export function UsersPage() {
     setFormError('')
     const selectedRole = rolesList.find((role) => role.id === createForm.roleId)?.name
     if (!createForm.firstName || !createForm.lastName || !createForm.email || !createForm.roleId || !createForm.departmentId || (selectedRole === 'AGENT' && !createForm.agencyId)) {
-      setFormError('Veuillez remplir tous les champs obligatoires.')
+      setFormError(t('userAdmin.requiredFields'))
       return
     }
     createUserMutation.mutate(createForm)
@@ -208,12 +210,12 @@ export function UsersPage() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Utilisateurs</h1>
-          <p>Gestion des comptes utilisateurs et de leurs autorisations</p>
+          <h1>{t('userAdmin.title')}</h1>
+          <p>{t('userAdmin.subtitle')}</p>
         </div>
         <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
           <UserPlus size={16} />
-          <span>Nouvel utilisateur</span>
+          <span>{t('userAdmin.newUser')}</span>
         </button>
       </div>
 
@@ -225,7 +227,7 @@ export function UsersPage() {
             <input
               type="text"
               className="search-input"
-              placeholder="Rechercher nom, email, téléphone..."
+              placeholder={t('userAdmin.search')}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             />
@@ -236,7 +238,7 @@ export function UsersPage() {
             value={selectedRole}
             onChange={(e) => { setSelectedRole(e.target.value); setPage(1) }}
           >
-            <option value="">Tous les rôles</option>
+            <option value="">{t('userAdmin.allRoles')}</option>
             {rolesList.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -249,7 +251,7 @@ export function UsersPage() {
             value={selectedDept}
             onChange={(e) => { setSelectedDept(e.target.value); setPage(1) }}
           >
-            <option value="">Tous les départements</option>
+            <option value="">{t('userAdmin.allDepartments')}</option>
             {deptsList.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name} ({d.type})
@@ -262,45 +264,45 @@ export function UsersPage() {
             value={selectedStatus}
             onChange={(e) => { setSelectedStatus(e.target.value); setPage(1) }}
           >
-            <option value="">Tous les statuts</option>
-            <option value="ACTIVE">Actif</option>
-            <option value="INACTIVE">Inactif</option>
+            <option value="">{t('userAdmin.allStatuses')}</option>
+            <option value="ACTIVE">{t('userAdmin.active')}</option>
+            <option value="INACTIVE">{t('userAdmin.inactive')}</option>
           </select>
         </div>
 
         <button type="button" className="button secondary sm" onClick={() => usersQuery.refetch()}>
           <RefreshCw size={14} />
-          <span>Actualiser</span>
+          <span>{t('userAdmin.refresh')}</span>
         </button>
       </div>
 
       {/* Main Table */}
       <div className="table-container">
         {usersQuery.isPending ? (
-          <div className="state-container">Chargement des utilisateurs...</div>
+          <div className="state-container">{t('userAdmin.loading')}</div>
         ) : usersQuery.isError ? (
           <div className="state-container">
             <AlertTriangle size={32} />
-            <p>Erreur lors du chargement des utilisateurs.</p>
+            <p>{t('userAdmin.loadError')}</p>
             <button type="button" className="button secondary sm" onClick={() => usersQuery.refetch()}>
-              Réessayer
+              {t('userAdmin.retry')}
             </button>
           </div>
         ) : usersList.length === 0 ? (
-          <div className="state-container">Aucune donnée disponible.</div>
+          <div className="state-container">{t('userAdmin.empty')}</div>
         ) : (
           <>
             <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Nom & Prénom</th>
-                    <th>Email</th>
-                    <th>Téléphone</th>
-                    <th>Rôle</th>
-                    <th>Département</th>
-                    <th>Statut</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th>{t('userAdmin.fullName')}</th>
+                    <th>{t('userAdmin.email')}</th>
+                    <th>{t('userAdmin.phone')}</th>
+                    <th>{t('userAdmin.role')}</th>
+                    <th>{t('userAdmin.department')}</th>
+                    <th>{t('userAdmin.status')}</th>
+                    <th style={{ textAlign: 'right' }}>{t('userAdmin.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -314,10 +316,10 @@ export function UsersPage() {
                       <td>
                         <span className="badge info">{u.role?.name || u.role || 'N/A'}</span>
                       </td>
-                      <td>{u.department?.name || u.department?.type || 'Global'}</td>
+                      <td>{u.department?.name || u.department?.type || t('userAdmin.global')}</td>
                       <td>
                         <span className={`badge ${u.status === 'ACTIVE' ? 'active' : 'inactive'}`}>
-                          {u.status === 'ACTIVE' ? 'Actif' : 'Inactif'}
+                          {u.status === 'ACTIVE' ? t('userAdmin.active') : t('userAdmin.inactive')}
                         </span>
                       </td>
                       <td>
@@ -325,7 +327,7 @@ export function UsersPage() {
                           <button
                             type="button"
                             className="action-btn"
-                            title="Voir"
+                            title={t('userAdmin.view')}
                             onClick={() => setViewingUser(u)}
                           >
                             <Eye size={14} />
@@ -333,7 +335,7 @@ export function UsersPage() {
                           <button
                             type="button"
                             className="action-btn"
-                            title="Modifier"
+                            title={t('userAdmin.edit')}
                             onClick={() => startEdit(u)}
                           >
                             <Edit2 size={14} />
@@ -341,7 +343,7 @@ export function UsersPage() {
                           <button
                             type="button"
                             className={`action-btn ${u.status === 'ACTIVE' ? 'danger' : ''}`}
-                            title={u.status === 'ACTIVE' ? 'Désactiver' : 'Activer'}
+                            title={u.status === 'ACTIVE' ? t('userAdmin.deactivate') : t('userAdmin.activate')}
                             onClick={() => toggleStatusMutation.mutate({ id: u.id, status: u.status })}
                           >
                             <Power size={14} />
@@ -349,7 +351,7 @@ export function UsersPage() {
                           <button
                             type="button"
                             className="action-btn"
-                            title="Réinitialiser le mot de passe"
+                            title={t('userAdmin.resetPassword')}
                             onClick={() => startPasswordReset(u)}
                           >
                             <Lock size={14} />
@@ -365,7 +367,7 @@ export function UsersPage() {
             {/* Pagination */}
             <div className="pagination-wrap">
               <span>
-                Page {page} sur {totalPages} ({totalUsers} utilisateurs au total)
+                {t('userAdmin.page')} {page} {t('userAdmin.of')} {totalPages} ({totalUsers} {t('userAdmin.totalUsers')})
               </span>
               <div className="pagination-controls">
                 <button
@@ -374,7 +376,7 @@ export function UsersPage() {
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  Précédent
+                  {t('userAdmin.previous')}
                 </button>
                 <button
                   type="button"
@@ -382,7 +384,7 @@ export function UsersPage() {
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Suivant
+                  {t('userAdmin.next')}
                 </button>
               </div>
             </div>
@@ -396,8 +398,8 @@ export function UsersPage() {
           <div className="modal-dialog">
             <div className="modal-header">
               <div className="modal-header-text">
-                <h3 className="modal-title">Créer un Utilisateur</h3>
-                <p className="modal-subtitle">Renseignez les informations du nouvel utilisateur</p>
+                <h3 className="modal-title">{t('userAdmin.createTitle')}</h3>
+                <p className="modal-subtitle">{t('userAdmin.createSubtitle')}</p>
               </div>
               <button type="button" className="modal-close" onClick={() => setIsCreateOpen(false)}>
                 <X size={18} />
@@ -407,7 +409,7 @@ export function UsersPage() {
               <div className="modal-body">
                 {formError && <div className="alert alert-danger">{formError}</div>}
                 <div className="form-group">
-                  <label className="form-label">Prénom *</label>
+                  <label className="form-label">{t('userAdmin.firstName')} *</label>
                   <input
                     type="text"
                     className="form-control"
@@ -417,7 +419,7 @@ export function UsersPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Nom *</label>
+                  <label className="form-label">{t('userAdmin.lastName')} *</label>
                   <input
                     type="text"
                     className="form-control"
@@ -427,7 +429,7 @@ export function UsersPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Email *</label>
+                  <label className="form-label">{t('userAdmin.email')} *</label>
                   <input
                     type="email"
                     className="form-control"
@@ -437,7 +439,7 @@ export function UsersPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Téléphone</label>
+                  <label className="form-label">{t('userAdmin.phone')}</label>
                   <input
                     type="text"
                     className="form-control"
@@ -446,14 +448,14 @@ export function UsersPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Rôle *</label>
+                  <label className="form-label">{t('userAdmin.role')} *</label>
                   <select
                     className="form-control"
                     required
                     value={createForm.roleId}
                     onChange={(e) => setCreateForm({ ...createForm, roleId: e.target.value })}
                   >
-                    <option value="">Sélectionnez un rôle</option>
+                    <option value="">{t('userAdmin.selectRole')}</option>
                     {rolesList.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
@@ -462,14 +464,14 @@ export function UsersPage() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Département *</label>
+                  <label className="form-label">{t('userAdmin.department')} *</label>
                   <select
                     className="form-control"
                     required
                     value={createForm.departmentId}
                     onChange={(e) => setCreateForm({ ...createForm, departmentId: e.target.value })}
                   >
-                    <option value="">Sélectionnez un département</option>
+                    <option value="">{t('userAdmin.selectDepartment')}</option>
                     {deptsList.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name} ({d.type})
@@ -479,14 +481,14 @@ export function UsersPage() {
                 </div>
                 {rolesList.find((role) => role.id === createForm.roleId)?.name === 'AGENT' && (
                   <div className="form-group">
-                    <label className="form-label">Agence *</label>
+                    <label className="form-label">{t('userAdmin.agency')} *</label>
                     <select
                       className="form-control"
                       required
                       value={createForm.agencyId}
                       onChange={(e) => setCreateForm({ ...createForm, agencyId: e.target.value })}
                     >
-                      <option value="">Sélectionnez une agence</option>
+                      <option value="">{t('userAdmin.selectAgency')}</option>
                       {agenciesList.map((agency) => (
                         <option key={agency.id} value={agency.id}>{agency.name} ({agency.code})</option>
                       ))}
@@ -496,10 +498,10 @@ export function UsersPage() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setIsCreateOpen(false)}>
-                  Annuler
+                  {t('userAdmin.cancel')}
                 </button>
                 <button type="submit" className="button" disabled={createUserMutation.isPending}>
-                  {createUserMutation.isPending ? 'Création...' : 'Créer l’utilisateur'}
+                  {createUserMutation.isPending ? t('userAdmin.creating') : t('userAdmin.create')}
                 </button>
               </div>
             </form>
@@ -513,8 +515,8 @@ export function UsersPage() {
           <div className="modal-dialog">
             <div className="modal-header">
               <div className="modal-header-text">
-                <h3 className="modal-title">Modifier Utilisateur</h3>
-                <p className="modal-subtitle">Mettez à jour les informations de l&rsquo;utilisateur</p>
+                <h3 className="modal-title">{t('userAdmin.editTitle')}</h3>
+                <p className="modal-subtitle">{t('userAdmin.editSubtitle')}</p>
               </div>
               <button type="button" className="modal-close" onClick={() => setEditingUser(null)}>
                 <X size={18} />
@@ -524,7 +526,7 @@ export function UsersPage() {
               <div className="modal-body">
                 {formError && <div className="alert alert-danger">{formError}</div>}
                 <div className="form-group">
-                  <label className="form-label">Prénom</label>
+                  <label className="form-label">{t('userAdmin.firstName')}</label>
                   <input
                     type="text"
                     className="form-control"
@@ -533,7 +535,7 @@ export function UsersPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Nom</label>
+                  <label className="form-label">{t('userAdmin.lastName')}</label>
                   <input
                     type="text"
                     className="form-control"
@@ -542,7 +544,7 @@ export function UsersPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Téléphone</label>
+                  <label className="form-label">{t('userAdmin.phone')}</label>
                   <input
                     type="text"
                     className="form-control"
@@ -553,10 +555,10 @@ export function UsersPage() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setEditingUser(null)}>
-                  Annuler
+                  {t('userAdmin.cancel')}
                 </button>
                 <button type="submit" className="button" disabled={updateUserMutation.isPending}>
-                  {updateUserMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+                  {updateUserMutation.isPending ? t('userAdmin.saving') : t('userAdmin.save')}
                 </button>
               </div>
             </form>
@@ -569,24 +571,24 @@ export function UsersPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Détails de l’utilisateur</h3>
+              <h3 className="modal-title">{t('userAdmin.details')}</h3>
               <button type="button" className="modal-close" onClick={() => setViewingUser(null)}>
                 <X size={18} />
               </button>
             </div>
             <div className="modal-body">
-              <p><strong>ID :</strong> {viewingUser.id}</p>
-              <p><strong>Nom complet :</strong> {viewingUser.firstName} {viewingUser.lastName}</p>
-              <p><strong>Email :</strong> {viewingUser.email}</p>
-              <p><strong>Téléphone :</strong> {viewingUser.phone || 'Non renseigné'}</p>
-              <p><strong>Rôle :</strong> {viewingUser.role?.name || viewingUser.role}</p>
-              <p><strong>Département :</strong> {viewingUser.department?.name || viewingUser.department?.type || 'Global'}</p>
-              <p><strong>Statut :</strong> {viewingUser.status}</p>
-              <p><strong>Première connexion :</strong> {viewingUser.firstLogin ? 'Oui' : 'Non'}</p>
+              <p><strong>{t('userAdmin.id')}:</strong> {viewingUser.id}</p>
+              <p><strong>{t('userAdmin.fullNameLabel')}:</strong> {viewingUser.firstName} {viewingUser.lastName}</p>
+              <p><strong>{t('userAdmin.email')}:</strong> {viewingUser.email}</p>
+              <p><strong>{t('userAdmin.phone')}:</strong> {viewingUser.phone || t('userAdmin.notProvided')}</p>
+              <p><strong>{t('userAdmin.role')}:</strong> {viewingUser.role?.name || viewingUser.role}</p>
+              <p><strong>{t('userAdmin.department')}:</strong> {viewingUser.department?.name || viewingUser.department?.type || t('userAdmin.global')}</p>
+              <p><strong>{t('userAdmin.status')}:</strong> {t(`status.${String(viewingUser.status || '').toLowerCase()}`)}</p>
+              <p><strong>{t('userAdmin.firstLogin')}:</strong> {viewingUser.firstLogin ? t('userAdmin.yes') : t('userAdmin.no')}</p>
             </div>
             <div className="modal-footer">
               <button type="button" className="button secondary" onClick={() => setViewingUser(null)}>
-                Fermer
+                {t('userAdmin.close')}
               </button>
             </div>
           </div>
@@ -598,30 +600,30 @@ export function UsersPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Réinitialiser le mot de passe</h3>
+              <h3 className="modal-title">{t('userAdmin.resetTitle')}</h3>
               <button type="button" className="modal-close" onClick={() => setPasswordResetUser(null)}>
                 <X size={18} />
               </button>
             </div>
             <div className="modal-body">
               <p>
-                Êtes-vous sûr de vouloir réinitialiser le mot de passe de{' '}
+                {t('userAdmin.resetConfirm')}{' '}
                 <strong>{passwordResetUser.firstName} {passwordResetUser.lastName}</strong> ({passwordResetUser.email}) ?
               </p>
 
               {tempPassword && (
                 <div className="alert alert-success" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <strong>Nouveau mot de passe temporaire :</strong>
+                  <strong>{t('userAdmin.temporaryPassword')}</strong>
                   <code style={{ fontSize: '1.1rem', marginTop: '6px' }}>{tempPassword}</code>
                   <span style={{ fontSize: '0.75rem', marginTop: '4px' }}>
-                    Communiquez ce mot de passe à l’utilisateur de manière sécurisée.
+                    {t('userAdmin.secureCommunication')}
                   </span>
                 </div>
               )}
             </div>
             <div className="modal-footer">
               <button type="button" className="button secondary" onClick={() => setPasswordResetUser(null)}>
-                Fermer
+                {t('userAdmin.close')}
               </button>
               {!tempPassword && (
                 <button
@@ -630,7 +632,7 @@ export function UsersPage() {
                   disabled={resetPasswordMutation.isPending}
                   onClick={() => resetPasswordMutation.mutate(passwordResetUser.id)}
                 >
-                  {resetPasswordMutation.isPending ? 'Réinitialisation...' : 'Confirmer la réinitialisation'}
+                  {resetPasswordMutation.isPending ? t('userAdmin.resetting') : t('userAdmin.confirmReset')}
                 </button>
               )}
             </div>
@@ -642,26 +644,26 @@ export function UsersPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Utilisateur créé</h3>
+              <h3 className="modal-title">{t('userAdmin.createdTitle')}</h3>
               <button type="button" className="modal-close" onClick={() => setGeneratedPasswordUser(null)}>
                 <X size={18} />
               </button>
             </div>
             <div className="modal-body">
               <p>
-                Le compte de <strong>{generatedPasswordUser.name}</strong> ({generatedPasswordUser.email}) a été créé.
+                {t('userAdmin.createdDescription')} <strong>{generatedPasswordUser.name}</strong> ({generatedPasswordUser.email}) {t('userAdmin.createdVerb')}
               </p>
               <div className="alert alert-success" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                <strong>Mot de passe temporaire :</strong>
-                <code style={{ fontSize: '1.1rem', marginTop: '6px' }}>{generatedPasswordUser.password || 'Indisponible'}</code>
+                <strong>{t('userAdmin.temporaryPasswordLabel')}</strong>
+                <code style={{ fontSize: '1.1rem', marginTop: '6px' }}>{generatedPasswordUser.password || t('userAdmin.unavailable')}</code>
                 <span style={{ fontSize: '0.75rem', marginTop: '4px' }}>
-                  Communiquez-le à l’utilisateur de manière sécurisée. Il devra le modifier à sa première connexion.
+                  {t('userAdmin.firstLoginHint')}
                 </span>
               </div>
             </div>
             <div className="modal-footer">
               <button type="button" className="button" onClick={() => setGeneratedPasswordUser(null)}>
-                Fermer
+                {t('userAdmin.close')}
               </button>
             </div>
           </div>

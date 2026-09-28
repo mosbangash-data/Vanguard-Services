@@ -1,15 +1,17 @@
 import React from 'react'
 import { Image as ImageIcon } from 'lucide-react'
+import { useLanguage } from '../../i18n/useLanguage'
 
 export function MediaEmptyState({
   icon: Icon = ImageIcon,
-  title = 'Aucune image',
+  title,
   description,
   size = 'md',
   style = {},
   className = '',
   onClick,
 }) {
+  const { t } = useLanguage()
   const isCompact = size === 'sm'
   const isLarge = size === 'lg'
 
@@ -39,7 +41,7 @@ export function MediaEmptyState({
       <Icon size={iconSize} style={{ color: '#94A3B8', marginBottom: isCompact ? 0 : '6px' }} />
       {!isCompact && title && (
         <span style={{ fontSize: isLarge ? '0.95rem' : '0.8125rem', fontWeight: 600, color: '#475569' }}>
-          {title}
+          {title || t('mediaUi.noImage')}
         </span>
       )}
       {!isCompact && description && (

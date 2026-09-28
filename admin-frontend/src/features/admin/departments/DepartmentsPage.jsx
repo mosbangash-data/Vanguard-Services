@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../services/api'
+import { useLanguage } from '../../../i18n/useLanguage'
 import {
   Plus,
   Search,
@@ -20,6 +21,7 @@ async function fetchDepartments({ page, limit, search }) {
 }
 
 export function DepartmentsPage() {
+  const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -61,7 +63,7 @@ export function DepartmentsPage() {
       setFormError('')
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Échec de la création du département.')
+      setFormError(err?.response?.data?.message || t('departmentUi.createFailed'))
     },
   })
 
@@ -76,7 +78,7 @@ export function DepartmentsPage() {
       setFormError('')
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Échec de la modification.')
+      setFormError(err?.response?.data?.message || t('departmentUi.updateFailed'))
     },
   })
 
@@ -90,7 +92,7 @@ export function DepartmentsPage() {
       setDeletingDept(null)
     },
     onError: (err) => {
-      alert(err?.response?.data?.message || 'Échec de la suppression du département.')
+      alert(err?.response?.data?.message || t('departmentUi.deleteFailed'))
     },
   })
 
@@ -135,12 +137,12 @@ export function DepartmentsPage() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Départements</h1>
-          <p>Gestion des entités opérationnelles de Vanguard Services</p>
+          <h1>{t('departmentUi.title')}</h1>
+          <p>{t('departmentUi.subtitle')}</p>
         </div>
         <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
           <Plus size={16} />
-          <span>Nouveau département</span>
+          <span>{t('departmentUi.new')}</span>
         </button>
       </div>
 
@@ -165,28 +167,28 @@ export function DepartmentsPage() {
 
       <div className="table-container">
         {deptsQuery.isPending ? (
-          <div className="state-container">Chargement des départements...</div>
+          <div className="state-container">{t('departmentUi.loading')}</div>
         ) : deptsQuery.isError ? (
           <div className="state-container">
             <AlertTriangle size={32} />
-            <p>Erreur lors du chargement des départements.</p>
+            <p>{t('departmentUi.loadError')}</p>
             <button type="button" className="button secondary sm" onClick={() => deptsQuery.refetch()}>
-              Réessayer
+              {t('commonUi.retry')}
             </button>
           </div>
         ) : deptsList.length === 0 ? (
-          <div className="state-container">Aucune donnée disponible.</div>
+          <div className="state-container">{t('departmentUi.empty')}</div>
         ) : (
           <>
             <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Type</th>
-                    <th>Nom du département</th>
-                    <th>Description</th>
+                    <th>{t('departmentUi.type')}</th>
+                    <th>{t('departmentUi.name')}</th>
+                    <th>{t('departmentUi.description')}</th>
                     <th>Statut</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th style={{ textAlign: 'right' }}>{t('commonUi.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -209,7 +211,7 @@ export function DepartmentsPage() {
                           <button
                             type="button"
                             className="action-btn"
-                            title="Modifier"
+                            title={t('commonUi.edit')}
                             onClick={() => startEdit(d)}
                           >
                             <Edit2 size={14} />
@@ -217,7 +219,7 @@ export function DepartmentsPage() {
                           <button
                             type="button"
                             className={`action-btn ${d.isActive ? 'danger' : ''}`}
-                            title={d.isActive ? 'Désactiver' : 'Activer'}
+                            title={d.isActive ? t('departmentUi.deactivate') : t('departmentUi.activate')}
                             onClick={() => toggleStatus(d)}
                           >
                             <Power size={14} />
@@ -225,7 +227,7 @@ export function DepartmentsPage() {
                           <button
                             type="button"
                             className="action-btn danger"
-                            title="Supprimer"
+                            title={t('commonUi.delete')}
                             onClick={() => setDeletingDept(d)}
                           >
                             <Trash2 size={14} />
@@ -240,7 +242,7 @@ export function DepartmentsPage() {
 
             <div className="pagination-wrap">
               <span>
-                Page {page} sur {totalPages} ({totalDepts} départements au total)
+                {t('departmentUi.pageSummary', { page, totalPages, total: totalDepts })}
               </span>
               <div className="pagination-controls">
                 <button
@@ -249,7 +251,7 @@ export function DepartmentsPage() {
                   disabled={page <= 1}
                   onClick={() => setPage((pr) => Math.max(1, pr - 1))}
                 >
-                  Précédent
+                  {t('commonUi.previous')}
                 </button>
                 <button
                   type="button"
@@ -257,7 +259,7 @@ export function DepartmentsPage() {
                   disabled={page >= totalPages}
                   onClick={() => setPage((pr) => pr + 1)}
                 >
-                  Suivant
+                  {t('commonUi.next')}
                 </button>
               </div>
             </div>
@@ -270,7 +272,7 @@ export function DepartmentsPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Créer un Département</h3>
+              <h3 className="modal-title">{t('departmentUi.createTitle')}</h3>
               <button type="button" className="modal-close" onClick={() => setIsCreateOpen(false)}>
                 <X size={18} />
               </button>
@@ -279,7 +281,7 @@ export function DepartmentsPage() {
               <div className="modal-body">
                 {formError && <div className="alert alert-danger">{formError}</div>}
                 <div className="form-group">
-                  <label className="form-label">Type *</label>
+                  <label className="form-label">{t('departmentUi.type')} *</label>
                   <select
                     className="form-control"
                     required
@@ -292,7 +294,7 @@ export function DepartmentsPage() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Nom du département *</label>
+                  <label className="form-label">{t('departmentUi.name')} *</label>
                   <input
                     type="text"
                     className="form-control"
@@ -302,7 +304,7 @@ export function DepartmentsPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Description</label>
+                  <label className="form-label">{t('departmentUi.description')}</label>
                   <textarea
                     className="form-control"
                     rows="3"
@@ -317,16 +319,16 @@ export function DepartmentsPage() {
                       checked={createForm.isActive}
                       onChange={(e) => setCreateForm({ ...createForm, isActive: e.target.checked })}
                     />
-                    <span>Département actif</span>
+                    <span>{t('departmentUi.active')}</span>
                   </label>
                 </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setIsCreateOpen(false)}>
-                  Annuler
+                  {t('commonUi.cancel')}
                 </button>
                 <button type="submit" className="button" disabled={createDeptMutation.isPending}>
-                  {createDeptMutation.isPending ? 'Création...' : 'Créer'}
+                  {createDeptMutation.isPending ? t('departmentUi.creating') : t('departmentUi.create')}
                 </button>
               </div>
             </form>
@@ -339,7 +341,7 @@ export function DepartmentsPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Modifier le Département</h3>
+              <h3 className="modal-title">{t('departmentUi.editTitle')}</h3>
               <button type="button" className="modal-close" onClick={() => setEditingDept(null)}>
                 <X size={18} />
               </button>
@@ -348,7 +350,7 @@ export function DepartmentsPage() {
               <div className="modal-body">
                 {formError && <div className="alert alert-danger">{formError}</div>}
                 <div className="form-group">
-                  <label className="form-label">Nom du département</label>
+                  <label className="form-label">{t('departmentUi.name')}</label>
                   <input
                     type="text"
                     className="form-control"
@@ -357,7 +359,7 @@ export function DepartmentsPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Description</label>
+                  <label className="form-label">{t('departmentUi.description')}</label>
                   <textarea
                     className="form-control"
                     rows="3"
@@ -372,16 +374,16 @@ export function DepartmentsPage() {
                       checked={editForm.isActive}
                       onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
                     />
-                    <span>Département actif</span>
+                    <span>{t('departmentUi.active')}</span>
                   </label>
                 </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setEditingDept(null)}>
-                  Annuler
+                  {t('commonUi.cancel')}
                 </button>
                 <button type="submit" className="button" disabled={updateDeptMutation.isPending}>
-                  {updateDeptMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+                  {updateDeptMutation.isPending ? t('departmentUi.saving') : t('departmentUi.save')}
                 </button>
               </div>
             </form>
@@ -394,22 +396,22 @@ export function DepartmentsPage() {
         <div className="modal-backdrop">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">Confirmer la suppression</h3>
+              <h3 className="modal-title">{t('departmentUi.confirmDelete')}</h3>
               <button type="button" className="modal-close" onClick={() => setDeletingDept(null)}>
                 <X size={18} />
               </button>
             </div>
             <div className="modal-body">
               <p>
-                Êtes-vous sûr de vouloir supprimer le département <strong>{deletingDept.name}</strong> ?
+                {t('departmentUi.deletePrompt', { name: deletingDept.name })}
               </p>
               <p style={{ fontSize: '0.85rem', color: 'var(--color-medium-gray)' }}>
-                Cette action est irréversible. Un département lié à des utilisateurs ne peut pas être supprimé.
+                {t('departmentUi.deleteWarning')}
               </p>
             </div>
             <div className="modal-footer">
               <button type="button" className="button secondary" onClick={() => setDeletingDept(null)}>
-                Annuler
+                {t('commonUi.cancel')}
               </button>
               <button
                 type="button"
@@ -417,7 +419,7 @@ export function DepartmentsPage() {
                 disabled={deleteDeptMutation.isPending}
                 onClick={() => deleteDeptMutation.mutate(deletingDept.id)}
               >
-                {deleteDeptMutation.isPending ? 'Suppression...' : 'Supprimer'}
+                {deleteDeptMutation.isPending ? t('departmentUi.deleting') : t('departmentUi.delete')}
               </button>
             </div>
           </div>
