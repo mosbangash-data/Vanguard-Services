@@ -18,7 +18,8 @@ import { LoadingState, ErrorState, EmptyState } from '../components/StateView'
 import { api } from '../api/client'
 import { useFetch } from '../hooks/useFetch'
 import { translateError } from '../utils/errors'
-import { getMediaUrl, getPrimaryMedia } from '../utils/media'
+import { getPrimaryMedia } from '../utils/media'
+import { MediaImage } from '../components/media/MediaImage'
 
 export default function Construction() {
   const { t } = useLanguage()
@@ -115,10 +116,8 @@ export default function Construction() {
     setRequestForm({ ...requestForm, [e.target.name]: e.target.value })
   }
 
-  const getProjectImage = (project) => {
-    const primary = getPrimaryMedia(project?.gallery?.map((entry) => entry?.media || entry) || [])
-    const url = getMediaUrl(primary, { variant: 'card' })
-    return url || '/assets/construction/construction-card.jpg'
+  const getProjectMedia = (project) => {
+    return getPrimaryMedia(project?.gallery?.map((entry) => entry?.media || entry) || [])
   }
 
   return (
@@ -193,12 +192,11 @@ export default function Construction() {
                   className={`project-card card reveal reveal-delay-${(index % 3) + 1}`}
                 >
                   <div className="project-card-image">
-                    <img
-                      src={getProjectImage(project)}
-                      alt={project.title}
+                    <MediaImage
+                      media={getProjectMedia(project)}
+                      alt={project.title || t('constructionPage.projectsTitle')}
+                      variant="card"
                       loading="lazy"
-                      width="800"
-                      height="500"
                     />
                     <div className="project-card-overlay" />
                     <span className="badge badge-success project-card-status">

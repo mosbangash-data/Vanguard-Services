@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Gauge, Fuel, Cog, Palette, Calendar, Send, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Gauge, Fuel, Cog, Palette, Calendar, Send, CheckCircle2, MessageSquareText } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageProvider'
 import { api } from '../api/client'
 import { useFetch } from '../hooks/useFetch'
 import { LoadingState, ErrorState } from '../components/StateView'
 import { translateError } from '../utils/errors'
 import { MediaGallery } from '../components/media/MediaGallery'
+import { WhatsAppIcon } from '../components/WhatsAppIcon'
+import { formatVehiclePrice, getVehicleWhatsAppHref } from '../utils/vehiclePresentation'
 
 const STATUS_LABELS = {
   AVAILABLE: 'available',
@@ -17,7 +19,7 @@ const STATUS_LABELS = {
 
 export default function VehicleDetail() {
   const { id } = useParams()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { data, loading, error, execute } = useFetch(() => api.getVehicle(id), { deps: [id] })
 
   const [form, setForm] = useState({ name: '', email: '', phone: '', inquiryType: 'INFORMATION', contactPreference: 'PHONE', message: '' })
@@ -27,14 +29,14 @@ export default function VehicleDetail() {
 
   const vehicle = data?.vehicle
 
-  const getStatusLabel = (s) => (STATUS_LABELS[s] ? t(`automobilePage.${STATUS_LABELS[s]}`) : s)
+  const getStatusLabel = (s) => (STATUS_LABELS[s] ? t(`automobilePage.${STATUS_LABELS[s]}`) : (s || t('automobilePage.statusUnknown')))
   const getStatusClass = (s) => {
     if (s === 'AVAILABLE') return 'badge-success'
     if (s === 'RESERVED') return 'badge-gold'
     if (s === 'SOLD') return 'badge-neutral'
-    return 'badge-danger'
+    return 'badge-neutral'
   }
-  const formatPrice = (p) => new Intl.NumberFormat('fr-FR').format(Number(p))
+  const formatPrice = (price, currency) => formatVehiclePrice(price, currency, language, t)
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
@@ -60,7 +62,7 @@ export default function VehicleDetail() {
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
 
   if (loading) return <LoadingState />
-  if (error) return <ErrorState message={translateError(error, t)} onRetry={execute} />
+  if (error) return <ErrorState message={t('automobilePage.vehicleLoadError')} onRetry={execute} />
   if (!vehicle) return <ErrorState message={t('states.error')} onRetry={execute} />
 
   return (
@@ -77,28 +79,31 @@ export default function VehicleDetail() {
               <MediaGallery
                 items={vehicle.media}
                 altPrefix={`${vehicle.brand} ${vehicle.model}`}
-                fallback={
-                  <div className="vehicle-gallery-empty" style={{ width: '100%', height: '100%', minHeight: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9', color: '#64748B' }}>
-                    <span>Aucune image</span>
-                  </div>
-                }
                 objectFit="cover"
                 className="vehicle-gallery-wrapper"
               />
-              <span className={`badge ${getStatusClass(vehicle.status)} vehicle-gallery-status`}>
-                {getStatusLabel(vehicle.status)}
-              </span>
             </div>
 
             <div className="vehicle-info">
-              <h1 className="vehicle-info-title">{vehicle.brand} {vehicle.model}</h1>
-              <div className="vehicle-info-price">{formatPrice(vehicle.price)} {vehicle.currency || t('common.currency')}</div>
+              <div className="vehicle-detail-heading">
+                <span className={`badge ${getStatusClass(vehicle.status)}`}>{getStatusLabel(vehicle.status)}</span>
+                <h1 className="vehicle-info-title">{[vehicle.brand, vehicle.model].filter(Boolean).join(' ')}</h1>
+                {vehicle.id && <p className="vehicle-detail-reference">{t('automobilePage.reference')}: {vehicle.id}</p>}
+                <div className="vehicle-info-price">{formatPrice(vehicle.price, vehicle.currency)}</div>
+              </div>
+
+              <div className="vehicle-detail-actions">
+                <a className="btn btn-whatsapp" href={getVehicleWhatsAppHref(vehicle, t)} target="_blank" rel="noopener noreferrer">
+                  <WhatsAppIcon size={19} />{t('automobilePage.whatsapp')}
+                </a>
+                <a className="btn btn-outline" href="#vehicle-inquiry"><MessageSquareText size={17} aria-hidden="true" />{t('automobilePage.contact')}</a>
+              </div>
 
               <div className="vehicle-specs-grid">
-                <div className="vehicle-spec">
+                {vehicle.year != null && <div className="vehicle-spec">
                   <Calendar size={18} aria-hidden="true" />
                   <span><strong>{t('automobilePage.year')}</strong>{vehicle.year}</span>
-                </div>
+                </div>}
                 {vehicle.mileage != null && (
                   <div className="vehicle-spec">
                     <Gauge size={18} aria-hidden="true" />
@@ -125,9 +130,12 @@ export default function VehicleDetail() {
                 )}
               </div>
 
-              {vehicle.description && <p className="vehicle-info-desc">{vehicle.description}</p>}
+              {vehicle.description && <section className="vehicle-detail-description" aria-labelledby="vehicle-description-title">
+                <h2 id="vehicle-description-title">{t('automobilePage.description')}</h2>
+                <p className="vehicle-info-desc">{vehicle.description}</p>
+              </section>}
 
-              <div className="vehicle-inquiry">
+              <div className="vehicle-inquiry" id="vehicle-inquiry">
                 <h3>{t('automobilePage.requestInfo')}</h3>
                 {success ? (
                   <div className="form-success">

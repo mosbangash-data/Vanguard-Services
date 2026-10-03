@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, MapPin, Images, Calendar } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageProvider'
 import { api } from '../api/client'
 import { useFetch } from '../hooks/useFetch'
@@ -65,30 +65,10 @@ export default function ProjectDetail() {
 
           {project.description && <p className="project-detail-desc">{project.description}</p>}
 
-          {gallery.length > 0 && (
-            <div className="project-gallery">
-              <h2 className="project-gallery-title">{t('constructionPage.galleryTitle')}</h2>
-              <MediaGallery
-                items={gallery}
-                altPrefix={project.title}
-                fallback={
-                  <div className="project-gallery-empty" style={{ width: '100%', minHeight: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9', color: '#64748B', borderRadius: '12px' }}>
-                    <Images size={40} aria-hidden="true" />
-                    <span style={{ marginLeft: '8px' }}>{t('constructionPage.noProjects')}</span>
-                  </div>
-                }
-                objectFit="cover"
-                className="project-gallery-wrapper"
-              />
-            </div>
-          )}
-
-          {gallery.length === 0 && (
-            <div className="project-detail-empty">
-              <Images size={48} aria-hidden="true" />
-              <p>{t('constructionPage.noProjects')}</p>
-            </div>
-          )}
+          <div className="project-gallery">
+            <h2 className="project-gallery-title">{t('constructionPage.galleryTitle')}</h2>
+            <MediaGallery items={gallery} altPrefix={project.title} objectFit="cover" className="project-gallery-wrapper" />
+          </div>
         </div>
       </section>
     </div>

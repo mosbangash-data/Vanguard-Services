@@ -5,6 +5,7 @@ export const MEDIA_VARIANTS = {
   thumbnail: { width: 240, height: 180, crop: 'fill' },
   card: { width: 640, height: 400, crop: 'fill' },
   detail: { width: 1600, height: 1200, crop: 'limit' },
+  fullscreen: { width: 2400, height: 1800, crop: 'limit' },
 }
 
 export const isCloudinaryUrl = (url) => typeof url === 'string' && /^https:\/\/res\.cloudinary\.com\//i.test(url)
@@ -62,6 +63,9 @@ export function normalizeMedia(input) {
       size: null,
       isPrimary: false,
       order: 0,
+      type: 'image',
+      title: null,
+      alt: null,
       caption: null,
       file: null,
       previewUrl: null,
@@ -113,6 +117,7 @@ export function normalizeMedia(input) {
   const publicId = inner?.publicId || input.publicId || null
   const resourceType = inner?.resourceType || input.resourceType || 'image'
   const mimeType = inner?.mimeType || input.mimeType || null
+  const type = /^video\//i.test(mimeType || '') || resourceType === 'video' ? 'video' : 'image'
   const originalName = inner?.originalName || inner?.fileName || inner?.name || input.name || null
   const fileName = inner?.fileName || inner?.originalName || inner?.name || input.name || null
   const width = inner?.width || input.width || null
@@ -135,6 +140,9 @@ export function normalizeMedia(input) {
     size,
     isPrimary,
     order,
+    type,
+    title: input.title || inner?.title || caption,
+    alt: input.alt || inner?.alt || caption,
     caption,
     file: input.file || null,
     previewUrl: input.previewUrl || null,
@@ -146,14 +154,14 @@ export function normalizeMediaList(mediaList) {
   if (!Array.isArray(mediaList)) {
     if (mediaList && typeof mediaList === 'object') {
       const single = normalizeMedia(mediaList)
-      return single ? [single] : []
+      return single && (single.previewUrl || single.file || resolveMediaUrl(single.url)) ? [single] : []
     }
     return []
   }
 
   return mediaList
     .map((item) => normalizeMedia(item))
-    .filter((item) => Boolean(item && (item.url || item.previewUrl || item.file)))
+    .filter((item) => Boolean(item && (item.previewUrl || item.file || resolveMediaUrl(item.url))))
 }
 
 export function resolveMediaUrl(value, options = {}) {
@@ -187,7 +195,7 @@ export function getOrderedMediaList(mediaList) {
 
   if (!Array.isArray(mediaList)) {
     const single = normalizeMedia(mediaList)
-    return single ? [single] : []
+    return single && (single.previewUrl || single.file || resolveMediaUrl(single.url)) ? [single] : []
   }
 
   const normalized = mediaList
@@ -196,7 +204,7 @@ export function getOrderedMediaList(mediaList) {
       if (!item) return null
       return { ...item, __index: index }
     })
-    .filter(Boolean)
+    .filter((item) => item && (item.previewUrl || item.file || resolveMediaUrl(item.url)))
 
   return normalized.sort((a, b) => {
     const primaryDiff = Number(Boolean(b.isPrimary)) - Number(Boolean(a.isPrimary))
