@@ -1,12 +1,11 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, RefreshCw, Eye, X, ShieldAlert, FileCode2, Clock, User, Layers } from 'lucide-react'
+import { RefreshCw, Eye, ShieldAlert, Clock, User } from 'lucide-react'
 import { api } from '../../../services/api'
 import { useLanguage } from '../../../i18n/useLanguage'
 import {
   PageHeader,
   Card,
-  CardContent,
   FilterBar,
   SearchBar,
   Button,
@@ -159,7 +158,7 @@ export function AuditLogsPage() {
         />
       ) : (
         <Card>
-          <div className="table-responsive" style={{ overflowX: 'auto' }}>
+          <div className="table-responsive">
             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>

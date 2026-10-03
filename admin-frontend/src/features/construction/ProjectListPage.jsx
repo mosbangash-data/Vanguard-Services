@@ -191,7 +191,7 @@ export function ProjectListPage() {
         />
       ) : (
         <Card>
-          <div className="table-responsive" style={{ overflowX: 'auto' }}>
+          <div className="table-responsive">
             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>

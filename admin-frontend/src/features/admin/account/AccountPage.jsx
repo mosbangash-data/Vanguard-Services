@@ -83,78 +83,58 @@ export function AccountPage() {
       />
 
       {user?.firstLogin && (
-        <div className="vanguard-alert-warning" style={{
-          backgroundColor: '#FFFBEB',
-          border: '1px solid #FDE68A',
-          padding: '14px 18px',
-          borderRadius: '10px',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <AlertTriangle size={20} color="#D97706" />
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#92400E' }}>
+        <div className="vanguard-alert-warning vanguard-account-first-login">
+          <AlertTriangle size={20} aria-hidden="true" />
+          <p>
             <strong>{t('accountUi.firstLogin')}</strong> {t('accountUi.firstLoginHint')}
           </p>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+      <div className="vanguard-account-grid">
         {/* Profile Details Card */}
         <Card>
           <CardHeader>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <UserCheck size={18} color="#2563EB" />
+            <div className="vanguard-account-card-heading">
+              <UserCheck size={18} aria-hidden="true" />
               <CardTitle>{t('accountUi.profile')}</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', paddingBottom: '16px', borderBottom: '1px solid #E2E8F0' }}>
-                <div style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: '50%',
-                  backgroundColor: '#0F172A',
-                  color: '#FFFFFF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: '700',
-                  fontSize: '1.2rem'
-                }}>
+            <div className="vanguard-account-profile">
+              <div className="vanguard-account-identity">
+                <div className="vanguard-account-avatar" aria-hidden="true">
                   {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
                 <div>
-                  <h4 style={{ margin: '0 0 4px', fontSize: '1.05rem', color: '#0F172A' }}>
+                  <h4 className="vanguard-account-name">
                     {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : t('accountUi.user')}
                   </h4>
-                  <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748B' }}>{user?.email}</p>
+                  <p className="vanguard-account-email">{user?.email}</p>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div className="vanguard-account-details">
                 <div>
-                  <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('accountUi.role')}</span>
-                  <div style={{ marginTop: '3px', fontWeight: 600, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Shield size={14} color="#2563EB" />
+                  <span className="vanguard-account-label">{t('accountUi.role')}</span>
+                  <div className="vanguard-account-value">
+                    <Shield size={14} aria-hidden="true" />
                     <span>{user?.role || 'SUPER_ADMIN'}</span>
                   </div>
                 </div>
 
                 <div>
-                  <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('accountUi.department')}</span>
-                  <div style={{ marginTop: '3px', fontWeight: 600, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Building2 size={14} color="#2563EB" />
+                  <span className="vanguard-account-label">{t('accountUi.department')}</span>
+                  <div className="vanguard-account-value">
+                    <Building2 size={14} aria-hidden="true" />
                     <span>{user?.department?.name || user?.departmentType || t('accountUi.global')}</span>
                   </div>
                 </div>
 
                 {user?.agency && (
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('accountUi.agency')}</span>
-                    <div style={{ marginTop: '3px', fontWeight: 600, color: '#0F172A' }}>
+                  <div className="vanguard-account-agency">
+                    <span className="vanguard-account-label">{t('accountUi.agency')}</span>
+                    <div className="vanguard-account-value">
                       {user.agency.name} ({user.agency.city})
                     </div>
                   </div>
@@ -167,51 +147,29 @@ export function AccountPage() {
         {/* Change Password Card */}
         <Card>
           <CardHeader>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <KeyRound size={18} color="#D97706" />
+            <div className="vanguard-account-card-heading vanguard-account-card-heading--password">
+              <KeyRound size={18} aria-hidden="true" />
               <CardTitle>{t('accountUi.changePassword')}</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
             <form onSubmit={handlePasswordChange}>
               {successMsg && (
-                <div style={{
-                  backgroundColor: '#F0FDF4',
-                  border: '1px solid #BBF7D0',
-                  color: '#15803D',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  marginBottom: '16px',
-                  fontSize: '0.84rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
+                <div className="vanguard-account-feedback vanguard-account-feedback--success" role="status">
                   <CheckCircle2 size={16} />
                   <span>{successMsg}</span>
                 </div>
               )}
 
               {errorMsg && (
-                <div style={{
-                  backgroundColor: '#FEF2F2',
-                  border: '1px solid #FECACA',
-                  color: '#B91C1C',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  marginBottom: '16px',
-                  fontSize: '0.84rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
+                <div className="vanguard-account-feedback vanguard-account-feedback--error" role="alert">
                   <AlertTriangle size={16} />
                   <span>{errorMsg}</span>
                 </div>
               )}
 
               <FormField label={t('accountUi.currentPassword')} required>
-                <div style={{ position: 'relative' }}>
+                <div className="vanguard-account-password-field">
                   <Input
                     type={showCurrent ? 'text' : 'password'}
                     value={currentPassword}
@@ -221,7 +179,8 @@ export function AccountPage() {
                   />
                   <button
                     type="button"
-                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748B', cursor: 'pointer' }}
+                    className="vanguard-account-password-toggle"
+                    aria-label={showCurrent ? t('hidePassword') : t('showPassword')}
                     onClick={() => setShowCurrent(!showCurrent)}
                   >
                     {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -230,7 +189,7 @@ export function AccountPage() {
               </FormField>
 
               <FormField label={t('accountUi.newPassword')} helper={t('accountUi.atLeast8')} required>
-                <div style={{ position: 'relative' }}>
+                <div className="vanguard-account-password-field">
                   <Input
                     type={showNew ? 'text' : 'password'}
                     value={newPassword}
@@ -240,7 +199,8 @@ export function AccountPage() {
                   />
                   <button
                     type="button"
-                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748B', cursor: 'pointer' }}
+                    className="vanguard-account-password-toggle"
+                    aria-label={showNew ? t('hidePassword') : t('showPassword')}
                     onClick={() => setShowNew(!showNew)}
                   >
                     {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -249,7 +209,7 @@ export function AccountPage() {
               </FormField>
 
               <FormField label={t('accountUi.confirmPassword')} required>
-                <div style={{ position: 'relative' }}>
+                <div className="vanguard-account-password-field">
                   <Input
                     type={showConfirm ? 'text' : 'password'}
                     value={confirmPassword}
@@ -259,7 +219,8 @@ export function AccountPage() {
                   />
                   <button
                     type="button"
-                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748B', cursor: 'pointer' }}
+                    className="vanguard-account-password-toggle"
+                    aria-label={showConfirm ? t('hidePassword') : t('showPassword')}
                     onClick={() => setShowConfirm(!showConfirm)}
                   >
                     {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -267,7 +228,7 @@ export function AccountPage() {
                 </div>
               </FormField>
 
-              <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+              <div className="vanguard-account-form-actions">
                 <Button type="submit" variant="primary" loading={loading}>
                   {t('accountUi.updatePassword')}
                 </Button>

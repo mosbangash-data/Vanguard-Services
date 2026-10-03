@@ -30,7 +30,7 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
   const [weightKg, setWeightKg] = useState('')
   const [volumeM3, setVolumeM3] = useState('')
   const [destinationAgencyId, setDestinationAgencyId] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('CASH')
+  const paymentMethod = 'CASH'
 
   // API states
   const [agencies, setAgencies] = useState([])
@@ -92,7 +92,6 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
       setWeightKg('')
       setVolumeM3('')
       setDestinationAgencyId('')
-      setPaymentMethod('CASH')
       setQuote(null)
       setQuoteError('')
       setSubmitError('')
@@ -239,7 +238,7 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>{t('agentParcel.paymentMethod')} :</span>
-              <span>{paymentMethod === 'CASH' ? t('agentParcel.cash') : t('agentParcel.mobileMoney')}</span>
+              <span>{t('agentParcel.cash')}</span>
             </div>
           </div>
           <Button variant="primary" onClick={onClose}>
@@ -498,14 +497,9 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
             </h5>
             <div className="form-group" style={{ marginBottom: '0.75rem' }}>
               <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.paymentMethod')} *</label>
-              <select
-                className="form-control"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
-                <option value="CASH">{t('agentParcel.cash')}</option>
-                <option value="MOBILE_MONEY">{t('agentParcel.mobileMoney')}</option>
-              </select>
+              <div className="form-control vanguard-fixed-payment-method" aria-label={t('agentParcel.paymentMethod')}>
+                {t('agentParcel.cash')}
+              </div>
             </div>
             {paymentMethod === 'CASH' && (
               <div style={{ fontSize: '0.85rem', color: '#b45309', background: 'rgba(245, 158, 11, 0.1)', padding: '0.6rem 0.8rem', borderRadius: '6px', borderLeft: '3px solid #f59e0b' }}>

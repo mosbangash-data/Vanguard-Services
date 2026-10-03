@@ -82,7 +82,6 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   const { lang, setLang, t } = useLanguage()
   const { theme, resolvedTheme, setTheme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false)
 
   // Expandable section states in sidebar
   const [expandedSections, setExpandedSections] = useState({
@@ -253,7 +252,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         label: item.labelKey ? t(item.labelKey) : PATH_KEYS[item.path] ? (t(`navigation.items.${PATH_KEYS[item.path]}`) || item.label) : item.label,
       })),
     }))
-  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t])
+  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t, location.pathname])
 
   // Get active page context title
   const currentPath = location.pathname

@@ -15,18 +15,18 @@ export function TicketScanner({ onClose, onSuccess }) {
   const [manualCode, setManualCode] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
 
-  const scanMessage = (key, fallback) => {
+  const scanMessage = (key) => {
     const translated = t(key)
-    return translated === key ? fallback : translated
+    return translated === key ? t('scan.cameraError') : translated
   }
 
   const getCameraErrorMessage = (cameraError) => {
     const name = cameraError?.name || ''
     const message = String(cameraError?.message || cameraError || '').toLowerCase()
-    if (!navigator.mediaDevices?.getUserMedia) return scanMessage('scan.cameraUnsupported', 'Votre navigateur ne prend pas en charge l acces a la camera.')
-    if (name === 'NotAllowedError' || message.includes('permission') || message.includes('notallowed')) return scanMessage('scan.cameraPermissionDenied', 'L acces a la camera a ete refuse. Autorisez la camera puis reessayez.')
-    if (name === 'NotFoundError' || message.includes('notfound')) return scanMessage('scan.cameraUnavailable', 'Aucune camera utilisable n a ete detectee sur cet appareil.')
-    if (name === 'NotReadableError' || message.includes('notreadable') || message.includes('trackstart')) return scanMessage('scan.cameraBusy', 'La camera est deja utilisee par une autre application. Fermez-la puis reessayez.')
+    if (!navigator.mediaDevices?.getUserMedia) return scanMessage('scan.cameraUnsupported')
+    if (name === 'NotAllowedError' || message.includes('permission') || message.includes('notallowed')) return scanMessage('scan.cameraPermissionDenied')
+    if (name === 'NotFoundError' || message.includes('notfound')) return scanMessage('scan.cameraUnavailable')
+    if (name === 'NotReadableError' || message.includes('notreadable') || message.includes('trackstart')) return scanMessage('scan.cameraBusy')
     return t('scan.cameraError')
   }
 
@@ -130,7 +130,7 @@ export function TicketScanner({ onClose, onSuccess }) {
     <div className="scanner-modal">
       <div className="scanner-modal__header">
         <h2>{t('scan.title')}</h2>
-        <button type="button" className="scanner-modal__close" onClick={() => (onClose ? onClose() : navigate('/transport'))} aria-label="Close">
+        <button type="button" className="scanner-modal__close" onClick={() => (onClose ? onClose() : navigate('/transport'))} aria-label={t('commonUi.close')}>
           ×
         </button>
       </div>
