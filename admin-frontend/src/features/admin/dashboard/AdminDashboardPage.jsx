@@ -33,6 +33,7 @@ import {
   LoadingState,
   ErrorState,
 } from '../../../components/ui'
+import { ChartCard } from '../../../components/dashboard/ChartCard'
 
 async function fetchDashboardOverview() {
   const response = await api.get('/api/dashboard/overview')
@@ -488,6 +489,24 @@ export function AdminDashboardPage() {
                     <div style={{ marginTop: '4px', fontSize: '1.35rem', fontWeight: 800, color: '#0F172A' }}>{formatNumber(value, lang)}</div>
                   </div>
                 ))}
+              </div>
+              <div className="vanguard-dashboard-charts">
+                <ChartCard
+                  title={t('dashboard.paidPaymentsByRoute')}
+                  description={t('dashboard.reportPeriodDescription')}
+                  emptyMessage={t('dashboard.chartEmpty')}
+                  data={(salesReportQuery.data?.byRoute || []).map((route) => ({ key: route.id, label: route.label, value: route.payments }))}
+                />
+                <ChartCard
+                  title={t('dashboard.paymentStatuses')}
+                  description={t('dashboard.reportPeriodDescription')}
+                  emptyMessage={t('dashboard.chartEmpty')}
+                  data={Object.entries(salesReportQuery.data?.statuses?.payments || {}).map(([status, count]) => {
+                    const labelKey = `status.${status.toLowerCase()}`
+                    const translated = t(labelKey)
+                    return { key: status, label: translated.startsWith('status.') ? status.replaceAll('_', ' ') : translated, value: count }
+                  })}
+                />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '20px' }}>
                 <div style={{ padding: '14px', border: '1px solid #DBEAFE', borderRadius: '8px', background: '#EFF6FF' }}>

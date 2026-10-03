@@ -15,6 +15,14 @@ export function StatCard({
     <Card
       className={`vanguard-stat-card vanguard-stat-card--${accent} ${onClick ? 'is-clickable' : ''} ${className}`}
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onClick()
+        }
+      } : undefined}
     >
       <div className="vanguard-stat-header">
         <span className="vanguard-stat-title">{title}</span>

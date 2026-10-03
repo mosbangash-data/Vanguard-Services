@@ -7,6 +7,7 @@ import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
 import { useLanguage } from '../../../i18n/useLanguage'
 import { PageHeader, StatCard, Card, CardHeader, CardTitle, CardContent, Button, StatusBadge, LoadingState, ErrorState, EmptyState } from '../../../components/ui'
+import { ChartCard } from '../../../components/dashboard/ChartCard'
 
 const fetchDashboard = async () => (await api.get('/api/dashboard/autosales')).data?.data
 const statuses = (source, order) => order.map((status) => ({ status, count: source?.[status] || 0 }))
@@ -70,6 +71,12 @@ export function AutoSalesDashboardPage() {
         <StatCard title={t('autoDashboard.newInquiries')} value={inquiries ? formatNumber(inquiries.byStatus.NEW, lang) : '—'} subtitle={inquiries ? t('autoDashboard.inquiriesScope').replace('{count}', formatNumber(inquiries.total, lang)) : t('autoDashboard.inquiryPermission')} icon={FileSpreadsheet} accent="primary" onClick={inquiries ? () => navigate('/automobile/inquiries') : undefined} />
         <StatCard title={t('autoDashboard.activeReservations')} value={reservations ? formatNumber((reservations.byStatus.PENDING || 0) + (reservations.byStatus.CONFIRMED || 0), lang) : '—'} subtitle={t('autoDashboard.activeReservationStatuses')} icon={Ticket} accent="warning" onClick={reservations ? () => navigate('/automobile/reservations') : undefined} />
         <StatCard title={t('autoDashboard.completedSales')} value={sales ? formatNumber(sales.count, lang) : '—'} subtitle={sales ? money(sales.revenueByCurrency, lang) : t('autoDashboard.reservationPermission')} icon={CheckCircle2} accent="revenue" onClick={sales ? () => navigate('/automobile/sales') : undefined} />
+      </div>
+
+      <div className="vanguard-dashboard-charts">
+        {inquiries && <ChartCard title={t('autoDashboard.inquiryPipeline')} description={t('autoDashboard.inquiriesScope').replace('{count}', formatNumber(inquiries.total, lang))} data={Object.entries(inquiries.byStatus || {}).map(([status, count]) => ({ key: status, label: localizedStatus(status, t), value: count }))} />}
+        {reservations && <ChartCard title={t('autoDashboard.reservations')} description={t('autoDashboard.latestReservations')} data={Object.entries(reservations.byStatus || {}).map(([status, count]) => ({ key: status, label: localizedStatus(status, t), value: count }))} />}
+        {payments && <ChartCard title={t('autoDashboard.payments')} description={t('autoDashboard.recentPayments')} data={Object.entries(payments.byStatus || {}).map(([status, count]) => ({ key: status, label: localizedStatus(status, t), value: count }))} />}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 20 }}>

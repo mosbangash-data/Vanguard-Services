@@ -28,10 +28,13 @@ import {
   Package,
   Wrench,
   Settings,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { useAuth } from '../features/auth/authContext'
 import { hasPermission } from '../features/auth/permissions'
 import { useLanguage } from '../i18n/useLanguage'
+import { useTheme } from '../theme/useTheme'
 
 const PATH_KEYS = {
   '/admin': 'dashboard',
@@ -77,6 +80,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { lang, setLang, t } = useLanguage()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
 
@@ -375,6 +379,15 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           </div>
 
           <div className="header-right vanguard-header-right">
+            <label className="theme-selector">
+              <span className="theme-selector-icon" aria-hidden="true">{resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}</span>
+              <span className="sr-only">{t('layout.theme')}</span>
+              <select value={theme} onChange={(event) => setTheme(event.target.value)} aria-label={t('layout.theme')}>
+                <option value="light">{t('layout.themeLight')}</option>
+                <option value="dark">{t('layout.themeDark')}</option>
+                <option value="system">{t('layout.themeSystem')}</option>
+              </select>
+            </label>
             {/* Language Switcher */}
             <div className="language-selector" aria-label={t('layout.language')}>
               <button

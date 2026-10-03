@@ -244,27 +244,6 @@ export function ResourcePage({ resource }) {
   const canUpdate = can(resource.updatePermission) && !resource.readOnly && canWriteResource
   const canDelete = can(resource.deletePermission) && !resource.readOnly && canWriteResource && (!resource.deleteRoles || resource.deleteRoles.includes(user?.role))
 
-  if (resource.unavailable) {
-    return (
-      <section className="vanguard-page-container">
-        <PageHeader title={pageTitle} subtitle={t('resourceUi.moduleUnavailable')} />
-        <EmptyState title={t('resourceUi.resourceUnavailable')} description={resource.unavailable} />
-      </section>
-    )
-  }
-
-  if (!enabled) {
-    return (
-      <section className="vanguard-page-container">
-        <PageHeader title={pageTitle} subtitle={t('resourceUi.restricted')} />
-        <EmptyState
-          title={t('resourceUi.notAuthorized')}
-          description={t('resourceUi.resourceAccessDenied')}
-        />
-      </section>
-    )
-  }
-
   const agentTripColumns = useMemo(() => [
     {
       key: 'departure',
@@ -325,6 +304,27 @@ export function ResourcePage({ resource }) {
           .map((key) => ({ key, label: key.charAt(0).toUpperCase() + key.slice(1) }))
       : []
   ))
+
+  if (resource.unavailable) {
+    return (
+      <section className="vanguard-page-container">
+        <PageHeader title={pageTitle} subtitle={t('resourceUi.moduleUnavailable')} />
+        <EmptyState title={t('resourceUi.resourceUnavailable')} description={resource.unavailable} />
+      </section>
+    )
+  }
+
+  if (!enabled) {
+    return (
+      <section className="vanguard-page-container">
+        <PageHeader title={pageTitle} subtitle={t('resourceUi.restricted')} />
+        <EmptyState
+          title={t('resourceUi.notAuthorized')}
+          description={t('resourceUi.resourceAccessDenied')}
+        />
+      </section>
+    )
+  }
 
   const renderCell = (item, col) => {
     if (typeof col.render === 'function') {

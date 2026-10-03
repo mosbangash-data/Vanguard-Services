@@ -5,6 +5,7 @@ import { Building2, FileText, HardHat, Image, Plus, RefreshCw, Wrench } from 'lu
 import { useLanguage } from '../../i18n/useLanguage'
 import { api } from '../../services/api'
 import { PageHeader, StatCard, Card, CardHeader, CardTitle, CardContent, Button, StatusBadge, LoadingState, ErrorState, EmptyState, MediaImage } from '../../components/ui'
+import { ChartCard } from '../../components/dashboard/ChartCard'
 
 const fetchDashboard = async () => (await api.get('/api/construction/dashboard')).data?.data
 const number = (value, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR').format(value ?? 0)
@@ -14,7 +15,7 @@ const projectStatusLabel = (status) => ({ DRAFT: 'En préparation', PUBLISHED: '
 function SectionLink({ to, children }) { return <Link to={to} style={{ color: '#2563EB', fontSize: '.85rem', fontWeight: 600, textDecoration: 'none' }}>{children} →</Link> }
 
 export function ConstructionDashboardPage() {
-  const { lang } = useLanguage()
+  const { lang, t } = useLanguage()
   const navigate = useNavigate()
   const query = useQuery({ queryKey: ['construction-dashboard'], queryFn: fetchDashboard })
   const data = query.data
@@ -39,6 +40,21 @@ export function ConstructionDashboardPage() {
         <StatCard title="Projets publiés" value={number(projects.published, lang)} subtitle="Statut projet et publication publiés" icon={HardHat} accent="primary" onClick={() => navigate('/construction/projects')} />
         <StatCard title="Demandes clients à traiter" value={requests ? number(requests.needsAction, lang) : '—'} subtitle={requests ? `${number(requests.total, lang)} au total` : 'Permission de consultation absente'} icon={Wrench} accent="warning" onClick={requests ? () => navigate('/construction/customer-requests') : undefined} />
         <StatCard title="Devis à traiter" value={quotes ? number(quotes.needsAction, lang) : '—'} subtitle={quotes ? `${number(quotes.total, lang)} au total` : 'Permission de consultation absente'} icon={FileText} accent="revenue" onClick={quotes ? () => navigate('/construction/quote-requests') : undefined} />
+      </div>
+
+      <div className="vanguard-dashboard-charts">
+        <ChartCard title={t('construction.projectStatusDistribution')} description={t('construction.title')} data={Object.entries(projects.byStatus || {}).map(([status, count]) => {
+          const translated = t(`status.${status.toLowerCase()}`)
+          return { key: status, label: translated.startsWith('status.') ? status.replaceAll('_', ' ') : translated, value: count }
+        })} />
+        {requests && <ChartCard title={t('construction.requestStatusDistribution')} description={t('construction.title')} data={Object.entries(requests.byStatus || {}).map(([status, count]) => {
+          const translated = t(`status.${status.toLowerCase()}`)
+          return { key: status, label: translated.startsWith('status.') ? status.replaceAll('_', ' ') : translated, value: count }
+        })} />}
+        {quotes && <ChartCard title={t('construction.quoteStatusDistribution')} description={t('construction.title')} data={Object.entries(quotes.byStatus || {}).map(([status, count]) => {
+          const translated = t(`status.${status.toLowerCase()}`)
+          return { key: status, label: translated.startsWith('status.') ? status.replaceAll('_', ' ') : translated, value: count }
+        })} />}
       </div>
 
       <Card style={{ marginBottom: 20 }}><CardHeader><CardTitle>Actions Construction</CardTitle></CardHeader><CardContent><div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>

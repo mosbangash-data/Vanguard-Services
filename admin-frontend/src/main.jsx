@@ -6,6 +6,7 @@ import './vanguard-design-system.css'
 import App from './App.jsx'
 import { LanguageProvider } from './i18n/LanguageProvider'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
+import { ThemeProvider } from './theme/ThemeProvider'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,11 +31,13 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <LanguageProvider>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <App />
-        </QueryClientProvider>
-      </ErrorBoundary>
+      <ThemeProvider>
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <App />
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </ThemeProvider>
     </LanguageProvider>
   </StrictMode>,
 )
