@@ -12,12 +12,13 @@ import {
   Phone,
   Mail,
   MapPin,
-  Clock,
   UserCheck,
   CheckCircle2,
   XCircle,
 } from 'lucide-react'
 import { api } from '../../../services/api'
+
+const EMPTY_AGENCIES = []
 import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
 import { useLanguage } from '../../../i18n/useLanguage'
@@ -25,9 +26,6 @@ import {
   PageHeader,
   StatCard,
   Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
   FilterBar,
   SearchBar,
   Button,
@@ -67,7 +65,7 @@ const EMPTY_AGENCY_FORM = {
 
 export function AgenciesManagementPage() {
   const { user } = useAuth()
-  const { lang, t } = useLanguage()
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -101,7 +99,7 @@ export function AgenciesManagementPage() {
     enabled: isSuperAdmin,
   })
 
-  const agencies = agenciesQuery.data || []
+  const agencies = agenciesQuery.data ?? EMPTY_AGENCIES
   const departments = deptsQuery.data || []
   const coachDept = departments.find((d) => d.type === 'VANGUARD_COACH' || d.name?.includes('Coach') || d.name?.includes('Transport'))
 
@@ -396,7 +394,6 @@ export function AgenciesManagementPage() {
 
                     <td style={{ padding: '12px 16px' }}>
                       <StatusBadge
-                        status={agency.isActive ? 'ACTIVE' : 'INACTIVE'}
                         status={agency.isActive ? 'ACTIVE' : 'INACTIVE'}
                         variant={agency.isActive ? 'success' : 'neutral'}
                       />

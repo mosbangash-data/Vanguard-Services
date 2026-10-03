@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Plus, RefreshCw, Search, X, Edit2, Trash2, KeyRound, AlertTriangle, CheckCircle2, Eye, Ticket } from 'lucide-react'
 import { hasPermission } from '../auth/permissions'
 import { useAuth } from '../auth/authContext'
@@ -73,7 +73,6 @@ export function ResourcePage({ resource }) {
   const { t, lang } = useLanguage()
   const pageTitle = getResourceTitle(t, resource)
   const singularLabel = getResourceSingular(t, resource)
-  const client = useQueryClient()
   const navigate = useNavigate()
 
   const [viewTripModal, setViewTripModal] = useState(null)

@@ -13,66 +13,9 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 
-// ─── Descriptions métier centralisées (affichage uniquement, ne modifie pas la logique) ───
-
-const ROLE_DESCRIPTIONS = {
-  SUPER_ADMIN: 'Administrateur principal de Vanguard Services. Il contrôle l\u2019ensemble de la plateforme, les rôles, les permissions, les administrateurs de services et les paramètres globaux.',
-  SERVICE_ADMIN: 'Administrateur d\u2019un service Vanguard Services. Il gère uniquement son propre service et les agents qui lui sont rattachés.',
-  AGENT: 'Agent opérationnel d\u2019un service. Il accède uniquement aux fonctionnalités et opérations autorisées par les permissions de son rôle.',
-  CLIENT: 'Utilisateur client de Vanguard Services. Il utilise les services disponibles dans l\u2019espace public/client et n\u2019accède pas aux espaces administratifs.',
-  MANAGER: 'Responsable opérationnel d\u2019un service. Il supervise les activités qui lui sont attribuées selon ses permissions et son périmètre de service.',
-}
-
 const getRoleDescription = (roleName, t) => {
   const value = t(`roleUi.roleDescriptions.${roleName}`)
   return value.startsWith('roleUi.') ? '' : value
-}
-
-const PERMISSION_DESCRIPTIONS = {
-  ASSIGN_VEHICLE_INQUIRY: 'Permet d\u2019attribuer une demande véhicule à un agent ou responsable.',
-  CANCEL_VEHICLE_RESERVATION: 'Permet d\u2019annuler une réservation de véhicule lorsque cette opération est autorisée.',
-  CLOSE_VEHICLE_INQUIRY: 'Permet de clôturer une demande véhicule traitée.',
-  CREATE_CUSTOMER_REQUEST: 'Permet de créer ou d\u2019enregistrer une demande client.',
-  CREATE_DEPARTMENT: 'Permet de créer un nouveau département.',
-  CREATE_PERMISSION: 'Permet de créer une nouvelle permission dans le système.',
-  CREATE_PROJECT: 'Permet de créer un projet ou chantier dans le module Construction.',
-  CREATE_QUOTE_REQUEST: 'Permet de créer ou enregistrer une demande de devis.',
-  CREATE_RESERVATION: 'Permet de créer une réservation de transport.',
-  CREATE_ROLE: 'Permet de créer un nouveau rôle.',
-  CREATE_USER: 'Permet de créer un compte utilisateur.',
-  CREATE_VEHICLE: 'Permet de créer et d\u2019enregistrer un nouveau véhicule dans le module Automobile.',
-  CREATE_VEHICLE_INQUIRY: 'Permet de créer une demande concernant un véhicule.',
-  DELETE_DEPARTMENT: 'Permet de supprimer un département lorsque cette opération est autorisée.',
-  DELETE_PERMISSION: 'Permet de supprimer une permission lorsque cette opération est autorisée.',
-  DELETE_PROJECT: 'Permet de supprimer un projet lorsque cette opération est autorisée.',
-  DELETE_ROLE: 'Permet de supprimer un rôle lorsque cette opération est autorisée.',
-  DELETE_USER: 'Permet de supprimer ou désactiver un utilisateur lorsque cette opération est autorisée.',
-  DELETE_VEHICLE: 'Permet de supprimer un véhicule lorsque cette opération est autorisée.',
-  MANAGE_RESERVATION_PAYMENT: 'Permet de gérer les paiements liés aux réservations.',
-  MANAGE_USERS: 'Permet de gérer les comptes utilisateurs du système.',
-  MANAGE_VEHICLE_INQUIRY: 'Permet de gérer les demandes véhicules.',
-  MANAGE_VEHICLE_MEDIA: 'Permet de gérer les médias et photos des véhicules.',
-  MANAGE_VEHICLE_RESERVATION: 'Permet de gérer les réservations de véhicules.',
-  UPDATE_CUSTOMER_REQUEST: 'Permet de modifier ou traiter une demande client.',
-  UPDATE_DEPARTMENT: 'Permet de modifier les informations d\u2019un département.',
-  UPDATE_PERMISSION: 'Permet de modifier une permission existante.',
-  UPDATE_PROJECT: 'Permet de modifier les informations d\u2019un projet.',
-  UPDATE_QUOTE_REQUEST: 'Permet de modifier ou traiter une demande de devis.',
-  UPDATE_RESERVATION: 'Permet de modifier une réservation lorsque cette opération est autorisée.',
-  UPDATE_ROLE: 'Permet de modifier un rôle.',
-  UPDATE_USER: 'Permet de modifier les informations d\u2019un utilisateur.',
-  UPDATE_VEHICLE: 'Permet de modifier les informations d\u2019un véhicule existant.',
-  UPDATE_VEHICLE_INQUIRY: 'Permet de modifier une demande véhicule.',
-  VIEW_CUSTOMER_REQUEST: 'Permet de consulter les demandes clients.',
-  VIEW_DEPARTMENT: 'Permet de consulter les départements.',
-  VIEW_PERMISSION: 'Permet de consulter les permissions disponibles.',
-  VIEW_PROJECT: 'Permet de consulter les projets et chantiers.',
-  VIEW_QUOTE_REQUEST: 'Permet de consulter les demandes de devis.',
-  VIEW_RESERVATION: 'Permet de consulter les réservations.',
-  VIEW_ROLE: 'Permet de consulter les rôles du système.',
-  VIEW_USER: 'Permet de consulter les utilisateurs du système.',
-  VIEW_VEHICLE: 'Permet de consulter la liste et les informations des véhicules.',
-  VIEW_VEHICLE_INQUIRY: 'Permet de consulter les demandes véhicules.',
 }
 
 const getPermissionDescription = (permissionName, t) => {

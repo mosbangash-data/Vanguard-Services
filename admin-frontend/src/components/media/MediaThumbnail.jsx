@@ -1,5 +1,5 @@
 import React from 'react'
-import { getPrimaryMedia, getMediaUrl } from '../../utils/media'
+import { getPrimaryMedia } from '../../utils/media'
 import { MediaImage } from './MediaImage'
 import { Image as ImageIcon } from 'lucide-react'
 

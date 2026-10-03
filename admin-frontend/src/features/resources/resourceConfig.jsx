@@ -1,5 +1,4 @@
 import React from 'react'
-import { getMediaUrl, getPrimaryMedia } from '../../utils/media'
 import { MediaThumbnail } from '../../components/media'
 
 const resource = (path, label, endpoint, options = {}) => ({

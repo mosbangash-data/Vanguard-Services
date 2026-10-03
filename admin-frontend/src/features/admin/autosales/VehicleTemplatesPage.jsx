@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
 import {
   CarFront,
   Plus,
@@ -8,9 +7,7 @@ import {
   Edit2,
   Trash2,
   Layers,
-  Sparkles,
   RefreshCw,
-  CheckCircle2,
 } from 'lucide-react'
 import { api } from '../../../services/api'
 import { useAuth } from '../../auth/authContext'
@@ -20,8 +17,6 @@ import { MediaImage } from '../../../components/media'
 import {
   PageHeader,
   Card,
-  CardHeader,
-  CardTitle,
   CardContent,
   FilterBar,
   SearchBar,
@@ -58,8 +53,7 @@ const formatMoney = (amount, currency = 'USD', lang = 'fr') => {
 
 export function VehicleTemplatesPage() {
   const { user } = useAuth()
-  const { lang, t } = useLanguage()
-  const navigate = useNavigate()
+  const { lang } = useLanguage()
   const queryClient = useQueryClient()
 
   const [search, setSearch] = useState('')
@@ -271,8 +265,6 @@ export function VehicleTemplatesPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
           {templatesList.map((tpl) => {
-            const primaryMedia = getMediaUrl(getPrimaryMedia(tpl.media) || tpl.imageUrl, { variant: 'card' })
-
             return (
               <Card key={tpl.id} className="vanguard-template-card" hover>
                 <div style={{

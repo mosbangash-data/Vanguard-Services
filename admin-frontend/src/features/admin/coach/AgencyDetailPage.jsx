@@ -9,13 +9,9 @@ import {
   Mail,
   Clock,
   UserCheck,
-  Shield,
   Bus,
   Ticket,
   CreditCard,
-  Layers,
-  CheckCircle2,
-  XCircle,
 } from 'lucide-react'
 import { api } from '../../../services/api'
 import {

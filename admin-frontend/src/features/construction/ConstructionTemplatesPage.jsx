@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
 import {
   HardHat,
   Plus,
@@ -8,11 +7,8 @@ import {
   Edit2,
   Trash2,
   Layers,
-  Sparkles,
   RefreshCw,
-  Building2,
   MapPin,
-  Banknote,
 } from 'lucide-react'
 import { api } from '../../services/api'
 import { useAuth } from '../auth/authContext'
@@ -21,8 +17,6 @@ import { useLanguage } from '../../i18n/useLanguage'
 import {
   PageHeader,
   Card,
-  CardHeader,
-  CardTitle,
   CardContent,
   FilterBar,
   SearchBar,
@@ -33,7 +27,6 @@ import {
   ConfirmDialog,
   FormField,
   Input,
-  Select,
   Textarea,
   LoadingState,
   ErrorState,
@@ -52,8 +45,7 @@ const formatMoney = (amount, lang = 'fr') => {
 
 export function ConstructionTemplatesPage() {
   const { user } = useAuth()
-  const { lang, t } = useLanguage()
-  const navigate = useNavigate()
+  const { lang } = useLanguage()
   const queryClient = useQueryClient()
 
   const [search, setSearch] = useState('')

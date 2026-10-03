@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { UploadCloud, Image as ImageIcon, Star, Trash2, AlertCircle, Loader2, X } from 'lucide-react'
+import { UploadCloud, Star, Trash2, AlertCircle, Loader2, X } from 'lucide-react'
 import {
-  getMediaUrl,
   normalizeMedia,
   ALLOWED_IMAGE_TYPES,
   ALLOWED_IMAGE_EXTENSIONS,
@@ -15,7 +14,6 @@ export function MediaUploader({
   existingMedia = [],
   pendingFiles = [],
   onPendingChange,
-  primaryIdOrIndex = null,
   onSetPrimary,
   onDeleteExisting,
   disabled = false,

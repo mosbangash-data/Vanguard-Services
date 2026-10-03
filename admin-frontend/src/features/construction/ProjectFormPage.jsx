@@ -44,7 +44,7 @@ export function ProjectFormPage() {
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [galleryFiles, setGalleryFiles] = useState([])
-  const [galleryError, setGalleryError] = useState('')
+  const [, setGalleryError] = useState('')
   const [galleryLoading, setGalleryLoading] = useState(false)
   const [existingGallery, setExistingGallery] = useState([])
   const [deletedGalleryIds, setDeletedGalleryIds] = useState([])
@@ -71,7 +71,7 @@ export function ProjectFormPage() {
     enabled: isEditing,
   })
 
-  const galleryQuery = useQuery({
+  useQuery({
     queryKey: ['construction-project-gallery', id],
     queryFn: async () => {
       const response = await api.get(`/api/construction/projects/${id}/gallery`)

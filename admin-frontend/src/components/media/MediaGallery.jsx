@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { getMediaList, getMediaUrl } from '../../utils/media'
+import { getMediaList } from '../../utils/media'
 import { MediaImage } from './MediaImage'
 import { MediaViewer } from './MediaViewer'
 import { MediaEmptyState } from './MediaEmptyState'
@@ -15,7 +15,7 @@ export function MediaGallery({
   variant = 'detail',
   className = '',
   allowViewer = true,
-  aspectRatio = '16/9',
+  aspectRatio: _aspectRatio = '16/9',
   minHeight = 240,
 }) {
   const { t } = useLanguage()

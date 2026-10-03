@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   CarFront,
@@ -10,12 +10,6 @@ import {
   RefreshCw,
   Layers,
   ArrowLeft,
-  Calendar,
-  Fuel,
-  Gauge,
-  Palette,
-  FileSpreadsheet,
-  Ticket,
 } from 'lucide-react'
 import { api, uploadMedia } from '../../../services/api'
 import { useAuth } from '../../auth/authContext'
@@ -44,11 +38,10 @@ import {
   MediaUploader,
 } from '../../../components/ui'
 import { MediaThumbnail, MediaGallery } from '../../../components/media'
-import { getMediaUrl, getPrimaryMedia } from '../../../utils/media'
 import { syncMediaRelations } from '../../../utils/mediaSync'
 
 const STATUS_OPTIONS = ['AVAILABLE', 'RESERVED', 'SOLD', 'IN_MAINTENANCE']
-const CURRENCY_OPTIONS = ['USD', 'CDF']
+const EMPTY_VEHICLES = []
 
 const EMPTY_FORM = {
   brand: '',
@@ -97,7 +90,7 @@ const formatDate = (value, locale = 'fr') => {
 
 export function VehicleManagementPage() {
   const { user } = useAuth()
-  const { lang, t } = useLanguage()
+  const { lang } = useLanguage()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
@@ -137,7 +130,7 @@ export function VehicleManagementPage() {
     enabled: canView,
   })
 
-  const vehicles = vehiclesQuery.data || []
+  const vehicles = vehiclesQuery.data ?? EMPTY_VEHICLES
 
   const filteredVehicles = useMemo(() => {
     let list = [...vehicles]
@@ -176,7 +169,7 @@ export function VehicleManagementPage() {
 
       return { response, vehicleId }
     },
-    onSuccess: async ({ vehicleId }) => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'], refetchType: 'none' })
       queryClient.invalidateQueries({ queryKey: ['autosales-dashboard-vehicles'] })
 
@@ -429,9 +422,6 @@ export function VehicleManagementPage() {
               </thead>
               <tbody>
                 {filteredVehicles.map((vehicle) => {
-                  const primary = vehicle.media?.find((m) => m.isPrimary)?.media
-                  const primaryMedia = getMediaUrl(primary, { variant: 'thumbnail' })
-
                   return (
                     <tr
                       key={vehicle.id}
@@ -712,7 +702,7 @@ export function VehicleManagementPage() {
 export function VehicleDetailPage() {
   const { id } = useParams()
   const { user } = useAuth()
-  const { lang, t } = useLanguage()
+  const { lang } = useLanguage()
   const navigate = useNavigate()
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')

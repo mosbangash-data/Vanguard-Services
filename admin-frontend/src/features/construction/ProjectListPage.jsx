@@ -6,18 +6,14 @@ import {
   Eye,
   Edit2,
   Trash2,
-  RefreshCw,
   Layers,
   MapPin,
-  Calendar,
-  Building2,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
 import { useLanguage } from '../../i18n/useLanguage'
-import { getMediaUrl, getPrimaryMedia } from '../../utils/media'
 import { MediaThumbnail } from '../../components/media'
 import {
   PageHeader,
@@ -34,7 +30,6 @@ import {
   EmptyState,
 } from '../../components/ui'
 
-const PROJECT_STATUS_OPTIONS = ['DRAFT', 'PUBLISHED', 'ARCHIVED']
 
 const toList = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -63,7 +58,7 @@ const formatDate = (value, locale = 'fr') => {
 
 export function ProjectListPage() {
   const { user } = useAuth()
-  const { lang, t } = useLanguage()
+  const { lang } = useLanguage()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 

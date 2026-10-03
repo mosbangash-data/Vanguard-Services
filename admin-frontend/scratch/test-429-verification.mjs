@@ -92,7 +92,7 @@ assert.equal(network.logs.length, 1, 'Phase B: 0 requête déclenchée par l’o
 
 // Phase C: L'utilisateur remplit les champs (frappes clavier)
 const simulatedInputs = ['Dieudonné', 'Mukendi', 'CD-DRV-2024-001', '+243812345678'];
-simulatedInputs.forEach((val) => {
+simulatedInputs.forEach(() => {
   // Pas d'appel réseau lors de la saisie
 });
 assert.equal(network.logs.length, 1, 'Phase C: 0 requête générée lors de la saisie clavier des champs');

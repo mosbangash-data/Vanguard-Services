@@ -1,5 +1,3 @@
-import { normalizeMedia } from './media'
-
 const getRelationId = (item) => {
   if (!item) return null
   return item.relationId || item.id || null

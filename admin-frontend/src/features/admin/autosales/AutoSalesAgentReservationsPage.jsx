@@ -24,14 +24,6 @@ const formatMoney = (amount, currency, lang) => new Intl.NumberFormat(lang === '
   maximumFractionDigits: 2,
 }).format(Number(amount || 0))
 
-async function fetchAgentReservations(user) {
-  if (!user) return []
-  const params = { page: 1, limit: 200 }
-  if (isAgentUser(user)) params.createdByUserId = user.id
-  const response = await api.get('/api/vehicle-reservations', { params })
-  return listItems(response.data?.data || response.data)
-}
-
 export function AutoSalesAgentReservationsPage() {
   const { user } = useAuth()
   const { lang, t } = useLanguage()

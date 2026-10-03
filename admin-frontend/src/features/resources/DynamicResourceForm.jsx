@@ -74,7 +74,6 @@ function DynamicField({
   onChange,
   error,
   disabled,
-  initialData,
   mediaState,
   onPendingMediaChange,
   onSetPrimaryMedia,

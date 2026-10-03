@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   Users,
   ShieldCheck,
@@ -11,12 +11,9 @@ import {
   Banknote,
   FileText,
   UserPlus,
-  Plus,
   ArrowRight,
   RefreshCw,
-  Clock,
   Sparkles,
-  Layers,
   Settings,
   BarChart3,
 } from 'lucide-react'
