@@ -16,6 +16,10 @@ const toList = (payload) => {
   if (Array.isArray(payload?.data?.items)) return payload.data.items
   return []
 }
+const toPage = (payload) => {
+  const data = payload?.data || payload || {}
+  return { items: toList(data), page: Number(data.page) || 1, limit: Number(data.limit) || 20, total: Number(data.total) || 0 }
+}
 
 const formatDate = (value, lang) => {
   if (!value) return '—'
@@ -49,23 +53,24 @@ export function CustomerRequestsPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [page, setPage] = useState(1)
 
   const canView = hasPermission(user, 'VIEW_CUSTOMER_REQUEST') || user?.role === 'SUPER_ADMIN'
   const canUpdate = hasPermission(user, 'UPDATE_CUSTOMER_REQUEST') || user?.role === 'SUPER_ADMIN'
 
   const requestsQuery = useQuery({
-    queryKey: ['construction-customer-requests', search, statusFilter],
+    queryKey: ['construction-customer-requests', search, statusFilter, page],
     queryFn: async () => {
-      const params = { page: 1, limit: 200 }
+      const params = { page, limit: 20 }
       if (search.trim()) params.search = search.trim()
       if (statusFilter !== 'ALL') params.status = statusFilter
       const response = await api.get('/api/construction/customer-requests', { params })
-      return toList(response.data?.data || response.data)
+      return toPage(response.data)
     },
     enabled: canView,
   })
 
-  const requests = useMemo(() => requestsQuery.data || [], [requestsQuery.data])
+  const requests = useMemo(() => requestsQuery.data?.items || [], [requestsQuery.data])
 
   const filteredRequests = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -104,11 +109,11 @@ export function CustomerRequestsPage() {
             <input
               type="text"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(1) }}
               placeholder={t('construction.requests.searchPlaceholder')}
             />
           </div>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="select-filter">
+          <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1) }} className="select-filter">
             <option value="ALL">{t('construction.requests.allStatuses')}</option>
             {CUSTOMER_REQUEST_STATUSES.map((status) => (
               <option key={status} value={status}>{statusLabel(status, t)}</option>
@@ -152,11 +157,11 @@ export function CustomerRequestsPage() {
                   <td>{formatDate(request.createdAt, lang)}</td>
                   <td>
                     <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
-                      <button type="button" className="action-btn" title={t('construction.requests.view')} onClick={() => navigate(`/construction/customer-requests/${request.id}`)}>
+                      <button type="button" className="action-btn" title={t('construction.requests.view')} aria-label={t('construction.requests.view')} onClick={() => navigate(`/construction/customer-requests/${request.id}`)}>
                         <Eye size={14} />
                       </button>
                       {canUpdate && (
-                        <button type="button" className="action-btn" title={t('construction.requests.edit')} onClick={() => navigate(`/construction/customer-requests/${request.id}`)}>
+                        <button type="button" className="action-btn" title={t('construction.requests.edit')} aria-label={t('construction.requests.edit')} onClick={() => navigate(`/construction/customer-requests/${request.id}`)}>
                           <Pencil size={14} />
                         </button>
                       )}
@@ -168,15 +173,23 @@ export function CustomerRequestsPage() {
           </table>
         </div>
       )}
+      {!requestsQuery.isPending && !requestsQuery.isError && Number(requestsQuery.data?.total || 0) > Number(requestsQuery.data?.limit || 20) && <nav className="construction-pagination" aria-label={t('construction.requests.paginationLabel')}>
+        <button type="button" className="button secondary sm" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>{t('construction.requests.previous')}</button>
+        <span>{t('construction.requests.page', { page, pages: Math.ceil(requestsQuery.data.total / requestsQuery.data.limit) })}</span>
+        <button type="button" className="button secondary sm" disabled={page >= Math.ceil(requestsQuery.data.total / requestsQuery.data.limit)} onClick={() => setPage((current) => Math.min(Math.ceil(requestsQuery.data.total / requestsQuery.data.limit), current + 1))}>{t('construction.requests.next')}</button>
+      </nav>}
     </section>
   )
 }
 
 export function CustomerRequestDetailPage() {
+  const { user } = useAuth()
   const { id } = useParams()
   const { lang, t } = useLanguage()
   const queryClient = useQueryClient()
   const [status, setStatus] = useState('NEW')
+  const canView = hasPermission(user, 'VIEW_CUSTOMER_REQUEST') || user?.role === 'SUPER_ADMIN'
+  const canUpdate = hasPermission(user, 'UPDATE_CUSTOMER_REQUEST') || user?.role === 'SUPER_ADMIN'
 
   const requestQuery = useQuery({
     queryKey: ['construction-customer-request', id],
@@ -184,7 +197,7 @@ export function CustomerRequestDetailPage() {
       const response = await api.get(`/api/construction/customer-requests/${id}`)
       return response.data?.data?.customerRequest || response.data?.data || {}
     },
-    enabled: Boolean(id),
+    enabled: Boolean(id) && canView,
   })
 
   useEffect(() => {
@@ -201,12 +214,14 @@ export function CustomerRequestDetailPage() {
 
   const request = requestQuery.data || {}
 
+  if (!canView) return <section className="page"><div className="state-container" role="alert">{t('construction.accessDenied')}</div></section>
+
   if (requestQuery.isPending) {
     return <section className="page"><div className="state-container">{t('construction.requests.loadingDetail')}</div></section>
   }
 
   if (requestQuery.isError) {
-    return <section className="page"><div className="state-container">{t('construction.requests.detailError')}</div></section>
+    return <section className="page"><div className="state-container" role="alert"><p>{t('construction.requests.detailError')}</p><button type="button" className="button secondary sm" onClick={() => requestQuery.refetch()}>{t('dashboard.retry')}</button></div></section>
   }
 
   return (
@@ -234,7 +249,7 @@ export function CustomerRequestDetailPage() {
           </div>
           <div>
             <strong>{t('construction.requests.status')}</strong>
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <select value={status} disabled={!canUpdate} aria-label={t('construction.requests.status')} onChange={(event) => setStatus(event.target.value)}>
               {CUSTOMER_REQUEST_STATUSES.map((key) => (
                 <option key={key} value={key}>{statusLabel(key, t)}</option>
               ))}
@@ -251,11 +266,12 @@ export function CustomerRequestDetailPage() {
           <p>{request.message || '—'}</p>
         </div>
 
-        <div className="form-actions" style={{ marginTop: '1.5rem' }}>
+        {updateMutation.isError && <p className="error" role="alert">{t('construction.requests.updateError')}</p>}
+        {canUpdate && <div className="form-actions" style={{ marginTop: '1.5rem' }}>
           <button type="button" className="button" onClick={() => updateMutation.mutate(status)} disabled={updateMutation.isPending}>
             {updateMutation.isPending ? t('construction.requests.saving') : t('construction.requests.saveStatus')}
           </button>
-        </div>
+        </div>}
       </div>
     </section>
   )

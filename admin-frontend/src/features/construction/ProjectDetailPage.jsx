@@ -1,12 +1,14 @@
 import React, { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft, CalendarDays, MapPin, Pencil, Wallet } from 'lucide-react'
 import { api, uploadMedia } from '../../services/api'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/permissions'
+import { useLanguage } from '../../i18n/useLanguage'
 import { MediaUploader } from '../../components/media/MediaUploader'
 import { getMediaUrl } from '../../utils/media'
-import { ErrorState } from '../../components/ui'
+import { Card, CardContent, CardHeader, CardTitle, EmptyState, ErrorState, LoadingState, StatusBadge } from '../../components/ui'
 
 const get = async (path) => (await api.get(path)).data?.data
 const toList = (payload) => {
@@ -21,65 +23,61 @@ const toList = (payload) => {
 export function ProjectDetailPage() {
   const { id } = useParams()
   const { user } = useAuth()
+  const { lang, t } = useLanguage()
   const queryClient = useQueryClient()
   const [uploading, setUploading] = useState(false)
   const [pendingMedia, setPendingMedia] = useState([])
   const uploadingPendingIds = useRef(new Set())
-
   const canUpdate = hasPermission(user, 'UPDATE_PROJECT') || user?.role === 'SUPER_ADMIN'
 
   const project = useQuery({ queryKey: ['project', id], queryFn: () => get(`/api/construction/projects/${id}`) })
   const updates = useQuery({ queryKey: ['project-updates', id], queryFn: () => get(`/api/construction/projects/${id}/updates`) })
   const gallery = useQuery({ queryKey: ['project-gallery', id], queryFn: () => get(`/api/construction/projects/${id}/gallery`) })
-
   const projectData = project.data?.project || project.data || {}
   const updateList = toList(updates.data)
   const galleryList = toList(gallery.data)
+  const formatDate = (value) => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'medium' }).format(new Date(value)) : '—'
+  const formatMoney = (value) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency: 'USD' }).format(Number(value || 0))
+  const statusLabel = (value) => {
+    const key = `status.${String(value || '').toLowerCase()}`
+    const translated = t(key)
+    return translated === key ? (value || '—') : translated
+  }
+  const refreshProjectMedia = () => {
+    queryClient.invalidateQueries({ queryKey: ['project-gallery', id] })
+    queryClient.invalidateQueries({ queryKey: ['project', id] })
+  }
 
   const uploadProjectPhoto = async (file, order, shouldSetPrimary) => {
-    const media = await uploadMedia(file, {
-      department: 'CONSTRUCTION',
-      entityType: 'project',
-      entityId: id,
-    })
-
-    const createRes = await api.post(`/api/construction/projects/${id}/gallery`, {
-      mediaId: media.id,
-      caption: file.name,
-      order,
-    })
-
+    const media = await uploadMedia(file, { department: 'CONSTRUCTION', entityType: 'project', entityId: id })
+    const createRes = await api.post(`/api/construction/projects/${id}/gallery`, { mediaId: media.id, caption: file.name, order })
     if (shouldSetPrimary && createRes.data?.data?.gallery?.id) {
       await api.post(`/api/construction/projects/${id}/gallery/${createRes.data.data.gallery.id}/set-primary`)
     }
-
-    queryClient.invalidateQueries({ queryKey: ['project-gallery', id] })
-    queryClient.invalidateQueries({ queryKey: ['project', id] })
+    refreshProjectMedia()
   }
 
   const setPrimaryProjectPhoto = async (galleryId) => {
     try {
       await api.post(`/api/construction/projects/${id}/gallery/${galleryId}/set-primary`)
-      queryClient.invalidateQueries({ queryKey: ['project-gallery', id] })
-      queryClient.invalidateQueries({ queryKey: ['project', id] })
-    } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la définition de la photo principale.')
+      refreshProjectMedia()
+    } catch {
+      alert(t('construction.projects.setPrimaryError'))
     }
   }
 
   const deleteProjectPhoto = async (galleryId) => {
-    if (!window.confirm('Voulez-vous supprimer cette photo ?')) return
+    if (!window.confirm(t('construction.projects.deletePhotoConfirm'))) return
     try {
       await api.delete(`/api/construction/projects/${id}/gallery/${galleryId}`)
-      queryClient.invalidateQueries({ queryKey: ['project-gallery', id] })
-      queryClient.invalidateQueries({ queryKey: ['project', id] })
-    } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la suppression de la photo.')
+      refreshProjectMedia()
+    } catch {
+      alert(t('construction.projects.deletePhotoError'))
     }
   }
 
-  if (project.isPending) return <section className="page"><p>Chargement…</p></section>
-  if (project.isError) return <section className="page"><p className="error">Impossible de charger ce projet.</p></section>
+  if (project.isPending) return <section className="page"><LoadingState message={t('construction.projects.loadingDetail')} /></section>
+  if (project.isError) return <section className="page"><ErrorState title={t('construction.projects.detailError')} message={t('commonUi.errorMessage')} onRetry={() => project.refetch()} /></section>
 
   const existingMedia = galleryList.map((item) => ({
     id: item.id,
@@ -88,140 +86,89 @@ export function ProjectDetailPage() {
     caption: item.caption,
     order: item.order,
   }))
-
-  const primaryPhoto = existingMedia.find((m) => m.isPrimary) || existingMedia[0]
+  const primaryPhoto = existingMedia.find((media) => media.isPrimary) || existingMedia[0]
+  const statusKey = `construction.projects.statuses.${projectData.status}`
+  const publicationKey = `construction.projects.publicationStatuses.${projectData.publicationStatus}`
+  const projectStatus = t(statusKey) === statusKey ? statusLabel(projectData.status) : t(statusKey)
+  const publicationStatus = t(publicationKey) === publicationKey ? statusLabel(projectData.publicationStatus) : t(publicationKey)
 
   return (
-    <section className="page" style={{ maxWidth: '1000px', margin: '0 auto', padding: '24px 16px' }}>
-      <div style={{ marginBottom: '16px' }}>
-        <Link to="/construction/projects" style={{ color: '#2563EB', textDecoration: 'none', fontWeight: 600, fontSize: '0.875rem' }}>
-          ← Retour aux projets
-        </Link>
+    <section className="page construction-project-detail">
+      <div className="construction-project-detail__topline">
+        <Link className="button secondary sm" to="/construction/projects"><ArrowLeft size={16} aria-hidden="true" />{t('construction.projects.backToList')}</Link>
+        {canUpdate && <Link className="button sm" to={`/construction/projects/${id}/edit`}><Pencil size={15} aria-hidden="true" />{t('construction.projects.editProject')}</Link>}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#0F172A' }}>
-          {projectData.title || projectData.name || 'Projet'}
-        </h1>
-        {canUpdate && (
-          <Link
-            to={`/construction/projects/${id}/edit`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              backgroundColor: '#0F172A',
-              color: '#FFFFFF',
-              padding: '8px 16px',
-              borderRadius: '6px',
-              textDecoration: 'none',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-            }}
-          >
-            Modifier le projet
-          </Link>
-        )}
+      <header className="construction-project-detail__header">
+        <div>
+          <p className="eyebrow">{t('construction.title')}</p>
+          <h1>{projectData.title || projectData.name || t('construction.projects.title')}</h1>
+          <p className="construction-project-detail__location"><MapPin size={16} aria-hidden="true" />{projectData.location || '—'}</p>
+        </div>
+        <div className="construction-project-detail__badges"><StatusBadge status={projectData.status} label={projectStatus} /><StatusBadge status={projectData.publicationStatus} label={publicationStatus} /></div>
+      </header>
+
+      {primaryPhoto && <div className="construction-project-detail__hero-media"><img src={primaryPhoto.url} alt={t('construction.projects.primaryPhotoAlt', { title: projectData.title || projectData.name || '' })} /></div>}
+
+      <div className="construction-project-detail__grid">
+        <Card>
+          <CardHeader><CardTitle>{t('construction.projects.overview')}</CardTitle></CardHeader>
+          <CardContent>
+            <dl className="construction-project-detail__facts">
+              {projectData.budget !== undefined && projectData.budget !== null && <div><dt><Wallet size={15} aria-hidden="true" />{t('construction.projects.budgetLabel')}</dt><dd>{formatMoney(projectData.budget)}</dd></div>}
+              <div><dt><CalendarDays size={15} aria-hidden="true" />{t('construction.projects.modifiedAt')}</dt><dd>{formatDate(projectData.updatedAt || projectData.createdAt)}</dd></div>
+              <div><dt><MapPin size={15} aria-hidden="true" />{t('construction.projects.fields.location')}</dt><dd>{projectData.location || '—'}</dd></div>
+            </dl>
+            <div className="construction-project-detail__description"><h3>{t('construction.projects.fields.description')}</h3><p>{projectData.description || t('construction.projects.noDescription')}</p></div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>{t('construction.projects.updatesTitle', { count: updateList.length })}</CardTitle></CardHeader>
+          <CardContent>
+            {updates.isPending ? <LoadingState message={t('construction.projects.loadingDetail')} /> : updates.isError ? <ErrorState title={t('construction.projects.detailError')} message={t('commonUi.errorMessage')} onRetry={() => updates.refetch()} /> : !updateList.length ? <EmptyState title={t('construction.projects.noUpdates')} /> : <ul className="construction-project-detail__updates">{updateList.map((item) => <li key={item.id || item.title}><strong>{item.title || t('construction.projects.updatesLabel')}</strong><p>{item.description || t('construction.projects.noDescription')}</p><time>{formatDate(item.createdAt)}</time></li>)}</ul>}
+          </CardContent>
+        </Card>
       </div>
 
-      {primaryPhoto && (
-        <div style={{ width: '100%', height: '280px', borderRadius: '12px', overflow: 'hidden', marginBottom: '24px', backgroundColor: '#0F172A' }}>
-          <img
-            src={primaryPhoto.url}
-            alt={projectData.title}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-        <div className="card" style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '20px' }}>
-          <h2 style={{ margin: '0 0 16px', fontSize: '1.1rem', color: '#0F172A' }}>Informations principales</h2>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.875rem' }}>
-            <li><strong style={{ color: '#475569' }}>Statut :</strong> <span style={{ fontWeight: 600, color: '#0F172A' }}>{projectData.status || '—'}</span></li>
-            <li><strong style={{ color: '#475569' }}>Publication :</strong> <span style={{ fontWeight: 600, color: '#0F172A' }}>{projectData.publicationStatus || '—'}</span></li>
-            <li><strong style={{ color: '#475569' }}>Localisation :</strong> <span style={{ color: '#0F172A' }}>{projectData.location || '—'}</span></li>
-            <li><strong style={{ color: '#475569' }}>Budget :</strong> <span style={{ fontWeight: 700, color: '#0F172A' }}>{projectData.budget !== undefined && projectData.budget !== null ? `${projectData.budget} USD` : '—'}</span></li>
-          </ul>
-          <div style={{ marginTop: '16px', borderTop: '1px solid #F1F5F9', paddingTop: '12px' }}>
-            <strong style={{ fontSize: '0.8125rem', color: '#64748B' }}>Description :</strong>
-            <p style={{ margin: '6px 0 0', fontSize: '0.875rem', color: '#334155', lineHeight: 1.5 }}>
-              {projectData.description || 'Aucune description.'}
-            </p>
-          </div>
-        </div>
-
-        <div className="card" style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '20px' }}>
-          <h2 style={{ margin: '0 0 16px', fontSize: '1.1rem', color: '#0F172A' }}>Mises à jour ({updateList.length})</h2>
-          {updates.isPending ? (
-            <p style={{ color: '#64748B', fontSize: '0.875rem' }}>Chargement…</p>
-          ) : updateList.length === 0 ? (
-            <p style={{ color: '#94A3B8', fontSize: '0.875rem' }}>Aucune mise à jour pour ce projet.</p>
-          ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {updateList.map((item) => (
-                <li key={item.id || item.title} style={{ borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
-                  <strong style={{ fontSize: '0.875rem', color: '#0F172A' }}>{item.title || 'Mise à jour'}</strong>
-                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '2px' }}>{item.description || 'Aucune description.'}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* Galerie & Photos du projet */}
-      <div className="card" style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '20px' }}>
-        <h2 style={{ margin: '0 0 16px', fontSize: '1.1rem', color: '#0F172A' }}>
-          Galerie & Photos ({galleryList.length})
-        </h2>
-        {gallery.isError ? (
-          <ErrorState
-            title="Impossible de charger la galerie"
-            message={gallery.error?.response?.data?.message || 'Impossible de récupérer les images du projet.'}
-            onRetry={() => gallery.refetch()}
-          />
-        ) : (
-          <MediaUploader
-            label="Photos du projet"
-            helperText="Formats acceptés : JPEG, PNG, WEBP, GIF. Max 10 Mo par photo."
+      <Card className="construction-project-detail__gallery">
+        <CardHeader><CardTitle>{t('construction.projects.galleryTitle', { count: galleryList.length })}</CardTitle></CardHeader>
+        <CardContent>
+          {gallery.isError ? <ErrorState title={t('construction.projects.galleryLoadError')} message={t('construction.projects.galleryLoadErrorMessage')} onRetry={() => gallery.refetch()} /> : <MediaUploader
+            label={t('construction.projects.galleryLabel')}
+            helperText={t('construction.projects.galleryHelper')}
             existingMedia={existingMedia}
             pendingFiles={pendingMedia}
             onSetPrimary={canUpdate ? setPrimaryProjectPhoto : null}
             onDeleteExisting={canUpdate ? deleteProjectPhoto : null}
             isUploading={uploading}
-            uploadProgressText="Téléversement de la photo en cours…"
+            uploadProgressText={t('construction.projects.uploadingPhoto')}
             disabled={!canUpdate}
             onPendingChange={async (newPending) => {
-            if (!canUpdate) return
-            setPendingMedia(newPending)
-            if (newPending.length === 0) return
-            setUploading(true)
-            try {
-              for (const [index, item] of newPending.entries()) {
-                if (item.file && !uploadingPendingIds.current.has(item.id)) {
+              if (!canUpdate) return
+              setPendingMedia(newPending)
+              if (!newPending.length) return
+              setUploading(true)
+              try {
+                for (const [index, item] of newPending.entries()) {
+                  if (!item.file || uploadingPendingIds.current.has(item.id)) continue
                   uploadingPendingIds.current.add(item.id)
                   try {
-                    await uploadProjectPhoto(
-                      item.file,
-                      galleryList.length + index,
-                      galleryList.length === 0 && index === 0,
-                    )
+                    await uploadProjectPhoto(item.file, galleryList.length + index, galleryList.length === 0 && index === 0)
                     setPendingMedia((current) => current.filter((pending) => pending.id !== item.id))
                   } finally {
                     uploadingPendingIds.current.delete(item.id)
                   }
                 }
+              } catch {
+                alert(t('construction.projects.uploadPhotoError'))
+              } finally {
+                setUploading(false)
               }
-            } catch (err) {
-              alert(err.response?.data?.message || 'Erreur lors de l’envoi de la photo.')
-            } finally {
-              setUploading(false)
-            }
             }}
-          />
-        )}
-      </div>
+          />}
+        </CardContent>
+      </Card>
     </section>
   )
 }

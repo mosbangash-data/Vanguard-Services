@@ -10,8 +10,18 @@ test.describe('TRANSPORT', () => {
     await expect(page.locator('button[type="submit"]').first()).toBeVisible()
   })
 
+  test('recherche Transport sans débordement aux largeurs prises en charge', async ({ page }) => {
+    await page.goto('/transport', { waitUntil: 'domcontentloaded' })
+    for (const width of [320, 375, 390, 768, 1024, 1280]) {
+      await page.setViewportSize({ width, height: 900 })
+      await expect(page.locator('#from')).toBeVisible()
+      const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+      expect(hasOverflow, `horizontal overflow at ${width}px`).toBe(false)
+    }
+  })
+
   test('recherche vide affiche un message', async ({ page }) => {
-    await page.goto('/transport')
+    await page.goto('/transport', { waitUntil: 'domcontentloaded' })
     await page.locator('#from').fill('VilleInexistanteXYZ')
     await page.locator('#to').fill('AutreVilleInexistante')
     await page.locator('#date').fill('2030-01-01')
@@ -21,7 +31,7 @@ test.describe('TRANSPORT', () => {
   })
 
   test('bouton consulter ma réservation présent', async ({ page }) => {
-    await page.goto('/transport')
+    await page.goto('/transport', { waitUntil: 'domcontentloaded' })
     const lookup = page.locator('#lookupCode')
     await expect(lookup).toBeVisible()
     await expect(page.locator('button[type="submit"]').last()).toBeVisible()
@@ -32,7 +42,7 @@ test.describe('TRANSPORT — Responsive mobile', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
   test('formulaire de recherche utilisable sur mobile', async ({ page }) => {
-    await page.goto('/transport')
+    await page.goto('/transport', { waitUntil: 'domcontentloaded' })
     await expect(page.locator('.page-hero')).toBeVisible()
     // Pas de débordement horizontal
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)

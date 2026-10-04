@@ -7,8 +7,18 @@ test.describe('CONSTRUCTION', () => {
     await expect(page.locator('.page-hero-title')).toContainText(/Construisons|build together/i)
   })
 
+  test('pages Construction publiques sans débordement aux largeurs prises en charge', async ({ page }) => {
+    await page.goto('/construction', { waitUntil: 'domcontentloaded' })
+    for (const width of [320, 375, 390, 768, 1024, 1280]) {
+      await page.setViewportSize({ width, height: 900 })
+      await expect(page.locator('.page-hero')).toBeVisible()
+      const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+      expect(hasOverflow, `horizontal overflow at ${width}px`).toBe(false)
+    }
+  })
+
   test('formulaire demande client présent', async ({ page }) => {
-    await page.goto('/construction')
+    await page.goto('/construction', { waitUntil: 'domcontentloaded' })
     const subject = page.locator('#csubject')
     const name = page.locator('#cname')
     const phone = page.locator('#cphone')
@@ -20,7 +30,7 @@ test.describe('CONSTRUCTION', () => {
   })
 
   test('formulaire demande de devis présent', async ({ page }) => {
-    await page.goto('/construction')
+    await page.goto('/construction', { waitUntil: 'domcontentloaded' })
     const qname = page.locator('#qname')
     const qphone = page.locator('#qphone')
     const qdesc = page.locator('#qdesc')
@@ -30,7 +40,7 @@ test.describe('CONSTRUCTION', () => {
   })
 
   test('réalisations chargées depuis API (ou état vide)', async ({ page }) => {
-    await page.goto('/construction')
+    await page.goto('/construction', { waitUntil: 'domcontentloaded' })
     // Attend la section projets
     await expect(page.locator('.project-grid, .state-container, .notice').first()).toBeVisible({ timeout: 15000 })
   })
@@ -40,7 +50,7 @@ test.describe('CONSTRUCTION — Responsive mobile', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
   test('formulaires utilisables sur mobile', async ({ page }) => {
-    await page.goto('/construction')
+    await page.goto('/construction', { waitUntil: 'domcontentloaded' })
     await expect(page.locator('.page-hero')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
     expect(overflow).toBe(false)

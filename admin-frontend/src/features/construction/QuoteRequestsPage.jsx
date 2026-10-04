@@ -16,6 +16,10 @@ const toList = (payload) => {
   if (Array.isArray(payload?.data?.items)) return payload.data.items
   return []
 }
+const toPage = (payload) => {
+  const data = payload?.data || payload || {}
+  return { items: toList(data), page: Number(data.page) || 1, limit: Number(data.limit) || 20, total: Number(data.total) || 0 }
+}
 
 const formatDate = (value, lang) => {
   if (!value) return '—'
@@ -46,23 +50,24 @@ export function QuoteRequestsPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [page, setPage] = useState(1)
 
   const canView = hasPermission(user, 'VIEW_QUOTE_REQUEST') || user?.role === 'SUPER_ADMIN'
   const canUpdate = hasPermission(user, 'UPDATE_QUOTE_REQUEST') || user?.role === 'SUPER_ADMIN'
 
   const requestsQuery = useQuery({
-    queryKey: ['construction-quote-requests', search, statusFilter],
+    queryKey: ['construction-quote-requests', search, statusFilter, page],
     queryFn: async () => {
-      const params = { page: 1, limit: 200 }
+      const params = { page, limit: 20 }
       if (search.trim()) params.search = search.trim()
       if (statusFilter !== 'ALL') params.status = statusFilter
       const response = await api.get('/api/construction/quote-requests', { params })
-      return toList(response.data?.data || response.data)
+      return toPage(response.data)
     },
     enabled: canView,
   })
 
-  const requests = useMemo(() => requestsQuery.data || [], [requestsQuery.data])
+  const requests = useMemo(() => requestsQuery.data?.items || [], [requestsQuery.data])
 
   const filteredRequests = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -101,11 +106,11 @@ export function QuoteRequestsPage() {
             <input
               type="text"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(1) }}
               placeholder={t('construction.quoteRequests.searchPlaceholder')}
             />
           </div>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="select-filter">
+          <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1) }} className="select-filter">
             <option value="ALL">{t('construction.quoteRequests.allStatuses')}</option>
             {QUOTE_REQUEST_STATUSES.map((status) => (
               <option key={status} value={status}>{statusLabel(status, t)}</option>
@@ -134,6 +139,7 @@ export function QuoteRequestsPage() {
                 <th>{t('construction.quoteRequests.customer')}</th>
                 <th>{t('construction.quoteRequests.projectType')}</th>
                 <th>{t('construction.quoteRequests.contact')}</th>
+                <th>{t('construction.quoteRequests.budgetRange')}</th>
                 <th>{t('construction.quoteRequests.status')}</th>
                 <th>{t('construction.quoteRequests.date')}</th>
                 <th style={{ textAlign: 'right' }}>{t('construction.quoteRequests.actions')}</th>
@@ -145,15 +151,16 @@ export function QuoteRequestsPage() {
                   <td><strong>{request.customerName || '—'}</strong></td>
                   <td>{request.projectType || '—'}</td>
                   <td>{request.customerPhone || request.customerEmail || '—'}</td>
+                  <td>{request.budgetRange || '—'}</td>
                   <td><span className="badge info">{statusLabel(request.status, t)}</span></td>
                   <td>{formatDate(request.createdAt, lang)}</td>
                   <td>
                     <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
-                      <button type="button" className="action-btn" title={t('construction.quoteRequests.view')} onClick={() => navigate(`/construction/quote-requests/${request.id}`)}>
+                      <button type="button" className="action-btn" title={t('construction.quoteRequests.view')} aria-label={t('construction.quoteRequests.view')} onClick={() => navigate(`/construction/quote-requests/${request.id}`)}>
                         <Eye size={14} />
                       </button>
                       {canUpdate && (
-                        <button type="button" className="action-btn" title={t('construction.quoteRequests.edit')} onClick={() => navigate(`/construction/quote-requests/${request.id}`)}>
+                        <button type="button" className="action-btn" title={t('construction.quoteRequests.edit')} aria-label={t('construction.quoteRequests.edit')} onClick={() => navigate(`/construction/quote-requests/${request.id}`)}>
                           <Pencil size={14} />
                         </button>
                       )}
@@ -165,15 +172,23 @@ export function QuoteRequestsPage() {
           </table>
         </div>
       )}
+      {!requestsQuery.isPending && !requestsQuery.isError && Number(requestsQuery.data?.total || 0) > Number(requestsQuery.data?.limit || 20) && <nav className="construction-pagination" aria-label={t('construction.quoteRequests.paginationLabel')}>
+        <button type="button" className="button secondary sm" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>{t('construction.quoteRequests.previous')}</button>
+        <span>{t('construction.quoteRequests.page', { page, pages: Math.ceil(requestsQuery.data.total / requestsQuery.data.limit) })}</span>
+        <button type="button" className="button secondary sm" disabled={page >= Math.ceil(requestsQuery.data.total / requestsQuery.data.limit)} onClick={() => setPage((current) => Math.min(Math.ceil(requestsQuery.data.total / requestsQuery.data.limit), current + 1))}>{t('construction.quoteRequests.next')}</button>
+      </nav>}
     </section>
   )
 }
 
 export function QuoteRequestDetailPage() {
+  const { user } = useAuth()
   const { id } = useParams()
   const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [status, setStatus] = useState('NEW')
+  const canView = hasPermission(user, 'VIEW_QUOTE_REQUEST') || user?.role === 'SUPER_ADMIN'
+  const canUpdate = hasPermission(user, 'UPDATE_QUOTE_REQUEST') || user?.role === 'SUPER_ADMIN'
 
   const requestQuery = useQuery({
     queryKey: ['construction-quote-request', id],
@@ -181,7 +196,7 @@ export function QuoteRequestDetailPage() {
       const response = await api.get(`/api/construction/quote-requests/${id}`)
       return response.data?.data?.quoteRequest || response.data?.data || {}
     },
-    enabled: Boolean(id),
+    enabled: Boolean(id) && canView,
   })
 
   useEffect(() => {
@@ -198,12 +213,14 @@ export function QuoteRequestDetailPage() {
 
   const request = requestQuery.data || {}
 
+  if (!canView) return <section className="page"><div className="state-container" role="alert">{t('construction.accessDenied')}</div></section>
+
   if (requestQuery.isPending) {
     return <section className="page"><div className="state-container">{t('construction.quoteRequests.loadingDetail')}</div></section>
   }
 
   if (requestQuery.isError) {
-    return <section className="page"><div className="state-container">{t('construction.quoteRequests.detailError')}</div></section>
+    return <section className="page"><div className="state-container" role="alert"><p>{t('construction.quoteRequests.detailError')}</p><button type="button" className="button secondary sm" onClick={() => requestQuery.refetch()}>{t('dashboard.retry')}</button></div></section>
   }
 
   return (
@@ -235,7 +252,7 @@ export function QuoteRequestDetailPage() {
           </div>
           <div>
             <strong>{t('construction.quoteRequests.status')}</strong>
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <select value={status} disabled={!canUpdate} aria-label={t('construction.quoteRequests.status')} onChange={(event) => setStatus(event.target.value)}>
               {QUOTE_REQUEST_STATUSES.map((key) => (
                 <option key={key} value={key}>{statusLabel(key, t)}</option>
               ))}
@@ -253,11 +270,12 @@ export function QuoteRequestDetailPage() {
           <p>{request.budgetRange || '—'}</p>
         </div>
 
-        <div className="form-actions" style={{ marginTop: '1.5rem' }}>
+        {updateMutation.isError && <p className="error" role="alert">{t('construction.quoteRequests.updateError')}</p>}
+        {canUpdate && <div className="form-actions" style={{ marginTop: '1.5rem' }}>
           <button type="button" className="button" onClick={() => updateMutation.mutate(status)} disabled={updateMutation.isPending}>
             {updateMutation.isPending ? t('construction.quoteRequests.saving') : t('construction.quoteRequests.saveStatus')}
           </button>
-        </div>
+        </div>}
       </div>
     </section>
   )

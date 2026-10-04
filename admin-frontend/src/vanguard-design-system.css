@@ -1980,6 +1980,9 @@ body {
 .manager-alert-list, .manager-agency-list, .manager-activity-list { margin: 0; padding: 0; list-style: none; }
 .manager-alert-list li, .manager-activity-list li { display: flex; align-items: center; gap: .7rem; padding: .7rem 0; border-bottom: 1px solid #eef2f6; font-size: .82rem; }
 .manager-alert-list li strong { margin-left: auto; }
+.manager-alert-action { display: grid; flex: 0 0 2rem; width: 2rem; height: 2rem; place-items: center; border-radius: .45rem; color: #475569; }
+.manager-alert-action:hover { background: #f1f5f9; color: #0f172a; }
+.manager-alert-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .manager-alert-dot { flex: 0 0 auto; width: .55rem; height: .55rem; border-radius: 50%; background: #94a3b8; }
 .manager-alert-dot.warning { background: #d97706; }
 .manager-alert-dot.info { background: #2563eb; }
@@ -2001,3 +2004,41 @@ body {
 .manager-activity-list time { color: #64748b; font-size: .7rem; }
 @media (max-width: 900px) { .manager-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .manager-header { align-items: flex-start; } .manager-content-grid { grid-template-columns: 1fr; } .manager-parcel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .manager-overview-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .manager-panel { padding: .9rem; } .manager-activity-list li { align-items: flex-start; } .manager-activity-list time { white-space: nowrap; } }
+
+.coach-operations-tabs { display: flex; gap: .35rem; margin: 1rem 0; padding: .3rem; overflow-x: auto; border-bottom: 1px solid var(--color-border); }
+.coach-operations-tab { flex: 0 0 auto; min-height: 42px; padding: .55rem .85rem; border: 0; border-bottom: 2px solid transparent; border-radius: .45rem .45rem 0 0; background: transparent; color: var(--color-medium-gray); font: inherit; font-size: .88rem; font-weight: 650; cursor: pointer; }
+.coach-operations-tab:hover { background: var(--color-surface-muted, #f8fafc); color: var(--color-text, #0f172a); }
+.coach-operations-tab.is-active { border-bottom-color: var(--color-primary); color: var(--color-primary); }
+.coach-operations-tab:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+@media (max-width: 520px) { .coach-operations-tabs { margin-inline: -.5rem; } .coach-operations-tab { min-height: 44px; padding-inline: .7rem; } }
+
+.construction-project-detail { width: min(100%, 1120px); margin-inline: auto; }
+.construction-project-detail__topline { display: flex; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
+.construction-project-detail__topline .button { display: inline-flex; align-items: center; gap: .45rem; }
+.construction-project-detail__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.1rem; }
+.construction-project-detail__header h1 { margin: .15rem 0 .4rem; font-size: clamp(1.35rem, 2.6vw, 1.85rem); line-height: 1.2; }
+.construction-project-detail__location { display: inline-flex; align-items: center; gap: .4rem; margin: 0; color: var(--color-medium-gray); }
+.construction-project-detail__badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .45rem; }
+.construction-project-detail__hero-media { height: clamp(180px, 32vw, 320px); overflow: hidden; margin-bottom: 1rem; border-radius: .85rem; background: #e2e8f0; }
+.construction-project-detail__hero-media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.construction-project-detail__grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr); gap: 1rem; margin-bottom: 1rem; }
+.construction-project-detail__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; margin: 0; }
+.construction-project-detail__facts > div { min-width: 0; padding: .75rem; border-radius: .6rem; background: var(--color-surface-muted, #f8fafc); }
+.construction-project-detail__facts dt { display: flex; align-items: center; gap: .4rem; color: var(--color-medium-gray); font-size: .78rem; }
+.construction-project-detail__facts dd { margin: .35rem 0 0; font-size: .92rem; font-weight: 650; overflow-wrap: anywhere; }
+.construction-project-detail__description { margin-top: 1rem; }
+.construction-project-detail__description h3 { margin: 0 0 .4rem; font-size: .9rem; }
+.construction-project-detail__description p { margin: 0; color: var(--color-medium-gray); line-height: 1.6; white-space: pre-wrap; }
+.construction-project-detail__updates { display: grid; gap: .7rem; max-height: 290px; overflow: auto; margin: 0; padding: 0; list-style: none; }
+.construction-project-detail__updates li { padding: .7rem; border: 1px solid var(--color-border); border-radius: .55rem; }
+.construction-project-detail__updates p { margin: .3rem 0; color: var(--color-medium-gray); white-space: pre-wrap; }
+.construction-project-detail__updates time { color: var(--color-medium-gray); font-size: .76rem; }
+.construction-project-detail__gallery { margin-bottom: 1rem; }
+.construction-project-form { display: grid; gap: 1rem; padding: clamp(1rem, 2vw, 1.5rem); }
+.construction-project-form__section { min-width: 0; padding-bottom: 1rem; border-bottom: 1px solid var(--color-border); }
+.construction-project-form__section h2 { margin: 0 0 .9rem; font-size: 1rem; }
+.construction-project-form__budget { display: grid; max-width: 420px; gap: .4rem; }
+.construction-pagination { display: flex; justify-content: center; align-items: center; gap: .85rem; margin: 1rem 0; }
+.construction-pagination span { color: var(--color-medium-gray); font-size: .84rem; }
+@media (max-width: 720px) { .construction-project-detail__grid { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .construction-project-detail__header { flex-direction: column; } .construction-project-detail__badges { justify-content: flex-start; } .construction-project-detail__facts { grid-template-columns: 1fr; } .construction-project-detail__topline { flex-wrap: wrap; } .construction-pagination { gap: .5rem; flex-wrap: wrap; } }

@@ -9,26 +9,24 @@ import { api } from '../../../services/api'
 import { Button, EmptyState, ErrorState, LoadingState, StatCard, StatusBadge } from '../../../components/ui'
 import { TicketScanner } from './TicketScanner'
 
-const BUILD_VERSION = typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : 'development'
-
 const queryKey = (id) => ['agent-dashboard', id]
 const errorMessage = (error, t) => {
   if (error?.response?.status === 401) return t('agent.sessionExpired')
   if (error?.response?.status === 403) return t('agent.accessDenied')
-  return error?.response?.data?.message || error?.message || t('agent.workspaceError')
+  return t('agent.workspaceError')
 }
 const dateTime = (value, lang) => new Date(value).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 const time = (value, lang) => new Date(value).toLocaleTimeString(lang === 'en' ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })
 const money = (value, currency, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency: currency || 'USD' }).format(Number(value || 0))
 const route = (item) => item?.trip?.schedule?.route ? `${item.trip.schedule.route.departureCity} -> ${item.trip.schedule.route.arrivalCity}` : '-'
 
-export function AgentOverview({ data }) {
+export function AgentOverview({ data, user }) {
   const { t } = useLanguage()
   return <section className="agent-section"><div className="section-heading"><div><h2>{t('agent.overview')}</h2><p>{t('agent.agencyActivity')}</p></div></div><div className="dashboard-stats-grid">
-    <StatCard icon={CalendarDays} title={t('agent.departuresToday')} value={data.overview.todayTrips} />
-    <StatCard icon={Ticket} title={t('agent.reservationsTodayCard')} value={data.overview.todayReservations} />
-    <StatCard icon={CreditCard} title={t('agent.paymentsToProcess')} value={data.overview.pendingPayments} />
-    <StatCard icon={CheckCircle2} title={t('agent.ticketsToControl')} value={data.overview.ticketsToControl} />
+    {hasPermission(user, 'VIEW_TRIP') && <StatCard icon={CalendarDays} title={t('agent.departuresToday')} value={data.overview.todayTrips} />}
+    {hasPermission(user, 'VIEW_RESERVATION') && <StatCard icon={Ticket} title={t('agent.reservationsTodayCard')} value={data.overview.todayReservations} />}
+    {hasPermission(user, 'VIEW_PAYMENT') && <StatCard icon={CreditCard} title={t('agent.paymentsToProcess')} value={data.overview.pendingPayments} />}
+    {hasPermission(user, 'VIEW_RESERVATION') && <StatCard icon={CheckCircle2} title={t('agent.ticketsToControl')} value={data.overview.ticketsToControl} />}
   </div></section>
 }
 
@@ -56,7 +54,7 @@ export function AgentDepartures({ data, lang }) {
   </section>
 }
 
-export function AgentReservations({ reservations, lang }) {
+export function AgentReservations({ reservations, lang, user }) {
   const { t } = useLanguage()
   const [search, setSearch] = useState('')
   const [ticketError, setTicketError] = useState(null)
@@ -72,7 +70,7 @@ export function AgentReservations({ reservations, lang }) {
     }
   }
   return <section className="dashboard-panel agent-section"><div className="section-heading"><div><h2>{t('agent.reservations')}</h2><p>{t('agent.reservationWork')}</p></div><Link to="/transport/reservations" className="button secondary sm">{t('agent.openManagement')}</Link></div><div className="agent-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('agent.reservationSearchPlaceholder')} aria-label={t('agent.searchReservationLabel')} /></div>{ticketError && <div className="alert alert-danger" role="alert">{ticketError}</div>}
-    {!visible.length ? <EmptyState title={reservations.length ? t('agent.noResults') : t('agent.noReservations')} description={reservations.length ? t('agent.noReservationMatches') : t('agent.backendNoReservations')} /> : <div className="table-responsive"><table className="data-table"><thead><tr><th>{t('agent.reservations')}</th><th>{t('agent.client')}</th><th>{t('agent.trip')}</th><th>{t('agent.seat')}</th><th>{t('agent.amount')}</th><th>{t('agent.payment')}</th><th>{t('agent.actions')}</th></tr></thead><tbody>{visible.slice(0, 50).map((item) => { const ticketCode = item.tickets?.[0]?.ticketCode; return <tr key={item.id}><td><strong>{item.reservationCode}</strong><br /><small>{dateTime(item.createdAt, lang)}</small></td><td>{item.customerName}<br /><small>{item.customerPhone}</small></td><td>{route(item)}<br /><small>{item.trip?.departureAt ? dateTime(item.trip.departureAt, lang) : '-'}</small></td><td>{item.seatNumber}</td><td>{money(item.totalAmount, item.currency, lang)}</td><td><StatusBadge status={item.payments?.[0]?.status || 'PENDING'} /></td><td className="agent-inline-actions"><Link to="/transport/reservations" className="button secondary sm">{t('agent.view')}</Link><Link to="/transport/operations" className="button secondary sm">{t('agent.paymentAction')}</Link>{ticketCode && <button type="button" className="button secondary sm" onClick={() => printTicket(ticketCode)}>{t('agent.ticket')}</button>}</td></tr> })}</tbody></table></div>}
+    {!visible.length ? <EmptyState title={reservations.length ? t('agent.noResults') : t('agent.noReservations')} description={reservations.length ? t('agent.noReservationMatches') : t('agent.backendNoReservations')} /> : <div className="table-responsive"><table className="data-table"><thead><tr><th>{t('agent.reservations')}</th><th>{t('agent.client')}</th><th>{t('agent.trip')}</th><th>{t('agent.seat')}</th><th>{t('agent.amount')}</th><th>{t('agent.payment')}</th><th>{t('agent.actions')}</th></tr></thead><tbody>{visible.slice(0, 50).map((item) => { const ticketCode = item.tickets?.[0]?.ticketCode; return <tr key={item.id}><td><strong>{item.reservationCode}</strong><br /><small>{dateTime(item.createdAt, lang)}</small></td><td>{item.customerName}<br /><small>{item.customerPhone}</small></td><td>{route(item)}<br /><small>{item.trip?.departureAt ? dateTime(item.trip.departureAt, lang) : '-'}</small></td><td>{item.seatNumber}</td><td>{money(item.totalAmount, item.currency, lang)}</td><td><StatusBadge status={item.payments?.[0]?.status || 'PENDING'} /></td><td className="agent-inline-actions"><Link to="/transport/reservations" className="button secondary sm">{t('agent.view')}</Link>{hasPermission(user, 'VIEW_PAYMENT') && <Link to="/transport/operations" className="button secondary sm">{t('agent.paymentAction')}</Link>}{ticketCode && <button type="button" className="button secondary sm" onClick={() => printTicket(ticketCode)}>{t('agent.ticket')}</button>}</td></tr> })}</tbody></table></div>}
   </section>
 }
 
@@ -80,7 +78,7 @@ export function AgentPayments({ payments, userId, lang, canManagePayments }) {
   const { t } = useLanguage()
   const client = useQueryClient()
   const [error, setError] = useState(null)
-  const validate = useMutation({ mutationFn: (id) => api.post(`/api/reservation-payments/${id}/validate`), onSuccess: () => { setError(null); client.invalidateQueries({ queryKey: queryKey(userId) }) }, onError: (errorValue) => setError(errorMessage(errorValue)) })
+  const validate = useMutation({ mutationFn: (id) => api.post(`/api/reservation-payments/${id}/validate`), onSuccess: () => { setError(null); client.invalidateQueries({ queryKey: queryKey(userId) }) }, onError: () => setError(t('agent.workspaceError')) })
   const pending = payments.pending || []
   return <section className="dashboard-panel agent-section"><div className="section-heading"><div><h2>{t('agent.payments')}</h2><p>{t('agent.cashValidation')}</p></div><Link to="/transport/operations" className="button secondary sm">{t('agent.operations')}</Link></div>{error && <div className="alert alert-danger" role="alert">{error}</div>}
     {!pending.length && !payments.validatedToday?.length ? <EmptyState title={t('agent.noPayments')} description={t('agent.noPendingPayments')} /> : <><div className="agent-payment-summary">{t('agent.pendingCash').replace('{count}', String(pending.length))}</div>{pending.length > 0 && <div className="table-responsive"><table className="data-table"><thead><tr><th>{t('agent.reservations')}</th><th>{t('agent.channel')}</th><th>{t('agent.amount')}</th><th>{t('agent.method')}</th><th>{t('agent.reference')}</th><th>{t('agent.date')}</th>{canManagePayments && <th>{t('agent.actions')}</th>}</tr></thead><tbody>{pending.map((item) => <tr key={item.id}><td>{item.reservation?.reservationCode || '-'}</td><td>{item.channel === 'AGENCY' ? t('agent.cashAgency') : item.channel}</td><td>{money(item.amount, item.currency, lang)}</td><td>{item.method || 'CASH'}</td><td>{item.reference || '-'}</td><td>{dateTime(item.createdAt, lang)}</td>{canManagePayments && <td><Button size="sm" loading={validate.isPending && validate.variables === item.id} onClick={() => validate.mutate(item.id)}>{t('agent.validateCash')}</Button></td>}</tr>)}</tbody></table></div>}{!!payments.validatedToday?.length && <div className="agent-subsection"><h3>{t('agent.validatedToday')}</h3><div className="table-responsive"><table className="data-table"><thead><tr><th>{t('agent.reservations')}</th><th>{t('agent.amount')}</th><th>{t('agent.method')}</th><th>{t('agent.reference')}</th><th>{t('agent.validatedBy')}</th><th>{t('agent.date')}</th></tr></thead><tbody>{payments.validatedToday.map((item) => <tr key={item.id}><td>{item.reservation?.reservationCode || '-'}</td><td>{money(item.amount, item.currency, lang)}</td><td>{item.method || '-'}</td><td>{item.reference || '-'}</td><td>{item.validatedBy ? `${item.validatedBy.firstName} ${item.validatedBy.lastName}` : '-'}</td><td>{dateTime(item.validatedAt, lang)}</td></tr>)}</tbody></table></div></div>}</>}
@@ -108,5 +106,5 @@ export function AgentDashboard() {
   if (query.isPending) return <section className="page agent-workspace"><LoadingState message={t('agent.dashboardLoading')} /></section>
   if (query.isError) return <section className="page agent-workspace"><ErrorState title={t('agent.dashboardError')} message={errorMessage(query.error, t)} onRetry={query.refetch} /></section>
   const data = query.data
-  return <section className="page agent-workspace"><div className="agent-header"><div><p className="eyebrow">VANGUARD COACH / {t('agent.workspaceEyebrow')}</p><h1>{t('agent.dashboardTitle')}</h1><p>{t('agent.greeting').replace('{name}', user.firstName)}.</p></div><div className="agent-header-actions"><span className="badge active">{t('agent.sessionActive')}</span><span className="badge neutral">Build: {BUILD_VERSION.slice(0, 8)}</span></div></div><AgentQuickActions user={user} onScan={() => setShowScanner(true)} /><AgentOverview data={data} /><AgentDepartures data={data} lang={lang} />{hasPermission(user, 'VIEW_RESERVATION') && <AgentReservations reservations={data.reservations || []} lang={lang} />}{hasPermission(user, 'VIEW_PAYMENT') && <AgentPayments payments={data.payments || { pending: [], validatedToday: [] }} userId={user.id} lang={lang} canManagePayments={hasPermission(user, 'MANAGE_RESERVATION_PAYMENT')} />}{hasPermission(user, 'VIEW_TICKET_SCAN') && <AgentTicketControl data={data} lang={lang} onScan={() => setShowScanner(true)} />}{(hasPermission(user, 'VIEW_PARCEL') || hasPermission(user, 'CREATE_PARCEL')) && <AgentParcels parcels={data.parcels || { registered: 0, inTransit: 0, arrived: 0, readyForPickup: 0 }} />}{showScanner && <TicketScanner onClose={() => setShowScanner(false)} onSuccess={() => client.invalidateQueries({ queryKey: queryKey(user.id) })} />}</section>
+  return <section className="page agent-workspace"><div className="agent-header"><div><p className="eyebrow">VANGUARD COACH / {t('agent.workspaceEyebrow')}</p><h1>{t('agent.dashboardTitle')}</h1><p>{t('agent.greeting', { name: user.firstName })}</p></div><div className="agent-header-actions"><span className="badge active">{t('agent.sessionActive')}</span></div></div><AgentOverview data={data} user={user} /><AgentQuickActions user={user} onScan={() => setShowScanner(true)} />{hasPermission(user, 'VIEW_PAYMENT') && <AgentPayments payments={data.payments || { pending: [], validatedToday: [] }} userId={user.id} lang={lang} canManagePayments={hasPermission(user, 'MANAGE_RESERVATION_PAYMENT')} />}{hasPermission(user, 'VIEW_RESERVATION') && <AgentReservations reservations={data.reservations || []} lang={lang} user={user} />}{hasPermission(user, 'VIEW_TRIP') && <AgentDepartures data={data} lang={lang} />}{hasPermission(user, 'VIEW_TICKET_SCAN') && <AgentTicketControl data={data} lang={lang} onScan={() => setShowScanner(true)} />}{(hasPermission(user, 'VIEW_PARCEL') || hasPermission(user, 'CREATE_PARCEL')) && <AgentParcels parcels={data.parcels || { registered: 0, inTransit: 0, arrived: 0, readyForPickup: 0 }} />}{showScanner && hasPermission(user, 'SCAN_TICKET') && <TicketScanner onClose={() => setShowScanner(false)} onSuccess={() => client.invalidateQueries({ queryKey: queryKey(user.id) })} />}</section>
 }

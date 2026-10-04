@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Search,
@@ -37,7 +37,7 @@ export default function Transport() {
   const { t } = useLanguage()
   const revealRef = useReveal()
 
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(0)
   const [search, setSearch] = useState({ from: '', to: '', date: '' })
   const [trips, setTrips] = useState([])
   const [searching, setSearching] = useState(false)
@@ -64,24 +64,6 @@ export default function Transport() {
   const [parcelTrackingError, setParcelTrackingError] = useState(null)
   const [parcelTrackingResult, setParcelTrackingResult] = useState(null)
 
-  const loadAvailableTrips = async (limit = 20) => {
-    setSearching(true)
-    setSearchError(null)
-    try {
-      const result = await api.searchTrips({ limit })
-      setTrips(result?.items || [])
-      setStep(1)
-      return result?.items || []
-    } catch (err) {
-      setSearchError(translateError(err, t))
-      setTrips([])
-      setStep(1)
-      return []
-    } finally {
-      setSearching(false)
-    }
-  }
-
   const searchTrips = async (filters = {}) => {
     setSearching(true)
     setSearchError(null)
@@ -103,11 +85,6 @@ export default function Transport() {
       setSearching(false)
     }
   }
-
-  useEffect(() => {
-    void loadAvailableTrips()
-
-  }, [])
 
   const handleParcelTrack = async (e) => {
     e.preventDefault()

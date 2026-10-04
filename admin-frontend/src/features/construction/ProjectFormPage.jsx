@@ -44,7 +44,7 @@ export function ProjectFormPage() {
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [galleryFiles, setGalleryFiles] = useState([])
-  const [, setGalleryError] = useState('')
+  const [galleryError, setGalleryError] = useState('')
   const [galleryLoading, setGalleryLoading] = useState(false)
   const [existingGallery, setExistingGallery] = useState([])
   const [deletedGalleryIds, setDeletedGalleryIds] = useState([])
@@ -71,7 +71,7 @@ export function ProjectFormPage() {
     enabled: isEditing,
   })
 
-  useQuery({
+  const galleryQuery = useQuery({
     queryKey: ['construction-project-gallery', id],
     queryFn: async () => {
       const response = await api.get(`/api/construction/projects/${id}/gallery`)
@@ -145,9 +145,9 @@ export function ProjectFormPage() {
       setGalleryError('')
       navigate(project?.id ? `/construction/projects/${project.id}` : '/construction/projects')
     },
-    onError: (error) => {
-      setSubmitError(error?.response?.data?.message || t('construction.projects.submitError'))
-      setGalleryError(error?.response?.data?.message || 'Une erreur est survenue lors de l’upload des photos.')
+    onError: () => {
+      setSubmitError(t('construction.projects.submitError'))
+      setGalleryError(t('construction.projects.gallerySubmitError'))
     },
   })
 
@@ -222,12 +222,14 @@ export function ProjectFormPage() {
         </div>
       </div>
 
-      <form className="card" onSubmit={handleSubmit}>
+      <form className="card construction-project-form" onSubmit={handleSubmit}>
+        <section className="construction-project-form__section" aria-labelledby="project-general-heading">
+          <h2 id="project-general-heading">{t('construction.projects.sections.general')}</h2>
         <div className="vehicle-form-grid">
           <label>
-            <span>{t('construction.projects.fields.title')}</span>
-            <input value={values.title} onChange={(event) => handleFieldChange('title', event.target.value)} />
-            {errors.title && <small className="field-error">{t('construction.projects.errors.title')}</small>}
+            <span>{t('construction.projects.fields.title')} *</span>
+            <input required value={values.title} aria-invalid={Boolean(errors.title)} aria-describedby={errors.title ? 'project-title-error' : undefined} onChange={(event) => handleFieldChange('title', event.target.value)} />
+            {errors.title && <small id="project-title-error" className="field-error" role="alert">{t('construction.projects.errors.title')}</small>}
           </label>
 
           <label>
@@ -235,35 +237,36 @@ export function ProjectFormPage() {
             <input value={values.location} onChange={(event) => handleFieldChange('location', event.target.value)} />
           </label>
 
-          <label>
-            <span>{t('construction.projects.fields.budget')}</span>
-            <input type="number" min="0" step="0.01" value={values.budget} onChange={(event) => handleFieldChange('budget', event.target.value)} />
-            {errors.budget && <small className="field-error">{t('construction.projects.errors.budget')}</small>}
-          </label>
-
-          <label>
-            <span>{t('construction.projects.fields.status')}</span>
-            <select value={values.status} onChange={(event) => handleFieldChange('status', event.target.value)}>
-              {PROJECT_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
-            </select>
-          </label>
-
-          <label>
-            <span>{t('construction.projects.fields.publicationStatus')}</span>
-            <select value={values.publicationStatus} onChange={(event) => handleFieldChange('publicationStatus', event.target.value)}>
-              {PUBLICATION_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
-            </select>
-          </label>
-
           <label className="full-width">
             <span>{t('construction.projects.fields.description')}</span>
             <textarea rows="5" value={values.description} onChange={(event) => handleFieldChange('description', event.target.value)} />
           </label>
         </div>
+        </section>
 
+        <section className="construction-project-form__section" aria-labelledby="project-budget-heading">
+          <h2 id="project-budget-heading">{t('construction.projects.sections.budget')}</h2>
+          <label className="construction-project-form__budget">
+            <span>{t('construction.projects.fields.budget')}</span>
+            <input type="number" min="0" step="0.01" value={values.budget} aria-invalid={Boolean(errors.budget)} aria-describedby={errors.budget ? 'project-budget-error' : undefined} onChange={(event) => handleFieldChange('budget', event.target.value)} />
+            {errors.budget && <small id="project-budget-error" className="field-error" role="alert">{t('construction.projects.errors.budget')}</small>}
+          </label>
+        </section>
+
+        <section className="construction-project-form__section" aria-labelledby="project-publication-heading">
+          <h2 id="project-publication-heading">{t('construction.projects.sections.publication')}</h2>
+          <div className="vehicle-form-grid">
+            <label><span>{t('construction.projects.fields.status')}</span><select value={values.status} onChange={(event) => handleFieldChange('status', event.target.value)}>{PROJECT_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{t(`construction.projects.statuses.${status}`)}</option>)}</select></label>
+            <label><span>{t('construction.projects.fields.publicationStatus')}</span><select value={values.publicationStatus} onChange={(event) => handleFieldChange('publicationStatus', event.target.value)}>{PUBLICATION_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{t(`construction.projects.publicationStatuses.${status}`)}</option>)}</select></label>
+          </div>
+        </section>
+
+        <section className="construction-project-form__section" aria-labelledby="project-media-heading">
+          <h2 id="project-media-heading">{t('construction.projects.sections.media')}</h2>
         <div className="full-width">
-          <MediaUploader
-            label="Galerie du projet"
+          {galleryQuery.isError ? <div className="error-state" role="alert"><p>{t('construction.projects.galleryLoadError')}</p><button type="button" className="button secondary sm" onClick={() => galleryQuery.refetch()}>{t('dashboard.retry')}</button></div> : <MediaUploader
+            label={t('construction.projects.galleryLabel')}
+            helperText={t('construction.projects.galleryHelper')}
             existingMedia={existingGallery.map((item) => ({
               id: item.id,
               isPrimary: item.id === galleryPrimaryId,
@@ -277,11 +280,14 @@ export function ProjectFormPage() {
             onDeleteExisting={isEditing ? handleDeleteExistingGallery : null}
             disabled={mutation.isPending || galleryLoading}
             isUploading={galleryLoading}
-            uploadProgressText="Téléversement des photos en cours…"
-          />
+            uploadProgressText={t('construction.projects.uploadingPhoto')}
+          />}
+          {galleryQuery.isPending && <p role="status">{t('construction.projects.loadingGallery')}</p>}
+          {galleryError && <p className="error" role="alert">{galleryError}</p>}
         </div>
+        </section>
 
-        {submitError && <p className="error">{submitError}</p>}
+        {submitError && <p className="error" role="alert">{submitError}</p>}
 
         <div className="form-actions">
           <button type="submit" className="button" disabled={mutation.isPending}>

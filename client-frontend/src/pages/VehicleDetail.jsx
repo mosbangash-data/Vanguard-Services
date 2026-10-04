@@ -74,6 +74,7 @@ export default function VehicleDetail() {
             {t('automobilePage.backToVehicles')}
           </Link>
 
+          <div className="vehicle-detail-layout">
           <div className="vehicle-detail-grid">
             <div className="vehicle-gallery">
               <MediaGallery
@@ -129,13 +130,15 @@ export default function VehicleDetail() {
                   </div>
                 )}
               </div>
+              </div>
+            </div>
 
-              {vehicle.description && <section className="vehicle-detail-description" aria-labelledby="vehicle-description-title">
+            {vehicle.description && <section className="vehicle-detail-description" aria-labelledby="vehicle-description-title">
                 <h2 id="vehicle-description-title">{t('automobilePage.description')}</h2>
                 <p className="vehicle-info-desc">{vehicle.description}</p>
               </section>}
 
-              <div className="vehicle-inquiry" id="vehicle-inquiry">
+            <div className="vehicle-inquiry" id="vehicle-inquiry">
                 <h3>{t('automobilePage.requestInfo')}</h3>
                 {success ? (
                   <div className="form-success">
@@ -187,7 +190,6 @@ export default function VehicleDetail() {
                     </button>
                   </form>
                 )}
-              </div>
             </div>
           </div>
         </div>

@@ -31,12 +31,9 @@ import {
 } from '../../components/ui'
 
 
-const toList = (payload) => {
-  if (Array.isArray(payload)) return payload
-  if (Array.isArray(payload?.items)) return payload.items
-  if (Array.isArray(payload?.data)) return payload.data
-  if (Array.isArray(payload?.data?.items)) return payload.data.items
-  return []
+const toPage = (payload) => {
+  const data = payload?.data || payload || {}
+  return { items: Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : [], pagination: data.pagination || data }
 }
 
 const formatMoney = (value, locale = 'fr') => {
@@ -58,12 +55,14 @@ const formatDate = (value, locale = 'fr') => {
 
 export function ProjectListPage() {
   const { user } = useAuth()
-  const { lang } = useLanguage()
+  const { lang, t } = useLanguage()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [publicationFilter, setPublicationFilter] = useState('ALL')
+  const [page, setPage] = useState(1)
   const [deletingProject, setDeletingProject] = useState(null)
 
   const canView = hasPermission(user, 'VIEW_PROJECT') || user?.role === 'SUPER_ADMIN'
@@ -72,13 +71,14 @@ export function ProjectListPage() {
   const canDelete = hasPermission(user, 'DELETE_PROJECT') || user?.role === 'SUPER_ADMIN'
 
   const projectsQuery = useQuery({
-    queryKey: ['construction-projects', search, statusFilter],
+    queryKey: ['construction-projects', search, statusFilter, publicationFilter, page],
     queryFn: async () => {
-      const params = { page: 1, limit: 100 }
+      const params = { page, limit: 20 }
       if (search.trim()) params.search = search.trim()
       if (statusFilter !== 'ALL') params.status = statusFilter
+      if (publicationFilter !== 'ALL') params.publicationStatus = publicationFilter
       const response = await api.get('/api/construction/projects', { params })
-      return toList(response.data?.data || response.data)
+      return toPage(response.data)
     },
     enabled: canView,
   })
@@ -92,28 +92,16 @@ export function ProjectListPage() {
     },
   })
 
-  const projects = useMemo(() => projectsQuery.data || [], [projectsQuery.data])
-
-  const filteredProjects = useMemo(() => {
-    if (!search.trim() && statusFilter === 'ALL') return projects
-    const query = search.trim().toLowerCase()
-    return projects.filter((project) => {
-      const matchesSearch =
-        !query ||
-        [project.title, project.location, project.description].some((val) =>
-          String(val || '').toLowerCase().includes(query)
-        )
-      const matchesStatus = statusFilter === 'ALL' || project.status === statusFilter
-      return matchesSearch && matchesStatus
-    })
-  }, [projects, search, statusFilter])
+  const projects = useMemo(() => projectsQuery.data?.items || [], [projectsQuery.data])
+  const pagination = projectsQuery.data?.pagination || {}
+  const totalPages = Number(pagination.totalPages || pagination.pages || Math.ceil(Number(pagination.total || 0) / Number(pagination.limit || 20)) || 1)
 
   if (!canView) {
     return (
       <div className="page vanguard-projects-page">
         <EmptyState
-          title="Accès non autorisé"
-          description="Vous ne possédez pas les permissions nécessaires pour consulter la liste des projets de construction."
+          title={t('construction.projects.accessDenied')}
+          description={t('construction.projects.accessDenied')}
         />
       </div>
     )
@@ -122,9 +110,9 @@ export function ProjectListPage() {
   return (
     <div className="page vanguard-projects-page">
       <PageHeader
-        eyebrow="VANGUARD SERVICES · CONSTRUCTION"
-        title="Projets & Chantiers"
-        subtitle="Suivi de l’ensemble des projets de construction, rénovation et aménagements."
+        eyebrow={t('construction.title')}
+        title={t('construction.projects.title')}
+        subtitle={t('construction.projects.subtitle')}
         actions={
           <div style={{ display: 'flex', gap: '10px' }}>
             <Button
@@ -133,7 +121,7 @@ export function ProjectListPage() {
               icon={Layers}
               onClick={() => navigate('/construction/templates')}
             >
-              Templates
+              {t('construction.projectTemplates')}
             </Button>
             {canCreate && (
               <Button
@@ -142,7 +130,7 @@ export function ProjectListPage() {
                 icon={Plus}
                 onClick={() => navigate('/construction/projects/new')}
               >
-                Nouveau projet
+                {t('construction.projects.new')}
               </Button>
             )}
           </div>
@@ -152,35 +140,37 @@ export function ProjectListPage() {
       <FilterBar onRefresh={() => projectsQuery.refetch()} isRefreshing={projectsQuery.isFetching}>
         <SearchBar
           value={search}
-          onChange={(val) => setSearch(val)}
-          placeholder="Rechercher par titre, localisation..."
+          onChange={(val) => { setSearch(val); setPage(1) }}
+          placeholder={t('construction.projects.searchProjects')}
         />
         <Select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
           style={{ width: 'auto', minWidth: '160px' }}
         >
-          <option value="ALL">Tous les statuts</option>
-          <option value="DRAFT">Brouillon</option>
-          <option value="PUBLISHED">Publié</option>
-          <option value="ARCHIVED">Archivé</option>
+          <option value="ALL">{t('construction.projects.allStatuses')}</option>
+          {['DRAFT', 'PUBLISHED', 'ARCHIVED'].map((status) => <option key={status} value={status}>{t(`construction.projects.statuses.${status}`)}</option>)}
+        </Select>
+        <Select value={publicationFilter} onChange={(e) => { setPublicationFilter(e.target.value); setPage(1) }} style={{ width: 'auto', minWidth: '160px' }}>
+          <option value="ALL">{t('construction.projects.filterPublication')}</option>
+          {['DRAFT', 'PUBLISHED', 'ARCHIVED'].map((status) => <option key={status} value={status}>{t(`construction.projects.publicationStatuses.${status}`)}</option>)}
         </Select>
       </FilterBar>
 
       {projectsQuery.isPending ? (
-        <LoadingState message="Chargement des projets de construction..." />
+        <LoadingState message={t('construction.projects.loading')} />
       ) : projectsQuery.isError ? (
         <ErrorState
-          title="Erreur de chargement des projets"
-          message={projectsQuery.error?.response?.data?.message || 'Impossible de récupérer la liste des projets.'}
+          title={t('construction.projects.loadError')}
+          message={t('commonUi.errorMessage')}
           onRetry={() => projectsQuery.refetch()}
         />
-      ) : filteredProjects.length === 0 ? (
+      ) : projects.length === 0 ? (
         <EmptyState
-          title="Aucun projet trouvé"
-          description="Aucun chantier ou projet ne correspond à vos critères de recherche."
+          title={t('construction.projects.empty')}
+          description={t('construction.projects.noProjectsMatch')}
           icon={HardHat}
-          actionLabel={canCreate ? "Créer un projet" : undefined}
+          actionLabel={canCreate ? t('construction.projects.new') : undefined}
           onAction={() => navigate('/construction/projects/new')}
           actionIcon={Plus}
         />
@@ -190,16 +180,11 @@ export function ProjectListPage() {
             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Projet</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Localisation</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Statut</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Budget</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Date de création</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                  <th>{t('construction.projects.name')}</th><th>{t('construction.projects.location')}</th><th>{t('construction.projects.status')}</th><th>{t('construction.projects.publicationStatus')}</th><th>{t('construction.projects.budget')}</th><th>{t('construction.projects.modifiedAt')}</th><th style={{ textAlign: 'right' }}>{t('construction.projects.actions')}</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredProjects.map((project) => (
+                {projects.map((project) => (
                   <tr
                     key={project.id}
                     style={{ borderBottom: '1px solid #E2E8F0', cursor: 'pointer' }}
@@ -216,11 +201,11 @@ export function ProjectListPage() {
                         />
                         <div>
                           <strong style={{ fontSize: '0.9rem', color: '#0F172A' }}>
-                            {project.title || 'Projet sans titre'}
+                            {project.title || t('construction.projects.projectWithoutTitle')}
                           </strong>
                           {project.isTemplate && (
                             <span style={{ marginLeft: '6px', fontSize: '0.7rem', backgroundColor: '#EFF6FF', color: '#2563EB', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
-                              Template
+                              {t('construction.projects.template')}
                             </span>
                           )}
                         </div>
@@ -237,27 +222,28 @@ export function ProjectListPage() {
                     <td style={{ padding: '12px 16px' }}>
                       <StatusBadge status={project.status} />
                     </td>
+                    <td style={{ padding: '12px 16px' }}><StatusBadge status={project.publicationStatus} /></td>
 
                     <td style={{ padding: '12px 16px', fontWeight: 700, fontSize: '0.9rem', color: '#0F172A' }}>
                       {formatMoney(project.budget, lang)}
                     </td>
 
                     <td style={{ padding: '12px 16px', fontSize: '0.8125rem', color: '#64748B' }}>
-                      {formatDate(project.createdAt, lang)}
+                      {formatDate(project.updatedAt, lang)}
                     </td>
 
                     <td style={{ padding: '12px 16px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                       <ActionMenu
                         items={[
                           {
-                            label: 'Consulter le projet',
+                            label: t('construction.projects.view'),
                             icon: Eye,
                             onClick: () => navigate(`/construction/projects/${project.id}`),
                           },
                           ...(canUpdate
                             ? [
                                 {
-                                  label: 'Modifier',
+                                  label: t('construction.projects.edit'),
                                   icon: Edit2,
                                   onClick: () => navigate(`/construction/projects/${project.id}/edit`),
                                 },
@@ -267,7 +253,7 @@ export function ProjectListPage() {
                             ? [
                                 { divider: true },
                                 {
-                                  label: 'Supprimer',
+                                  label: t('construction.projects.delete'),
                                   icon: Trash2,
                                   variant: 'danger',
                                   onClick: () => setDeletingProject(project),
@@ -285,15 +271,21 @@ export function ProjectListPage() {
         </Card>
       )}
 
+      {!projectsQuery.isPending && !projectsQuery.isError && totalPages > 1 && <nav className="pagination" aria-label={t('construction.projects.paginationLabel')}>
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>{t('construction.projects.previousPage')}</Button>
+        <span>{t('construction.projects.pageOf', { page, pages: totalPages })}</span>
+        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>{t('construction.projects.nextPage')}</Button>
+      </nav>}
+
       {/* Delete Confirmation Dialog */}
       {deletingProject && (
         <ConfirmDialog
           isOpen={Boolean(deletingProject)}
           onClose={() => setDeletingProject(null)}
           onConfirm={() => deleteMutation.mutate(deletingProject.id)}
-          title="Supprimer ce projet ?"
-          message={`Êtes-vous sûr de vouloir supprimer définitivement le projet "${deletingProject.title}" ?`}
-          confirmText="Supprimer"
+          title={t('construction.projects.deleteConfirmTitle')}
+          message={t('construction.projects.deleteConfirmMessage', { title: deletingProject.title })}
+          confirmText={t('construction.projects.delete')}
           loading={deleteMutation.isPending}
           variant="danger"
         />

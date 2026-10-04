@@ -14,6 +14,7 @@ export function CoachOperationsPage() {
   const client = useQueryClient()
   const [search, setSearch] = useState('')
   const [scannerOpen, setScannerOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('payments')
   const [receiptData, setReceiptData] = useState(null)
   const [receiptLoading, setReceiptLoading] = useState(false)
   const [validatedTicket, setValidatedTicket] = useState(null)
@@ -32,7 +33,7 @@ export function CoachOperationsPage() {
       client.invalidateQueries({ queryKey: ['agent-dashboard'] })
       if (variables.action === 'validate') {
         setValidatedTicket(response.data?.data?.ticket || null)
-        setValidationNotice(response.data?.data?.ticket ? 'Paiement validé et billet généré.' : 'Paiement validé. La réservation reste en attente du solde dû.')
+        setValidationNotice(response.data?.data?.ticket ? t('operations.paymentValidated') : t('operations.paymentPartiallyValidated'))
         viewReceipt(variables.id)
       }
     },
@@ -47,26 +48,35 @@ export function CoachOperationsPage() {
     try {
       const res = await api.get(`/api/reservation-payments/${paymentId}/receipt`)
       setReceiptData(res.data.data)
-    } catch (err) {
-      alert(err.response?.data?.message || t('operations.actionError'))
+    } catch {
+      alert(t('operations.actionError'))
     } finally {
       setReceiptLoading(false)
     }
   }
 
   if (!user) return null
+  const tabs = [
+    hasPermission(user, 'VIEW_PAYMENT') && { id: 'payments', label: t('operations.pendingPayments') },
+    hasPermission(user, 'VIEW_RESERVATION') && { id: 'tickets', label: t('operations.tickets') },
+    canScan && { id: 'scanner', label: t('operations.scan') },
+    hasPermission(user, 'VIEW_TICKET_SCAN') && { id: 'history', label: t('operations.scanHistory') },
+  ].filter(Boolean)
+  const selectedTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : tabs[0]?.id
   return <section className="page">
     <div className="agent-header"><h1>{t('operations.title')}</h1><p>{t('operations.subtitle')}</p></div>
-    {canScan && <button type="button" className="button" onClick={() => setScannerOpen(true)}>{t('agent.scanTicket')}</button>}
-    {settle.isError && <p className="error">{settle.error.response?.data?.message || t('operations.actionError')}</p>}
+    {!tabs.length ? <p className="agent-empty-state" role="status">{t('agent.noAuthorizedActions')}</p> : <nav className="coach-operations-tabs" role="tablist" aria-label={t('operations.title')}>
+      {tabs.map((tab) => <button key={tab.id} id={`coach-tab-${tab.id}`} type="button" role="tab" aria-selected={selectedTab === tab.id} aria-controls={`coach-panel-${tab.id}`} className={`coach-operations-tab${selectedTab === tab.id ? ' is-active' : ''}`} onClick={() => { setActiveTab(tab.id); if (tab.id === 'scanner') setScannerOpen(true) }}>{tab.label}</button>)}
+    </nav>}
+    {settle.isError && <p className="error" role="alert">{t('operations.actionError')}</p>}
     {validationNotice && <div className="agent-validation-success" role="status"><div><strong>{validationNotice}</strong>{validatedTicket && <span>{validatedTicket.ticketCode}</span>}</div>{validatedTicket && <button type="button" className="button secondary" onClick={() => printTicket(validatedTicket.ticketCode)}>{t('ticket.print')}</button>}</div>}
 
-    {hasPermission(user, 'VIEW_PAYMENT') && <section className="coach-operations-section"><h2>{t('operations.pendingPayments')}</h2>{payments.isPending ? <p>{t('dashboard.loading')}</p> : payments.isError ? <p className="error" role="alert">{payments.error.response?.data?.message || t('operations.actionError')}</p> : !(payments.data?.payments || []).length ? <p className="agent-empty-state">Aucun paiement en espèces en attente dans votre périmètre.</p> : <div className="table-responsive"><table><thead><tr><th>{t('reservation')}</th><th>{t('passenger')}</th><th>{t('amount')}</th><th>{t('statusLabel')}</th><th>{t('operations.actions')}</th></tr></thead><tbody>{(payments.data?.payments || []).map((payment) => <tr key={payment.id}><td>{payment.reservation?.reservationCode}</td><td>{payment.reservation?.customerName}</td><td>{money(payment.amount, payments.data?.currency, lang)}</td><td>{t(`status.${payment.status.toLowerCase()}`)}</td><td>{canManagePayments && <><button className="button" disabled={settle.isPending} onClick={() => settle.mutate({ id: payment.id, action: 'validate' })}>{t('operations.validate')}</button>{' '}<button className="button secondary" disabled={settle.isPending} onClick={() => settle.mutate({ id: payment.id, action: 'reject' })}>{t('operations.reject')}</button>{' '}</>}<button className="button secondary" disabled={receiptLoading} onClick={() => viewReceipt(payment.id)}>{t('operations.receipt')}</button></td></tr>)}</tbody></table></div>}</section>}
+    {selectedTab === 'payments' && <section id="coach-panel-payments" role="tabpanel" aria-labelledby="coach-tab-payments" className="coach-operations-section"><h2>{t('operations.pendingPayments')}</h2>{payments.isPending ? <p>{t('dashboard.loading')}</p> : payments.isError ? <p className="error" role="alert">{t('operations.actionError')}</p> : !(payments.data?.payments || []).length ? <p className="agent-empty-state">{t('operations.noPendingCash')}</p> : <div className="table-responsive"><table><thead><tr><th>{t('reservation')}</th><th>{t('passenger')}</th><th>{t('amount')}</th><th>{t('statusLabel')}</th><th>{t('operations.actions')}</th></tr></thead><tbody>{(payments.data?.payments || []).map((payment) => <tr key={payment.id}><td>{payment.reservation?.reservationCode}</td><td>{payment.reservation?.customerName}</td><td>{money(payment.amount, payments.data?.currency, lang)}</td><td>{t(`status.${payment.status.toLowerCase()}`)}</td><td>{canManagePayments && <><button className="button" disabled={settle.isPending} onClick={() => settle.mutate({ id: payment.id, action: 'validate' })}>{t('operations.validate')}</button>{' '}<button className="button secondary" disabled={settle.isPending} onClick={() => settle.mutate({ id: payment.id, action: 'reject' })}>{t('operations.reject')}</button>{' '}</>}<button className="button secondary" disabled={receiptLoading} onClick={() => viewReceipt(payment.id)}>{t('operations.receipt')}</button></td></tr>)}</tbody></table></div>}</section>}
 
-    {hasPermission(user, 'VIEW_RESERVATION') && <section className="coach-operations-section"><h2>{t('operations.tickets')}</h2><input className="form-control" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('operations.ticketSearch')} />{tickets.isPending ? <p>{t('dashboard.loading')}</p> : tickets.isError ? <p className="error" role="alert">{tickets.error.response?.data?.message || t('operations.actionError')}</p> : <div className="table-responsive"><table><thead><tr><th>{t('ticket.title')}</th><th>{t('ticket.passenger')}</th><th>{t('ticket.route')}</th><th>{t('ticket.price')}</th><th>{t('ticket.status')}</th><th>{t('operations.actions')}</th></tr></thead><tbody>{(tickets.data?.tickets || []).map((ticket) => <tr key={ticket.id}><td><code>{ticket.ticketCode}</code></td><td>{ticket.reservation.customerName}<br />{t('ticket.seat')}: {ticket.reservation.seatNumber}</td><td>{ticket.reservation.trip.schedule.route.departureCity} → {ticket.reservation.trip.schedule.route.arrivalCity}</td><td>{money(ticket.reservation.totalAmount, tickets.data?.currency, lang)}</td><td>{t(`status.${ticket.status.toLowerCase()}`)}</td><td><button className="button secondary" onClick={() => printTicket(ticket.ticketCode)}>{t('ticket.print')}</button></td></tr>)}</tbody></table></div>}</section>}
+    {selectedTab === 'tickets' && <section id="coach-panel-tickets" role="tabpanel" aria-labelledby="coach-tab-tickets" className="coach-operations-section"><h2>{t('operations.tickets')}</h2><input className="form-control" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('operations.ticketSearch')} aria-label={t('operations.ticketSearch')} />{tickets.isPending ? <p>{t('dashboard.loading')}</p> : tickets.isError ? <p className="error" role="alert">{t('operations.actionError')}</p> : <div className="table-responsive"><table><thead><tr><th>{t('ticket.title')}</th><th>{t('ticket.passenger')}</th><th>{t('ticket.route')}</th><th>{t('ticket.price')}</th><th>{t('ticket.status')}</th><th>{t('operations.actions')}</th></tr></thead><tbody>{(tickets.data?.tickets || []).map((ticket) => <tr key={ticket.id}><td><code>{ticket.ticketCode}</code></td><td>{ticket.reservation?.customerName}<br />{t('ticket.seat')}: {ticket.reservation?.seatNumber}</td><td>{ticket.reservation?.trip?.schedule?.route?.departureCity || '—'} → {ticket.reservation?.trip?.schedule?.route?.arrivalCity || '—'}</td><td>{money(ticket.reservation?.totalAmount, tickets.data?.currency, lang)}</td><td>{t(`status.${ticket.status.toLowerCase()}`)}</td><td><button className="button secondary" onClick={() => printTicket(ticket.ticketCode)}>{t('ticket.print')}</button></td></tr>)}</tbody></table></div>}</section>}
 
-    {hasPermission(user, 'VIEW_TICKET_SCAN') && <section><h2>{t('operations.scanHistory')}</h2><div className="table-responsive"><table><thead><tr><th>{t('ticket.title')}</th><th>{t('operations.agent')}</th><th>{t('operations.result')}</th><th>{t('date')}</th></tr></thead><tbody>{(scans.data?.scans || []).map((scan) => <tr key={scan.id}><td>{scan.ticket.ticketCode}</td><td>{scan.scannedBy.firstName} {scan.scannedBy.lastName}</td><td>{scan.result}</td><td>{new Date(scan.scannedAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')}</td></tr>)}</tbody></table></div></section>}
-    {scannerOpen && <TicketScanner onClose={() => { setScannerOpen(false); client.invalidateQueries({ queryKey: ['coach-scans'] }); client.invalidateQueries({ queryKey: ['coach-tickets'] }) }} />}
+    {selectedTab === 'scanner' && scannerOpen && <div id="coach-panel-scanner" role="tabpanel" aria-labelledby="coach-tab-scanner"><TicketScanner onClose={() => { setScannerOpen(false); setActiveTab(tabs[0]?.id || 'payments'); client.invalidateQueries({ queryKey: ['coach-scans'] }); client.invalidateQueries({ queryKey: ['coach-tickets'] }) }} /></div>}
+    {selectedTab === 'history' && <section id="coach-panel-history" role="tabpanel" aria-labelledby="coach-tab-history" className="coach-operations-section"><h2>{t('operations.scanHistory')}</h2>{scans.isPending ? <p>{t('dashboard.loading')}</p> : scans.isError ? <p className="error" role="alert">{t('operations.actionError')}</p> : !(scans.data?.scans || []).length ? <p className="agent-empty-state">{t('agent.noRecentScans')}</p> : <div className="table-responsive"><table><thead><tr><th>{t('ticket.title')}</th><th>{t('operations.agent')}</th><th>{t('operations.result')}</th><th>{t('date')}</th></tr></thead><tbody>{(scans.data?.scans || []).map((scan) => <tr key={scan.id}><td>{scan.ticket?.ticketCode || '—'}</td><td>{scan.scannedBy ? `${scan.scannedBy.firstName} ${scan.scannedBy.lastName}` : '—'}</td><td>{scan.result}</td><td>{new Date(scan.scannedAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')}</td></tr>)}</tbody></table></div>}</section>}
 
     {receiptData && (
       <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>

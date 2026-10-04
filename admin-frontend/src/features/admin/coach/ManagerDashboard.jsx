@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Activity, BusFront, CalendarDays, CreditCard, Package, Users, Wallet, AlertTriangle, Building2, RotateCw, QrCode } from 'lucide-react'
+import { Activity, ArrowRight, BusFront, CalendarDays, CreditCard, Package, Users, Wallet, AlertTriangle, Building2, RotateCw, QrCode } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
@@ -12,15 +12,15 @@ import { StatusBadge } from '../../../components/ui/StatusBadge'
 
 const money = (amount, currency = 'USD', lang = 'fr') => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Number(amount || 0))
 const dateTime = (value, lang = 'fr') => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—'
-const dashboardErrorMessage = (error) => {
+const dashboardErrorMessage = (error, t) => {
   const status = error?.response?.status
-  if (status === 401) return 'Votre session a expiré. Reconnectez-vous pour actualiser le tableau de bord.'
-  if (status === 403) return 'Votre compte ne dispose pas des droits nécessaires pour ces données.'
-  if (status === 404) return 'Le service du tableau de bord Coach est introuvable.'
-  if (status === 409) return 'Les données ont changé pendant la requête. Actualisez puis réessayez.'
-  if (status === 422) return 'La requête ne peut pas être traitée. Vérifiez les paramètres et réessayez.'
-  if (status >= 500) return 'Le service rencontre une difficulté temporaire. Réessayez dans un instant.'
-  return 'Impossible de charger les données métier. Réessayez dans un instant.'
+  if (status === 401) return t('managerWorkspace.error401')
+  if (status === 403) return t('managerWorkspace.error403')
+  if (status === 404) return t('managerWorkspace.error404')
+  if (status === 409) return t('managerWorkspace.error409')
+  if (status === 422) return t('managerWorkspace.error422')
+  if (status >= 500) return t('managerWorkspace.error500')
+  return t('managerWorkspace.errorGeneric')
 }
 
 function Panel({ title, subtitle, action, children }) {
@@ -33,7 +33,7 @@ function Table({ headers, children }) {
 
 export function ManagerDashboard() {
   const { user } = useAuth()
-  const { lang } = useLanguage()
+  const { lang, t } = useLanguage()
   const query = useQuery({
     queryKey: ['manager-dashboard', user?.id],
     queryFn: async () => {
@@ -50,8 +50,8 @@ export function ManagerDashboard() {
     refetchInterval: 60000,
   })
   if (!user) return null
-  if (query.isPending) return <section className="page manager-workspace"><LoadingState message="Chargement du pilotage départemental…" /></section>
-  if (query.isError) return <section className="page manager-workspace"><ErrorState title="Tableau de bord indisponible" message={dashboardErrorMessage(query.error)} onRetry={query.refetch} /></section>
+  if (query.isPending) return <section className="page manager-workspace"><LoadingState message={t('managerWorkspace.loading')} /></section>
+  if (query.isError) return <section className="page manager-workspace"><ErrorState title={t('managerWorkspace.unavailable')} message={dashboardErrorMessage(query.error, t)} onRetry={query.refetch} /></section>
   const data = query.data
   const kpis = data.kpis
   const canTrip = hasPermission(user, 'VIEW_TRIP')
@@ -64,20 +64,23 @@ export function ManagerDashboard() {
   const canViewScans = hasPermission(user, 'VIEW_TICKET_SCAN')
   const canScanTickets = hasPermission(user, 'SCAN_TICKET')
   const cards = [
-    { label: 'Voyages aujourd’hui', value: kpis.todayTrips, note: `${kpis.upcomingTrips} prochains départs`, icon: BusFront, allowed: canTrip },
-    { label: 'Réservations aujourd’hui', value: kpis.todayReservations, note: `${kpis.pendingReservations} en attente`, icon: CalendarDays, allowed: canReservation },
-    { label: 'Passagers du jour', value: kpis.todayPassengers, note: `${kpis.totalPassengers} passagers confirmés au total`, icon: Users, allowed: canReservation },
-    { label: 'Revenus encaissés aujourd’hui', value: Object.entries(kpis.todayRevenue || {}).map(([currency, amount]) => money(amount, currency, lang)).join(' · ') || money(0, data.scope.currency || 'USD', lang), note: `Total vérifié/terminé : ${Object.entries(kpis.revenue || {}).map(([currency, amount]) => money(amount, currency, lang)).join(' · ') || money(0, data.scope.currency || 'USD', lang)}`, icon: Wallet, allowed: canPayment },
-    { label: 'Paiements en attente', value: kpis.pendingPayments, note: Object.entries(kpis.pendingPaymentAmount || {}).map(([currency, amount]) => money(amount, currency, lang)).join(' · ') || money(0, data.scope.currency || 'USD', lang), icon: CreditCard, allowed: canPayment || canViewParcelPayments },
-    { label: 'Occupation du jour', value: `${kpis.occupancyRate}%`, note: 'Sièges réservés / capacité', icon: Activity, allowed: canOccupancy },
+    { label: t('managerWorkspace.todayTrips'), value: kpis.todayTrips, note: t('managerWorkspace.upcomingCount', { count: kpis.upcomingTrips }), icon: BusFront, allowed: canTrip },
+    { label: t('managerWorkspace.todayReservations'), value: kpis.todayReservations, note: t('managerWorkspace.pendingCount', { count: kpis.pendingReservations }), icon: CalendarDays, allowed: canReservation },
+    { label: t('managerWorkspace.todayPassengers'), value: kpis.todayPassengers, note: t('managerWorkspace.totalPassengers', { count: kpis.totalPassengers }), icon: Users, allowed: canReservation },
+    { label: t('managerWorkspace.todayRevenue'), value: Object.entries(kpis.todayRevenue || {}).map(([currency, amount]) => money(amount, currency, lang)).join(' · ') || money(0, data.scope.currency || 'USD', lang), note: `${t('managerWorkspace.totalPaid')}: ${Object.entries(kpis.revenue || {}).map(([currency, amount]) => money(amount, currency, lang)).join(' · ') || money(0, data.scope.currency || 'USD', lang)}`, icon: Wallet, allowed: canPayment },
+    { label: t('managerWorkspace.cashToValidate'), value: kpis.pendingCashToValidate, note: t('managerWorkspace.cashWorkflow'), icon: CreditCard, allowed: canPayment },
+    { label: t('managerWorkspace.occupancy'), value: `${kpis.occupancyRate}%`, note: t('managerWorkspace.seatsOccupancy'), icon: Activity, allowed: canOccupancy },
+    { label: t('managerWorkspace.activeParcels'), value: kpis.activeParcels, note: t('managerWorkspace.parcelScope'), icon: Package, allowed: canParcel },
   ]
   const trips = data.operations?.todayTrips || []
+  const alertLinks = { payments: canPayment ? '/transport/operations' : canViewParcelPayments && canParcel ? '/transport/parcels' : null, reservations: canReservation && '/transport/reservations', parcels: canParcel && '/transport/parcels', 'low-occupancy': canTrip && '/transport/trips', 'near-departure': canTrip && '/transport/trips' }
+  const todayLabel = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'full' }).format(new Date())
   return <section className="page manager-workspace">
-    <header className="manager-header"><div><p className="eyebrow">VANGUARD COACH / PILOTAGE</p><h1>Bonjour {user.firstName}</h1><p>{data.scope.departmentName}{data.scope.agencyName ? ` · ${data.scope.agencyName}` : ' · Vue départementale'}</p></div><button className="button secondary sm" onClick={() => query.refetch()} disabled={query.isFetching}><RotateCw size={15} /> Actualiser</button></header>
+    <header className="manager-header"><div><p className="eyebrow">{t('managerWorkspace.eyebrow')}</p><h1>{t('managerWorkspace.greeting', { name: user.firstName })}</h1><p>{data.scope.departmentName}{data.scope.agencyName ? ` · ${data.scope.agencyName}` : ` · ${t('managerWorkspace.departmentScope')}`} · {todayLabel}</p></div><button className="button secondary sm" onClick={() => query.refetch()} disabled={query.isFetching}><RotateCw size={15} aria-hidden="true" /> {t('dashboard.refresh')}</button></header>
     <div className="manager-kpi-grid">{cards.filter((card) => card.allowed).map(({ label, value, note, icon: Icon }) => <article className="manager-kpi" key={label}><span className="manager-kpi-icon"><Icon size={18} /></span><span className="manager-kpi-label">{label}</span><strong>{value}</strong><small>{note}</small></article>)}</div>
     <div className="manager-overview-strip">{canTrip && <><span>Voyages terminés : <strong>{kpis.completedTrips}</strong></span><span>Annulés : <strong>{kpis.cancelledTrips}</strong></span></>}{canReservation && <span>Réservations annulées : <strong>{kpis.cancelledReservations}</strong></span>}{canViewAgents && <><span>Agents actifs : <strong>{data.agents?.active ?? 0}</strong></span><span>Agents inactifs : <strong>{data.agents?.inactive ?? 0}</strong></span></>}{canParcel && <span>Colis actifs : <strong>{kpis.activeParcels}</strong></span>}</div>
     <div className="manager-content-grid">
-      <Panel title="Actions requises" subtitle="Alertes calculées depuis les opérations" action={<AlertTriangle size={18} />}>{data.alerts?.length ? <ul className="manager-alert-list">{data.alerts.map((alert) => <li key={alert.id}><span className={`manager-alert-dot ${alert.type}`} /><span>{alert.message}</span><strong>{alert.count}</strong></li>)}</ul> : <EmptyState title="Aucune action requise" description="Les opérations ne signalent aucune anomalie pour le moment." />}</Panel>
+      <Panel title={t('managerWorkspace.requiredActions')} subtitle={t('managerWorkspace.alertsSubtitle')} action={<AlertTriangle size={18} aria-hidden="true" />}>{data.alerts?.length ? <ul className="manager-alert-list">{data.alerts.map((alert) => <li key={alert.id}><span className={`manager-alert-dot ${alert.type}`} /><span>{alert.message}</span><strong>{alert.count}</strong>{alertLinks[alert.id] && <Link className="manager-alert-action" to={alertLinks[alert.id]} aria-label={`${t('managerWorkspace.openRelated')}: ${alert.message}`}><ArrowRight size={16} aria-hidden="true" /></Link>}</li>)}</ul> : <EmptyState title={t('managerWorkspace.noRequiredActions')} description={t('managerWorkspace.noOperationalIssue')} />}</Panel>
       <Panel title="Agences du périmètre" subtitle="Votre agence pour les Managers · périmètre Coach pour le Service Admin">{data.agencies?.length ? <div className="manager-agency-list">{data.agencies.map((agency) => <div key={agency.id}><Building2 size={17} /><span><strong>{agency.name}</strong><small>{agency.code} · {agency.city || 'Ville non renseignée'} · {agency.isActive ? 'Active' : 'Inactive'}</small><span className="manager-agency-stats">{agency.trips !== undefined && <span>Voyages <strong>{agency.trips}</strong></span>}{agency.reservations !== undefined && <span>Réservations <strong>{agency.reservations}</strong></span>}{agency.payments !== undefined && <span>Paiements <strong>{agency.payments}</strong></span>}{agency.parcels !== undefined && <span>Colis <strong>{agency.parcels}</strong></span>}{agency.agents && <span>Agents <strong>{agency.agents.active} actifs · {agency.agents.inactive} inactifs</strong></span>}{agency.revenue && <span>Revenus <strong>{Object.entries(agency.revenue).map(([currency, amount]) => money(amount, currency, lang)).join(' · ') || '—'}</strong></span>}</span></span></div>)}</div> : <EmptyState title="Aucune agence disponible" />}</Panel>
     </div>
     {canTrip && <Panel title="Voyages du jour" subtitle="Voyages sur des horaires, lignes et bus actifs" action={<Link className="button secondary sm" to="/transport/trips">Gérer les voyages</Link>}>{trips.length ? <Table headers={['Départ', 'Itinéraire', 'Bus', 'Agence', ...(canOccupancy ? ['Sièges', 'Occupation'] : []), 'Statut']}>
