@@ -772,8 +772,9 @@
 .vehicle-card-specs span { gap: 5px; padding: .28rem .48rem; font-size: .78rem; }
 .vehicle-card-footer { align-items: flex-end; gap: 12px; padding-top: 14px; }
 .vehicle-card-price { font-size: clamp(1rem, 1.3vw, 1.23rem); line-height: 1.25; }
-.vehicle-card-cta { flex: 0 0 auto; }
-.vehicle-whatsapp { align-self: flex-start; min-height: 44px; align-items: center; margin: 0 20px 12px; padding: 7px 10px; border-radius: 8px; }
+.vehicle-card-footer { justify-content: flex-start; align-items: center; }
+.vehicle-whatsapp { align-self: flex-start; display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 8px; margin: 0 20px 12px; padding: 7px 10px; border-radius: 8px; }
+.vehicle-whatsapp svg { display: block; flex: 0 0 19px; width: 19px; height: 19px; }
 .vehicle-whatsapp:focus-visible, .vehicle-card-link:focus-visible, .vehicle-pagination .btn:focus-visible, .vehicle-detail-actions .btn:focus-visible { outline: 3px solid #b18b4b; outline-offset: 3px; }
 
 .vehicle-card:hover {
@@ -912,21 +913,6 @@
   font-family: var(--font-display);
   font-size: 1.35rem;
   font-weight: 800;
-  color: var(--color-primary);
-}
-
-.vehicle-card-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--font-display);
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--color-navy-700);
-  transition: color var(--transition-fast);
-}
-
-.vehicle-card:hover .vehicle-card-cta {
   color: var(--color-primary);
 }
 

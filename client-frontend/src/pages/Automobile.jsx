@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, ChevronLeft, ChevronRight, Cog, Fuel, Gauge, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Cog, Fuel, Gauge, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageProvider'
 import { useReveal } from '../hooks/useReveal'
 import { api } from '../api/client'
@@ -126,12 +126,12 @@ export default function Automobile() {
             </div>
             <div className="vehicle-card-footer">
               <span className="vehicle-card-price">{formatVehiclePrice(vehicle.price, vehicle.currency, language, t)}</span>
-              <span className="vehicle-card-cta">{t('automobilePage.viewDetails')}<ArrowRight size={16} aria-hidden="true" /></span>
             </div>
           </div>
         </Link>
         <a className="vehicle-whatsapp" href={getVehicleWhatsAppHref(vehicle, t)} target="_blank" rel="noopener noreferrer">
-          <WhatsAppIcon />{t('automobilePage.whatsapp')}
+          <WhatsAppIcon size={19} />
+          <span>{t('automobilePage.whatsapp')}</span>
         </a>
       </article>
     )
