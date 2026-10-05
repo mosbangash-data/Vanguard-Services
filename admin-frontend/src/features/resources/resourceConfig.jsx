@@ -350,6 +350,7 @@ export const resourceGroups = {
         { name: 'customerEmail', label: 'Email client', type: 'email', placeholder: 'Ex: jean@vanguard.cd' },
         { name: 'seatNumber', label: 'Numéro de siège', type: 'number', required: true, min: 1, placeholder: 'Ex: 12' },
       ],
+      updateFields: ['customerName', 'customerPhone', 'customerEmail'],
     }),
 
     resource('/transport/payments', 'Paiements', '/api/reservation-payments', {

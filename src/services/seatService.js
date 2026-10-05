@@ -22,7 +22,7 @@ const listSeatsForBus = async (busId, tripId, currentUser) => {
     const trip = await prisma.trip.findUnique({ where: { id: tripId }, include: { schedule: true } });
     if (!trip || trip.schedule.busId !== bus.id) throw new AppError('Trip does not belong to this bus', 400);
     await assertDepartmentIdForUser(currentUser, trip.schedule.departmentId, 'VANGUARD_COACH');
-    const res = await prisma.reservation.findMany({ where: { tripId }, select: { seatNumber: true, id: true } });
+    const res = await prisma.reservation.findMany({ where: { tripId, status: { in: ['PENDING', 'CONFIRMED'] } }, select: { seatNumber: true, id: true } });
     occupied = res.map(r => ({ seatNumber: String(r.seatNumber), reservationId: r.id }));
   }
 
@@ -48,7 +48,7 @@ const getSeat = async (busId, seatNumber, tripId, currentUser) => {
     const trip = await prisma.trip.findUnique({ where: { id: tripId }, include: { schedule: true } });
     if (!trip || trip.schedule.busId !== bus.id) throw new AppError('Trip does not belong to this bus', 400);
     await assertDepartmentIdForUser(currentUser, trip.schedule.departmentId, 'VANGUARD_COACH');
-    reservation = await prisma.reservation.findFirst({ where: { tripId, seatNumber: String(seatNumber) } });
+    reservation = await prisma.reservation.findFirst({ where: { tripId, seatNumber: String(seatNumber), status: { in: ['PENDING', 'CONFIRMED'] } } });
   }
 
   return { seat: { seatNumber: String(seatNumber), status: reservation ? 'OCCUPIED' : 'AVAILABLE', reservationId: reservation ? reservation.id : null } };

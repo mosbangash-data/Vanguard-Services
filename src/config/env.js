@@ -7,6 +7,9 @@ const missingVars = requiredVars.filter((name) => !process.env[name] || String(p
 if (process.env.NODE_ENV === 'production' && (!process.env.CORS_ORIGIN || !String(process.env.CORS_ORIGIN).trim())) {
   missingVars.push('CORS_ORIGIN');
 }
+if (process.env.NODE_ENV !== 'test' && (!process.env.TICKET_QR_SECRET || String(process.env.TICKET_QR_SECRET).trim().length < 32)) {
+  missingVars.push('TICKET_QR_SECRET (minimum 32 characters)');
+}
 if (missingVars.length > 0) {
   throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
 }
@@ -21,7 +24,7 @@ module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   sessionSecret: String(process.env.SESSION_SECRET).trim(),
   jwtSecret: String(process.env.JWT_SECRET).trim(),
-  ticketQrSecret: String(process.env.TICKET_QR_SECRET || process.env.JWT_SECRET).trim(),
+  ticketQrSecret: String(process.env.TICKET_QR_SECRET || (process.env.NODE_ENV === 'test' ? process.env.JWT_SECRET : '')).trim(),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
   appName: process.env.APP_NAME || 'Vanguard Services',
   databaseUrl,

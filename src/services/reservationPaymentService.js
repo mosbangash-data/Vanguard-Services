@@ -100,6 +100,13 @@ const assertReservationDepartmentAccess = async (reservation, currentUser) => {
   await assertDepartmentIdForUser(currentUser, reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
 };
 
+const assertReservationPaymentAgency = (reservation, payment, currentUser) => {
+  const agencyId = reservation.agencyId || reservation.trip?.schedule?.agencyId;
+  assertAgencyAccess(currentUser, agencyId);
+  if (payment?.agencyId && agencyId && payment.agencyId !== agencyId) throw new AppError('Payment agency does not match reservation agency', 409);
+  return agencyId;
+};
+
 const ensurePayableReservation = (reservation) => {
   if (!RESERVATION_PAYABLE_STATUSES.includes(reservation.status)) {
     throw new AppError('Reservation is not in a payable state', 409);
@@ -113,10 +120,16 @@ const createReservationPayment = async (data, currentUser) => {
   const reservation = await getReservationWithTrip(data.reservationId);
   await assertReservationDepartmentAccess(reservation, currentUser);
   ensurePayableReservation(reservation);
+  const reservationAgencyId = reservation.agencyId || reservation.trip?.schedule?.agencyId;
+  assertAgencyAccess(currentUser, reservationAgencyId);
+  if (data.agencyId && data.agencyId !== reservationAgencyId) throw new AppError('Payment agency must match the reservation agency', 409);
 
   const amountCents = parseMoneyToCents(data.amount);
   const method = normalizeMethod(data.method);
   if (!method) throw new AppError('Payment method is required', 400);
+  if (method !== 'CASH' || (data.channel && String(data.channel).trim().toUpperCase() !== 'AGENCY')) {
+    throw new AppError('Vanguard Coach reservation payments must be cash received at an agency', 409);
+  }
 
   await validatePaymentMethod(reservation.trip.schedule.departmentId, method);
 
@@ -128,7 +141,7 @@ const createReservationPayment = async (data, currentUser) => {
   }
 
   const channel = data.channel ? String(data.channel).trim().toUpperCase() : 'AGENCY';
-  const provider = data.provider || 'AGENCY';
+  const provider = 'AGENCY';
   const currency = reservation.currency || 'USD';
 
   const paymentData = {
@@ -141,9 +154,7 @@ const createReservationPayment = async (data, currentUser) => {
     status: 'PENDING',
     reference: data.reference ? String(data.reference).trim() : null,
     comment: data.comment ? String(data.comment).trim() : null,
-    agencyId: currentUser.role === 'AGENT'
-      ? getUserAgencyId(currentUser)
-      : (data.agencyId || reservation.agencyId || reservation.trip?.schedule?.agencyId || null),
+    agencyId: reservationAgencyId || null,
   };
 
   const payment = await prisma.$transaction(async (tx) => tx.payment.create({ data: paymentData }));
@@ -151,6 +162,7 @@ const createReservationPayment = async (data, currentUser) => {
   await auditService.log('create_reservation_payment', currentUser.id, {
     targetReservationId: reservation.id,
     targetPaymentId: payment.id,
+    agencyId: payment.agencyId,
     amount: payment.amount,
     method: payment.method,
     reference: payment.reference,
@@ -165,7 +177,7 @@ const listReservationPayments = async (reservationId, currentUser) => {
 
   const reservation = await getReservationWithTrip(reservationId);
   await assertReservationDepartmentAccess(reservation, currentUser);
-  assertAgencyAccess(currentUser, reservation.agencyId);
+  assertReservationPaymentAgency(reservation, null, currentUser);
   const { items: payments, total } = await reservationPaymentRepository.listReservationPaymentsByReservationId({ reservationId });
 
   return {
@@ -195,8 +207,9 @@ const getReservationPayment = async (paymentId, currentUser) => {
 
   const payment = await reservationPaymentRepository.getReservationPaymentById(paymentId);
   if (!payment || !payment.reservation) throw new AppError('Reservation payment not found', 404);
-  await assertReservationDepartmentAccess(await getReservationWithTrip(payment.reservationId), currentUser);
-  assertAgencyAccess(currentUser, payment.reservation.agencyId);
+  const reservation = await getReservationWithTrip(payment.reservationId);
+  await assertReservationDepartmentAccess(reservation, currentUser);
+  assertReservationPaymentAgency(reservation, payment, currentUser);
 
   return { payment };
 };
@@ -217,7 +230,7 @@ const updateReservationPayment = async (paymentId, data, currentUser) => {
 
   const reservation = await getReservationWithTrip(payment.reservationId);
   await assertReservationDepartmentAccess(reservation, currentUser);
-  assertAgencyAccess(currentUser, reservation.agencyId);
+  assertReservationPaymentAgency(reservation, payment, currentUser);
   ensurePayableReservation(reservation);
 
   const updatePayload = {};
@@ -235,6 +248,7 @@ const updateReservationPayment = async (paymentId, data, currentUser) => {
   if (data.method !== undefined) {
     const method = normalizeMethod(data.method);
     if (!method) throw new AppError('Payment method is required', 400);
+    if (method !== 'CASH') throw new AppError('Vanguard Coach reservation payments must use CASH', 409);
     await validatePaymentMethod(reservation.trip.schedule.departmentId, method);
     updatePayload.method = method;
   }
@@ -261,17 +275,6 @@ const updateReservationPayment = async (paymentId, data, currentUser) => {
   return { payment: formatPayment(updated) };
 };
 
-const maybeConfirmReservation = async (tx, reservation, paymentCents = 0) => {
-  if (reservation.status !== 'PENDING') return false;
-  const totalAmountCents = parseMoneyToCents(reservation.totalAmount);
-  const totalPaidCents = sumValidatedPayments(reservation.payments) + paymentCents;
-  if (totalPaidCents >= totalAmountCents) {
-    await tx.reservation.update({ where: { id: reservation.id }, data: { status: 'CONFIRMED' } });
-    return true;
-  }
-  return false;
-};
-
 const formatPayment = (payment) => {
   if (!payment) return payment;
   const formatted = { ...payment };
@@ -293,22 +296,13 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
   ensurePayableReservation(reservation);
 
   const userAgencyId = getUserAgencyId(currentUser);
-  const resolvedAgencyId = userAgencyId || payment.agencyId || reservation.agencyId || reservation.trip?.schedule?.agencyId;
+  const reservationAgencyId = reservation.agencyId || reservation.trip?.schedule?.agencyId;
+  const resolvedAgencyId = currentUser.role === 'AGENT' ? userAgencyId : (payment.agencyId || reservationAgencyId);
   if (!resolvedAgencyId) {
     throw new AppError('Payment is not associated with a valid agency.', 400);
   }
 
-  if (currentUser.role === 'AGENT') {
-    if (!userAgencyId) {
-      throw new AppError('Agent agency assignment is required', 403);
-    }
-    if (payment.agencyId && payment.agencyId !== userAgencyId) {
-      throw new AppError('Access denied: payment belongs to another agency', 403);
-    }
-    if (reservation.agencyId && reservation.agencyId !== userAgencyId && reservation.trip?.schedule?.agencyId && reservation.trip.schedule.agencyId !== userAgencyId) {
-      throw new AppError('Access denied: reservation belongs to another agency', 403);
-    }
-  }
+  assertReservationPaymentAgency(reservation, payment, currentUser);
 
   if (payment.method !== 'CASH') {
     throw new AppError('This endpoint only validates agency cash payments.', 409);
@@ -322,7 +316,17 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
     throw new AppError('Payment amount exceeds remaining reservation balance', 400);
   }
 
-  const ticketResult = await prisma.$transaction(async (tx) => {
+  let ticketResult;
+  try {
+    ticketResult = await prisma.$transaction(async (tx) => {
+    const currentReservation = await tx.reservation.findUnique({ where: { id: reservation.id }, include: { payments: true } });
+    if (!currentReservation || !RESERVATION_PAYABLE_STATUSES.includes(currentReservation.status)) throw new AppError('Reservation is not in a payable state', 409);
+    const currentPayment = currentReservation.payments.find((item) => item.id === paymentId);
+    if (!currentPayment || currentPayment.status !== 'PENDING') throw new AppError('Payment has already been processed', 409);
+    const paidBefore = sumValidatedPayments(currentReservation.payments);
+    const totalCents = parseMoneyToCents(currentReservation.totalAmount);
+    const amountCents = parseMoneyToCents(currentPayment.amount);
+    if (paidBefore + amountCents > totalCents) throw new AppError('Payment amount exceeds remaining reservation balance', 409);
     const changed = await tx.payment.updateMany({
       where: { id: paymentId, status: 'PENDING' },
       data: {
@@ -343,8 +347,11 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
       });
     }
 
-    const confirmed = await maybeConfirmReservation(tx, reservation, paymentCents);
-    const ticketResult = confirmed || reservation.status === 'CONFIRMED'
+    const fullyPaid = paidBefore + amountCents >= totalCents;
+    if (fullyPaid && currentReservation.status === 'PENDING') {
+      await tx.reservation.update({ where: { id: reservation.id }, data: { status: 'CONFIRMED' } });
+    }
+    const ticketResult = fullyPaid
       ? await ticketService.createTicketForReservationInTransaction(tx, reservation.id, currentUser)
       : null;
 
@@ -364,7 +371,11 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
       },
     });
     return { payment: updated, ticket: ticketResult?.ticket || null, created: ticketResult?.created || false };
-  });
+    }, { isolationLevel: 'Serializable' });
+  } catch (error) {
+    if (error?.code === 'P2034') throw new AppError('Payment was processed concurrently; refresh the reservation and retry.', 409);
+    throw error;
+  }
 
   if (ticketResult.created && ticketResult.ticket) {
     await ticketService.notifyCustomerAboutTicket(ticketResult.ticket);
@@ -406,8 +417,7 @@ const getReservationPaymentReceipt = async (paymentId, currentUser) => {
   if (!payment.reservation) throw new AppError('Reservation payment relationship is invalid', 400);
 
   await assertReservationDepartmentAccess(payment.reservation, currentUser);
-  const receiptAgencyId = payment.agencyId || payment.reservation.agencyId || payment.reservation.trip?.schedule?.agencyId;
-  assertAgencyAccess(currentUser, receiptAgencyId);
+  const receiptAgencyId = assertReservationPaymentAgency(payment.reservation, payment, currentUser);
 
   let agencyData = payment.agency;
   if (!agencyData && receiptAgencyId) {
@@ -456,22 +466,29 @@ const rejectReservationPayment = async (paymentId, currentUser, reason = null) =
   ensurePendingPayment(payment);
   const reservation = await getReservationWithTrip(payment.reservationId);
   await assertReservationDepartmentAccess(reservation, currentUser);
-  const effectiveAgencyId = payment.agencyId || reservation.agencyId || reservation.trip?.schedule?.agencyId;
-  assertAgencyAccess(currentUser, effectiveAgencyId);
+  const effectiveAgencyId = assertReservationPaymentAgency(reservation, payment, currentUser);
 
+  const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+  if (!normalizedReason) throw new AppError('A rejection reason is required', 400);
   const updatePayload = {
     status: 'REJECTED',
     validatedById: currentUser.id,
     validatedAt: new Date(),
   };
-  if (reason) updatePayload.comment = String(reason).trim();
+  updatePayload.comment = normalizedReason;
 
-  const updatedPayment = await reservationPaymentRepository.updateReservationPayment(paymentId, updatePayload);
-  await auditService.log('reject_reservation_payment', currentUser.id, {
-    targetReservationId: payment.reservationId,
-    targetPaymentId: paymentId,
-    comment: updatedPayment.comment,
-  });
+  const updatedPayment = await prisma.$transaction(async (tx) => {
+    const changed = await tx.payment.updateMany({ where: { id: paymentId, status: 'PENDING' }, data: updatePayload });
+    if (changed.count !== 1) throw new AppError('Payment has already been processed', 409);
+    const updated = await tx.payment.findUnique({ where: { id: paymentId } });
+    await tx.auditLog.create({ data: { action: 'reject_reservation_payment', actorId: currentUser.id, details: {
+      targetReservationId: payment.reservationId,
+      targetPaymentId: paymentId,
+      comment: updated.comment,
+      agencyId: effectiveAgencyId,
+    } } });
+    return updated;
+  }, { isolationLevel: 'Serializable' });
 
   return { payment: formatPayment(updatedPayment) };
 };

@@ -27,7 +27,7 @@ const buildReservationScope = (departmentId, currentUser) => {
       trip: { schedule: { departmentId } },
       OR: [
         { agencyId: agentAgencyId },
-        { trip: { schedule: { agencyId: agentAgencyId } } },
+        { AND: [{ agencyId: null }, { trip: { schedule: { agencyId: agentAgencyId } } }] },
       ],
     };
   }
@@ -91,13 +91,13 @@ const getAgentDashboard = async (currentUser) => {
   };
 
   const paymentAgencyFilter = agentAgencyId
-    ? {
-      OR: [
-        { agencyId: agentAgencyId },
+    ? { AND: [
+      { OR: [
         { reservation: { agencyId: agentAgencyId } },
-        { reservation: { trip: { schedule: { agencyId: agentAgencyId } } } },
-      ],
-    }
+        { AND: [{ reservation: { agencyId: null } }, { reservation: { trip: { schedule: { agencyId: agentAgencyId } } } }] },
+      ] },
+      { OR: [{ agencyId: null }, { agencyId: agentAgencyId }] },
+    ] }
     : {};
 
   const [todayTrips, upcomingTrips, reservations, todayReservationCount, pendingPayments, validatedToday, pendingTickets, recentScans, parcelCounts] = await Promise.all([
@@ -197,6 +197,16 @@ const getAgentDashboard = async (currentUser) => {
   ]);
 
   const tripIds = [...new Set([...todayTrips, ...upcomingTrips].map((trip) => trip.id))];
+  const missingTicketRows = hasPermission(currentUser, 'VIEW_RESERVATION')
+    ? await prisma.reservation.findMany({
+      where: { ...reservationScope, status: { in: ['CONFIRMED', 'COMPLETED'] }, tickets: { none: {} } },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+      include: { payments: true },
+    })
+    : [];
+  const missingTickets = missingTicketRows.filter((reservation) => reservation.payments.some((payment) => payment.method === 'CASH' && VALIDATED_PAYMENT_STATUSES.includes(payment.status)))
+    .slice(0, 20).map(({ id, reservationCode, customerName }) => ({ id, reservationCode, customerName }));
   const reservationsForTrips = tripIds.length && hasPermission(currentUser, 'VIEW_RESERVATION')
     ? await prisma.reservation.findMany({
       where: { ...reservationScope, tripId: { in: tripIds }, status: { not: 'CANCELLED' } },
@@ -248,6 +258,7 @@ const getAgentDashboard = async (currentUser) => {
     tickets: {
       pendingControl: pendingTickets,
       recentScans,
+      missing: missingTickets,
     },
     parcels: {
       registered: parcelCounts[0],

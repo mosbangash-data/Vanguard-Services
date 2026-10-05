@@ -609,14 +609,14 @@ model Reservation {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
-  trip          Trip                      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  trip          Trip                      @relation(fields: [tripId], references: [id], onDelete: Restrict)
   agency        Agency?                   @relation(fields: [agencyId], references: [id], onDelete: SetNull)
   createdBy     User?                     @relation("CreatedReservations", fields: [createdByUserId], references: [id], onDelete: SetNull)
   payments      Payment[]
   tickets       Ticket[]
   cancellations ReservationCancellation[]
 
-  @@unique([tripId, seatNumber])
+  @@index([tripId, seatNumber])
   @@index([reservationCode])
   @@index([customerPhone])
   @@index([status])
@@ -689,7 +689,7 @@ model Payment {
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
-  reservation        Reservation?        @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  reservation        Reservation?        @relation(fields: [reservationId], references: [id], onDelete: Restrict)
   vehicleReservation VehicleReservation? @relation(fields: [vehicleReservationId], references: [id], onDelete: SetNull)
   parcel             Parcel?             @relation(fields: [parcelId], references: [id], onDelete: SetNull)
   agency             Agency?             @relation(fields: [agencyId], references: [id], onDelete: SetNull)
@@ -717,7 +717,7 @@ model Ticket {
   usedAt         DateTime?
   createdAt      DateTime     @default(now())
 
-  reservation Reservation  @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reservation Reservation  @relation(fields: [reservationId], references: [id], onDelete: Restrict)
   issuedBy    User?        @relation("IssuedTickets", fields: [issuedByUserId], references: [id], onDelete: SetNull)
   scans       TicketScan[]
 

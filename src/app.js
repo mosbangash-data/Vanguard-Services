@@ -167,7 +167,7 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/seats', seatRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/tickets', ticketRoutes);
-app.use('/tickets', ticketPublicRoutes);
+app.use('/tickets', rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === 'test' ? 500 : 60, standardHeaders: true, legacyHeaders: false }), ticketPublicRoutes);
 app.use('/api/parcels', parcelRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/vehicle-media', vehicleMediaRoutes);

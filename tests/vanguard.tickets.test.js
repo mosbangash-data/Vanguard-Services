@@ -1,13 +1,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
+const crypto = require('crypto');
 const app = require('../src/app');
 const prisma = require('../src/config/prisma');
+const env = require('../src/config/env');
 const { main: seedMain } = require('../prisma/seed');
 
 let server;
 let baseUrl;
 let adminToken;
+let agentToken;
 
 async function request(method, path, body, token) {
   const headers = {};
@@ -36,17 +39,22 @@ test.before(async () => {
   const loginRes = await request('POST', '/api/auth/login', { identifier: 'admin@vanguard.local', password: 'Admin123!' });
   assert.equal(loginRes.status, 200);
   adminToken = loginRes.data.data.token;
+  const agentLogin = await request('POST', '/api/auth/login', { identifier: 'coach.agent@vanguard.local', password: process.env.COACH_AGENT_PASSWORD || 'dev-coach-agent-password' });
+  assert.equal(agentLogin.status, 200);
+  agentToken = agentLogin.data.data.token;
 });
 
 test.after(async () => {
   await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
 });
 
-const createCoachTicketFixture = async () => {
+const createCoachTicketFixture = async ({ validate = true } = {}) => {
   const deps = await request('GET', '/api/departments', null, adminToken);
   assert.equal(deps.status, 200);
   const department = deps.data.data.items.find((item) => item.type === 'VANGUARD_COACH');
   assert.ok(department, 'Vanguard Coach department must exist for ticket tests');
+  const agency = await prisma.agency.findFirst({ where: { departmentId: department.id }, select: { id: true } });
+  assert.ok(agency, 'Vanguard Coach agency must exist for reservation tests');
 
   const routeRes = await request('POST', '/api/destinations', { departmentId: department.id, code: `TK_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, departureCity: 'Kinshasa', arrivalCity: 'Lubumbashi' }, adminToken);
   assert.equal(routeRes.status, 201);
@@ -56,7 +64,7 @@ const createCoachTicketFixture = async () => {
   assert.equal(busRes.status, 201);
   const busId = busRes.data.data.bus.id;
 
-  const scheduleRes = await request('POST', '/api/schedules', { departmentId: department.id, routeId, busId, departureTime: '08:00', availableDays: ['MON'], price: '12.00' }, adminToken);
+  const scheduleRes = await request('POST', '/api/schedules', { departmentId: department.id, agencyId: agency.id, routeId, busId, departureTime: '08:00', availableDays: ['MON'], price: '12.00' }, adminToken);
   assert.equal(scheduleRes.status, 201);
   const scheduleId = scheduleRes.data.data.schedule.id;
 
@@ -75,13 +83,90 @@ const createCoachTicketFixture = async () => {
   assert.equal(payment.status, 'PENDING');
   assert.equal(Number(payment.amount), 12);
 
-  const validateRes = await request('POST', `/api/reservation-payments/${payment.id}/validate`, null, adminToken);
-  assert.equal(validateRes.status, 200);
-  const ticket = validateRes.data.data.ticket;
-  assert.ok(ticket.qrCode && ticket.ticketCode && ticket.serialNumber);
+  let ticket = null;
+  if (validate) {
+    const validateRes = await request('POST', `/api/reservation-payments/${payment.id}/validate`, null, adminToken);
+    assert.equal(validateRes.status, 200);
+    ticket = validateRes.data.data.ticket;
+    assert.ok(ticket.qrCode && ticket.ticketCode && ticket.serialNumber);
+  }
 
-  return { ticket, reservationId };
+  return { ticket, reservationId, payment, tripId };
 };
+
+test('cash validation requires full settlement, rejection preserves reservation, and cancellation preserves history', async () => {
+  const { ticket, reservationId, payment, tripId } = await createCoachTicketFixture();
+  assert.equal(payment.status, 'PENDING');
+  assert.equal(ticket.status, 'VALID');
+
+  const deleteRes = await request('DELETE', `/api/reservations/${reservationId}`, null, agentToken);
+  assert.equal(deleteRes.status, 409);
+  const immutableRes = await request('PUT', `/api/reservations/${reservationId}`, { tripId: 'other-trip' }, agentToken);
+  assert.equal(immutableRes.status, 400);
+  const beforeEdit = await prisma.reservation.findUnique({ where: { id: reservationId }, include: { payments: true, tickets: true } });
+  const edited = await request('PUT', `/api/reservations/${reservationId}`, { customerName: 'Updated passenger', customerPhone: '777666000' }, agentToken);
+  assert.equal(edited.status, 200);
+  const afterEdit = await prisma.reservation.findUnique({ where: { id: reservationId }, include: { payments: true, tickets: true } });
+  assert.equal(afterEdit.id, beforeEdit.id);
+  assert.equal(afterEdit.reservationCode, beforeEdit.reservationCode);
+  assert.equal(afterEdit.tripId, beforeEdit.tripId);
+  assert.equal(afterEdit.seatNumber, beforeEdit.seatNumber);
+  assert.equal(afterEdit.payments[0].id, beforeEdit.payments[0].id);
+  assert.equal(afterEdit.tickets[0].id, beforeEdit.tickets[0].id);
+  const cancelMissingReason = await request('POST', `/api/reservations/${reservationId}/cancel`, {}, agentToken);
+  assert.equal(cancelMissingReason.status, 400);
+  const cancelRes = await request('POST', `/api/reservations/${reservationId}/cancel`, { reason: 'Passenger requested cancellation' }, agentToken);
+  assert.equal(cancelRes.status, 200);
+  assert.equal(cancelRes.data.data.reservation.status, 'CANCELLED');
+
+  const retainedReservation = await prisma.reservation.findUnique({ where: { id: reservationId }, include: { payments: true, tickets: true } });
+  assert.equal(retainedReservation.payments.length, 1);
+  assert.equal(retainedReservation.payments[0].status, 'VERIFIED');
+  assert.equal(retainedReservation.payments[0].reservationId, reservationId);
+  assert.equal(retainedReservation.tickets[0].status, 'CANCELLED');
+  assert.equal(await prisma.reservationCancellation.count({ where: { reservationId } }), 1);
+  const repeatValidation = await request('POST', `/api/reservation-payments/${payment.id}/validate`, null, adminToken);
+  assert.equal(repeatValidation.status, 409);
+  assert.equal(await prisma.ticket.count({ where: { reservationId } }), 1);
+
+  const replacement = await request('POST', '/api/reservations', { tripId, customerName: 'Replacement', customerPhone: '777666554', seatNumber: '1' }, adminToken);
+  assert.equal(replacement.status, 201);
+  assert.equal(replacement.data.data.reservation.status, 'PENDING');
+  assert.equal(replacement.data.data.payment.status, 'PENDING');
+});
+
+test('a rejected cash payment needs a reason and keeps the reservation pending', async () => {
+  const { reservationId, payment } = await createCoachTicketFixture({ validate: false });
+  const missingReason = await request('POST', `/api/reservation-payments/${payment.id}/reject`, {}, adminToken);
+  assert.equal(missingReason.status, 400);
+  const rejected = await request('POST', `/api/reservation-payments/${payment.id}/reject`, { reason: 'Cash amount did not match' }, adminToken);
+  assert.equal(rejected.status, 200);
+  const reservation = await prisma.reservation.findUnique({ where: { id: reservationId } });
+  assert.equal(reservation.status, 'PENDING');
+  assert.equal(rejected.data.data.payment.status, 'REJECTED');
+  assert.equal(rejected.data.data.payment.comment, 'Cash amount did not match');
+});
+
+test('partial cash validation keeps the reservation pending and creates one ticket only at full payment', async () => {
+  const { reservationId, payment } = await createCoachTicketFixture({ validate: false });
+  const mobilePayment = await request('POST', '/api/reservation-payments', { reservationId, amount: '1.00', method: 'MOBILE_MONEY', channel: 'ONLINE' }, adminToken);
+  assert.equal(mobilePayment.status, 409);
+  const reduced = await request('PUT', `/api/reservation-payments/${payment.id}`, { amount: '5.00' }, adminToken);
+  assert.equal(reduced.status, 200);
+  const first = await request('POST', `/api/reservation-payments/${payment.id}/validate`, null, agentToken);
+  assert.equal(first.status, 200);
+  assert.equal(first.data.data.ticket, null);
+  assert.equal((await prisma.reservation.findUnique({ where: { id: reservationId } })).status, 'PENDING');
+  assert.equal(await prisma.ticket.count({ where: { reservationId } }), 0);
+
+  const secondPayment = await request('POST', '/api/reservation-payments', { reservationId, amount: '7.00', method: 'CASH' }, adminToken);
+  assert.equal(secondPayment.status, 201);
+  const completed = await request('POST', `/api/reservation-payments/${secondPayment.data.data.payment.id}/validate`, null, agentToken);
+  assert.equal(completed.status, 200);
+  assert.equal((await prisma.reservation.findUnique({ where: { id: reservationId } })).status, 'CONFIRMED');
+  assert.ok(completed.data.data.ticket);
+  assert.equal(await prisma.ticket.count({ where: { reservationId } }), 1);
+});
 
 test('ticket generation for reservation', async () => {
   const { ticket } = await createCoachTicketFixture();
@@ -109,7 +194,7 @@ test('ticket scan accepts a valid ticket and marks it used', async () => {
   assert.ok(fetchTicket.data.data.ticket.usedAt);
 });
 
-test('ticket scanner rejects a bare ticket code and a tampered QR signature', async () => {
+test('ticket scanner rejects unsigned, legacy, tampered, truncated and empty QR values', async () => {
   const { ticket } = await createCoachTicketFixture();
 
   const bareCode = await request('POST', '/api/tickets/scan', { qrCode: ticket.ticketCode }, adminToken);
@@ -120,8 +205,42 @@ test('ticket scanner rejects a bare ticket code and a tampered QR signature', as
   assert.equal(tampered.data.valid, false);
   assert.equal(tampered.data.status, 'INVALID');
 
+  for (const qrCode of [
+    `vanguard://ticket/${ticket.ticketCode}`,
+    '',
+    ticket.qrCode.slice(0, -8),
+  ]) {
+    const result = await request('POST', '/api/tickets/scan', { qrCode }, adminToken);
+    assert.equal(result.data.status, 'INVALID');
+  }
+
+  for (const field of ['ticketCode', 'ticketId', 'tripId']) {
+    const payload = JSON.parse(ticket.qrCode);
+    payload[field] = `${payload[field]}-tampered`;
+    const result = await request('POST', '/api/tickets/scan', { qrCode: JSON.stringify(payload) }, adminToken);
+    assert.equal(result.data.status, 'INVALID');
+  }
+
   const ticketAfterRejectedScans = await prisma.ticket.findUnique({ where: { id: ticket.id } });
   assert.equal(ticketAfterRejectedScans.status, 'VALID');
+});
+
+test('ticket scanner rejects expired and unknown versioned signed QR payloads', async () => {
+  const { ticket } = await createCoachTicketFixture();
+  const qr = JSON.parse(ticket.qrCode);
+  const signPayload = (payload) => {
+    const signedFields = ['v', 'ticketCode', 'ticketId', 'tripId', 'issuedAt', 'expiresAt', 'nonce'];
+    const body = Object.fromEntries(signedFields.map((field) => [field, payload[field]]));
+    const sig = crypto.createHmac('sha256', env.ticketQrSecret).update(JSON.stringify(body)).digest('base64url');
+    return JSON.stringify({ ...body, sig });
+  };
+  const expiredQr = signPayload({ ...qr, expiresAt: new Date(Date.now() - 1000).toISOString() });
+  const expired = await request('POST', '/api/tickets/scan', { qrCode: expiredQr }, adminToken);
+  assert.equal(expired.data.status, 'INVALID');
+
+  const unknownQr = signPayload({ ...qr, ticketCode: 'VG-FFFFFFFFFFFFFFFF' });
+  const unknown = await request('POST', '/api/tickets/scan', { qrCode: unknownQr }, adminToken);
+  assert.equal(unknown.data.status, 'INVALID');
 });
 
 test('ticket scan rejects an already used ticket', async () => {
@@ -151,7 +270,27 @@ test('ticket scan rejects cancelled tickets and invalid QR values', async () => 
   const invalidScan = await request('POST', '/api/tickets/scan', { qrCode: 'vanguard://ticket/INVALID-QR' }, adminToken);
   assert.equal(invalidScan.status, 200);
   assert.equal(invalidScan.data.valid, false);
-  assert.equal(invalidScan.data.status, 'NOT_FOUND');
+  assert.equal(invalidScan.data.status, 'INVALID');
+});
+
+test('public ticket lookup exposes only boarding details and public print requires login', async () => {
+  const { ticket } = await createCoachTicketFixture();
+  const publicTicket = await request('GET', `/tickets/${ticket.ticketCode}`);
+  assert.equal(publicTicket.status, 200);
+  assert.ok(publicTicket.data.data.ticket.reservation.customerName);
+  assert.ok(publicTicket.data.data.ticket.reservation.customerPhone);
+  assert.equal(publicTicket.data.data.ticket.id, undefined);
+  assert.equal(publicTicket.data.data.ticket.reservation.reservationCode, undefined);
+  assert.equal(publicTicket.data.data.ticket.reservation.customerEmail, undefined);
+  assert.equal(publicTicket.data.data.ticket.reservation.totalAmount, undefined);
+  const print = await request('GET', `/tickets/${ticket.ticketCode}/print`);
+  assert.equal(print.status, 401);
+  const firstPrint = await request('POST', `/tickets/${ticket.ticketCode}/print-event`, { format: '58mm' });
+  assert.equal(firstPrint.status, 200);
+  assert.equal(firstPrint.data.data.printType, 'first_print');
+  const reprint = await request('POST', `/tickets/${ticket.ticketCode}/print-event`, { format: 'a4' });
+  assert.equal(reprint.status, 200);
+  assert.equal(reprint.data.data.printType, 'reprint');
 });
 
 test('ticket scan is blocked for unauthorized users and wrong department', async () => {

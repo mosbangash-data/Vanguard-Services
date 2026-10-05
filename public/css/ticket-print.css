@@ -1,13 +1,22 @@
 * { box-sizing: border-box; }
 
-@page { size: 80mm 180mm; margin: 0; }
+@page { size: auto; margin: 3mm; }
+@page ticket58 { size: 58mm auto; margin: 2mm; }
+@page ticket80 { size: 80mm auto; margin: 3mm; }
+@page ticket110 { size: 110mm auto; margin: 4mm; }
+@page ticketA4 { size: A4 portrait; margin: 12mm; }
 
 html, body { margin: 0; min-height: 100%; color: #142536; font-family: Arial, Helvetica, sans-serif; }
 .ticket-body { background: #edf2f6; }
 .ticket-page { min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 24px; }
+.ticket-print-controls { display: flex; position: fixed; z-index: 2; top: 12px; right: 12px; flex-wrap: wrap; gap: 8px; align-items: center; max-width: 360px; padding: 10px; background: #fff; border: 1px solid #d8e0e8; border-radius: 8px; font: 13px Arial, sans-serif; }
+.ticket-print-controls a { color: #1b5d8e; }
+.ticket-print-controls button { padding: 6px 10px; color: #fff; background: #142536; border: 0; border-radius: 4px; cursor: pointer; }
+.ticket-print-controls small { flex-basis: 100%; color: #617487; font-size: 10px; }
 .ticket-printable { width: 80mm; min-height: 150mm; padding: 6mm 5mm; background: #fff; border: 1px solid #d8e0e8; border-radius: 4mm; box-shadow: 0 12px 35px #14253620; }
 .ticket-brand { display: flex; align-items: center; justify-content: center; gap: 3mm; padding-bottom: 4mm; border-bottom: 1px solid #dce3e9; text-align: left; }
 .ticket-brand__mark { display: grid; place-items: center; width: 10mm; height: 10mm; border-radius: 3mm; color: white; background: #122c45; font-size: 17pt; font-weight: 800; }
+.ticket-brand img { display: block; width: 25mm; max-height: 18mm; object-fit: contain; }
 .ticket-brand strong, .ticket-brand span:not(.ticket-brand__mark) { display: block; }
 .ticket-brand strong { font-size: 11pt; letter-spacing: .04em; }
 .ticket-brand div span { margin-top: 1mm; color: #607487; font-size: 8pt; letter-spacing: .24em; }
@@ -34,18 +43,15 @@ html, body { margin: 0; min-height: 100%; color: #142536; font-family: Arial, He
   .ticket-page { padding: 12px; }
   .ticket-printable { max-width: 100%; }
 }
-
 @media print {
-  html, body { width: 80mm; min-height: 0; background: #fff !important; }
-  .ticket-page { display: block; min-height: 0; padding: 0; }
+  html, body { min-height: 0; background: #fff !important; }
+  .ticket-print-controls { display: none; }
+  .ticket-page { display: block; width: 100%; min-height: 0; padding: 0; }
   .ticket-printable { width: 80mm; min-height: 0; margin: 0; padding: 5mm 4mm; border: 0; border-radius: 0; box-shadow: none; break-inside: avoid; page-break-inside: avoid; }
+  .ticket-printable.ticket--58mm { page: ticket58; width: 54mm; padding: 2mm; }
+  .ticket-printable.ticket--80mm { page: ticket80; width: 74mm; padding: 3mm; }
+  .ticket-printable.ticket--110mm { page: ticket110; width: 102mm; padding: 5mm; }
+  .ticket-printable.ticket--a4 { page: ticketA4; width: 175mm; min-height: 100mm; margin: 22mm auto; padding: 12mm; border: 1px solid #d8e0e8; }
   .ticket-qr, .ticket-qr svg { break-inside: avoid; page-break-inside: avoid; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-}
-
-@media print and (min-width: 100mm) {
-  @page { size: auto; margin: 10mm; }
-  html, body, .ticket-printable { width: 100%; }
-  .ticket-page { display: flex; justify-content: center; }
-  .ticket-printable { width: 80mm; border: 1px solid #d8e0e8; }
 }

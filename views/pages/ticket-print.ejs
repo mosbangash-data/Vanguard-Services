@@ -6,12 +6,18 @@
     <title>Billet <%= ticket.ticketCode %> — Vanguard Coach</title>
     <link rel="stylesheet" href="/css/ticket-print.css" />
   </head>
-  <body class="ticket-body">
+  <body class="ticket-body" data-ticket-format="<%= printFormat %>">
+    <nav class="ticket-print-controls" aria-label="Options d’impression">
+      <span>Format :</span>
+      <a href="?format=58mm">58 mm</a><a href="?format=80mm">80 mm</a><a href="?format=110mm">110 mm</a><a href="?format=a4">A4</a>
+      <button type="button" id="ticket-print-button">Imprimer</button>
+      <small>Bluetooth et imprimantes intégrées passent par le service d’impression du terminal.</small>
+    </nav>
     <main class="ticket-page">
-      <article class="ticket-printable" aria-label="Billet de voyage Vanguard Coach">
+      <article class="ticket-printable ticket--<%= printFormat %>" aria-label="Billet de voyage Vanguard Coach">
         <header class="ticket-brand">
-          <span class="ticket-brand__mark">V</span>
-          <div><strong>VANGUARD SERVICES</strong><span>COACH</span></div>
+          <img src="/assets/transport/logo.jpeg" alt="Logo Vanguard Services" />
+          <div><strong>VANGUARD SERVICES</strong><span>VANGUARD COACH</span></div>
         </header>
 
         <section class="ticket-route" aria-label="Trajet">
@@ -26,14 +32,13 @@
         </section>
 
         <div class="ticket-seat"><span>Siège</span><strong><%= ticket.seatNumber %></strong></div>
-        <div class="ticket-code-row"><span>Réservation</span><strong><%= ticket.reservationCode %></strong></div>
-
         <div class="ticket-qr" role="img" aria-label="QR code sécurisé du billet"><%- ticket.qrSvg %></div>
 
         <div class="ticket-code-row ticket-code-row--ticket"><span>Billet</span><strong><%= ticket.ticketCode %></strong></div>
-        <div class="ticket-payment"><span class="ticket-payment__dot"></span>PAYÉ</div>
+        <div class="ticket-payment"><span class="ticket-payment__dot"></span><%= ticket.status === 'USED' ? 'UTILISÉ' : ticket.status === 'CANCELLED' ? 'ANNULÉ' : 'PAYÉ / VALIDE' %></div>
         <footer>Présentez ce billet à l’embarquement.</footer>
       </article>
     </main>
+    <script src="/js/ticket-print.js" defer></script>
   </body>
 </html>

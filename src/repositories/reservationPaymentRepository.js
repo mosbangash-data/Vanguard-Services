@@ -26,10 +26,12 @@ const listCoachReservationPayments = async ({ departmentId, agencyId, status, sk
 
   if (agencyId) {
     andClauses.push({
-      OR: [
-        { agencyId },
-        { reservation: { agencyId } },
-        { reservation: { trip: { schedule: { agencyId } } } },
+      AND: [
+        { OR: [
+          { reservation: { agencyId } },
+          { AND: [{ reservation: { agencyId: null } }, { reservation: { trip: { schedule: { agencyId } } } }] },
+        ] },
+        { OR: [{ agencyId: null }, { agencyId }] },
       ],
     });
   }

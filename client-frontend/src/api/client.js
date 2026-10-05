@@ -186,6 +186,8 @@ export const api = {
    */
   getTicket: (ticketCode) =>
     apiClient.get(`/tickets/${ticketCode}`).then(unwrap),
+  recordTicketPrint: (ticketCode, payload) =>
+    apiClient.post(`/tickets/${ticketCode}/print-event`, payload).then(unwrap),
 
   // ===== CONSTRUCTION =====
   /**

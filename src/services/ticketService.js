@@ -2,40 +2,20 @@ const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const env = require('../config/env');
 const { AppError } = require('../middleware/errorHandler');
-const auditService = require('./auditService');
 const { getUserAgencyId, assertAgencyAccess, assertDepartmentIdForUser } = require('./departmentAccessService');
+const { buildSignedTicketQr, parseSignedTicketQr, verifyTicketQrSignature, extractTicketCodeFromQr } = require('../utils/ticketQr');
 
 const TICKET_STATUS_VALID = 'VALID';
 const VALIDATED_PAYMENT_STATUSES = ['VERIFIED', 'COMPLETED'];
 
-const buildTicketCode = () => `TCK-${crypto.randomUUID()}`;
+const buildTicketCode = () => `VG-${crypto.randomBytes(12).toString('hex').toUpperCase()}`;
 const buildSerialNumber = () => `SN-${Date.now()}-${crypto.randomInt(10000, 99999)}`;
-const signTicketCode = (ticketCode) => crypto
-  .createHmac('sha256', env.ticketQrSecret)
-  .update(`vanguard-ticket:v1:${ticketCode}`)
-  .digest('base64url');
-const buildQrCode = (ticketCode) => `vanguard://ticket/${ticketCode}?v=1&sig=${signTicketCode(ticketCode)}`;
-const verifyTicketQrSignature = (value, ticketCode) => {
-  if (typeof value !== 'string' || !ticketCode) return false;
-  const match = value.trim().match(/^vanguard:\/\/ticket\/([A-Za-z0-9-]+)\?v=1&sig=([A-Za-z0-9_-]+)$/i);
-  if (!match || match[1] !== ticketCode) return false;
-  const expected = Buffer.from(signTicketCode(ticketCode));
-  const provided = Buffer.from(match[2]);
-  return expected.length === provided.length && crypto.timingSafeEqual(expected, provided);
+const hasValidatedPayment = (payments = []) => payments.some((payment) => payment.method === 'CASH' && VALIDATED_PAYMENT_STATUSES.includes(payment.status));
+const isReservationFullyPaid = (reservation) => {
+  const paidCents = (reservation.payments || []).filter((payment) => payment.method === 'CASH' && VALIDATED_PAYMENT_STATUSES.includes(payment.status))
+    .reduce((sum, payment) => sum + Math.round(Number(payment.amount) * 100), 0);
+  return paidCents >= Math.round(Number(reservation.totalAmount) * 100);
 };
-const extractTicketCodeFromQr = (value) => {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const signedMatch = trimmed.match(/^vanguard:\/\/ticket\/([A-Za-z0-9-]+)\?v=1&sig=[A-Za-z0-9_-]+$/i);
-  if (signedMatch) return signedMatch[1];
-  const legacyMatch = trimmed.match(/^vanguard:\/\/ticket\/([A-Za-z0-9-]+)$/i);
-  if (legacyMatch) return legacyMatch[1];
-
-  return null;
-};
-
-const hasValidatedPayment = (payments = []) => payments.some((payment) => VALIDATED_PAYMENT_STATUSES.includes(payment.status));
 
 const ensureCoachTicketAccess = (currentUser) => {
   if (!currentUser) throw new AppError('Unauthorized', 401);
@@ -74,9 +54,11 @@ const ensureReservationReadyForTicket = (reservation) => {
   if (!hasValidatedPayment(reservation.payments)) {
     throw new AppError('Ticket can only be generated after a validated payment', 409);
   }
+  if (!isReservationFullyPaid(reservation)) throw new AppError('Ticket can only be generated after the full cash amount is validated', 409);
 };
 
 const getTicketByCode = async (ticketCode, currentUser = null) => {
+  if (currentUser) ensureCoachTicketAccess(currentUser);
   const ticket = await prisma.ticket.findUnique({
     where: { ticketCode },
     select: {
@@ -134,8 +116,37 @@ const getTicketByCode = async (ticketCode, currentUser = null) => {
   });
   if (!ticket) throw new AppError('Ticket not found', 404);
   ensureReservationReadyForTicket(ticket.reservation);
-  if (currentUser) assertAgencyAccess(currentUser, ticket.reservation?.agencyId);
+  if (currentUser) assertAgencyAccess(currentUser, ticket.reservation?.agencyId || ticket.reservation?.trip?.schedule?.agencyId);
   return ticket;
+};
+
+const getPublicTicketByCode = async (ticketCode) => {
+  const ticket = await prisma.ticket.findUnique({
+    where: { ticketCode },
+    select: {
+      ticketCode: true, qrCode: true, status: true, issuedAt: true, usedAt: true,
+      reservation: { select: {
+        customerName: true, customerPhone: true, seatNumber: true, status: true, totalAmount: true, payments: { select: { status: true, method: true, amount: true } },
+        trip: { select: { departureAt: true, schedule: { select: { departureTime: true, route: { select: { departureCity: true, arrivalCity: true } } } } } },
+      } },
+    },
+  });
+  if (!ticket || ticket.reservation.status !== 'CONFIRMED' || !isReservationFullyPaid(ticket.reservation)) {
+    throw new AppError('Ticket not found', 404);
+  }
+  const { reservation, ...publicTicket } = ticket;
+  return {
+    ticket: {
+      ...publicTicket,
+      isPaid: true,
+      reservation: {
+        customerName: reservation.customerName,
+        customerPhone: reservation.customerPhone,
+        seatNumber: reservation.seatNumber,
+        trip: reservation.trip,
+      },
+    },
+  };
 };
 
 const getCoachDepartmentIdForUser = async (currentUser) => {
@@ -191,8 +202,11 @@ const listTicketScans = async ({ ticketCode, page = 1, limit = 50 } = {}, curren
   return { scans, total, page: Number(page) || 1 };
 };
 
-const getTicketPrintContext = async (ticketCode, actorId = null, currentUser = null) => {
+const getTicketPrintContext = async (ticketCode, actorId = null, currentUser = null, printMetadata = {}) => {
+  ensureCoachTicketAccess(currentUser);
   const ticket = await getTicketByCode(ticketCode, currentUser);
+
+  const printType = await recordTicketPrintAudit(ticket, actorId, printMetadata);
 
   // Récupérer la devise depuis ServiceSettings du département
   let currency = 'USD';
@@ -208,26 +222,36 @@ const getTicketPrintContext = async (ticketCode, actorId = null, currentUser = n
     // Fallback to USD if settings cannot be loaded
   }
 
-  const previousPrints = await prisma.auditLog.count({
-    where: {
-      action: 'print_ticket',
-      details: {
-        path: ['targetTicketId'],
-        equals: ticket.id,
-      },
-    },
-  });
-
-  const printType = previousPrints > 0 ? 'reprint' : 'first_print';
-
-  await auditService.log('print_ticket', actorId, {
-    targetTicketId: ticket.id,
-    reservationId: ticket.reservation.id,
-    printType,
-  });
-
   return { ticket, printType, currency };
 };
+
+const recordTicketPrintAudit = async (ticket, actorId = null, printMetadata = {}) => {
+  if (typeof ticket === 'string') ticket = await getTicketByCode(ticket);
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${ticket.id})::bigint)`;
+    const previousPrints = await tx.auditLog.count({
+      where: { action: 'print_ticket', details: { path: ['targetTicketId'], equals: ticket.id } },
+    });
+    const printType = previousPrints > 0 ? 'reprint' : 'first_print';
+    await tx.auditLog.create({
+      data: {
+        action: 'print_ticket',
+        actorId,
+        details: {
+          targetTicketId: ticket.id,
+          reservationId: ticket.reservation.id,
+          agencyId: ticket.reservation.agencyId || ticket.reservation.trip?.schedule?.agencyId,
+          printType,
+          printFormat: printMetadata.format || '80mm',
+          printerMode: 'system',
+        },
+      },
+    });
+    return printType;
+  });
+};
+
+const recordPublicTicketPrint = async (ticketCode, printMetadata = {}) => recordTicketPrintAudit(ticketCode, null, printMetadata);
 
 const buildTicketScanResponse = (ticket, status, message, valid) => {
   const route = ticket?.reservation?.trip?.schedule?.route;
@@ -274,15 +298,15 @@ const cancelledTicketScan = async (ticket, currentUser, reason = 'ticket cancell
 const scanTicketByQrCode = async (rawQrCode, currentUser) => {
   ensureCoachTicketAccess(currentUser);
 
-  const ticketCode = extractTicketCodeFromQr(rawQrCode);
-  if (!ticketCode) {
+  const qrPayload = parseSignedTicketQr(rawQrCode, env.ticketQrSecret);
+  const ticketCode = qrPayload?.ticketCode;
+  if (!qrPayload || !ticketCode) {
     await prisma.auditLog.create({
       data: {
         action: 'ticket_scan_invalid',
         actorId: currentUser.id,
         details: {
-          rawQrCode: typeof rawQrCode === 'string' ? rawQrCode.slice(0, 200) : null,
-          reason: 'invalid_qr_format',
+          reason: 'invalid_or_unsigned_qr',
         },
       },
     });
@@ -298,7 +322,7 @@ const scanTicketByQrCode = async (rawQrCode, currentUser) => {
     include: {
       reservation: {
         include: {
-          payments: { select: { status: true } },
+          payments: { select: { status: true, method: true, amount: true } },
           trip: {
             include: {
               schedule: {
@@ -327,16 +351,17 @@ const scanTicketByQrCode = async (rawQrCode, currentUser) => {
     });
 
     return {
-      ...buildTicketScanResponse(null, 'NOT_FOUND', 'Billet introuvable.', false),
+      ...buildTicketScanResponse(null, 'INVALID', 'Billet introuvable.', false),
       ticketCode,
     };
   }
   await assertDepartmentIdForUser(currentUser, ticket.reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
-  assertAgencyAccess(currentUser, ticket.reservation.agencyId);
+  assertAgencyAccess(currentUser, ticket.reservation.agencyId || ticket.reservation.trip?.schedule?.agencyId);
 
-  const rawFromClient = typeof rawQrCode === 'string' ? rawQrCode.trim() : '';
-  const qrMatches = verifyTicketQrSignature(rawFromClient, ticketCode)
-    || (rawFromClient === ticket.qrCode && /^vanguard:\/\/ticket\/[A-Za-z0-9-]+$/i.test(rawFromClient));
+  const qrMatches = verifyTicketQrSignature(rawQrCode, ticketCode, env.ticketQrSecret)
+    && qrPayload.ticketId === ticket.id
+    && qrPayload.tripId === ticket.reservation.tripId
+    && ticket.qrCode === rawQrCode.trim();
 
   if (!qrMatches) {
     await prisma.ticketScan.create({
@@ -366,12 +391,16 @@ const scanTicketByQrCode = async (rawQrCode, currentUser) => {
     };
   }
 
-  if (ticket.reservation.status !== 'CONFIRMED' || !hasValidatedPayment(ticket.reservation.payments || [])) {
+  if (ticket.reservation.status !== 'CONFIRMED' || !isReservationFullyPaid(ticket.reservation)) {
     return { ...buildTicketScanResponse(ticket, 'INVALID', 'Réservation ou paiement non validé.', false), ticketCode };
   }
   if (ticket.reservation.trip.departureAt && new Date(ticket.reservation.trip.departureAt) < new Date()) {
     await prisma.ticketScan.create({ data: { ticketId: ticket.id, scannedByUserId: currentUser.id, result: 'INVALID', notes: 'trip_departure_expired' } });
     return { ...buildTicketScanResponse(ticket, 'EXPIRED', 'Billet expiré : le départ est passé.', false), ticketCode };
+  }
+  if (['CANCELLED', 'COMPLETED'].includes(ticket.reservation.trip.status)) {
+    await prisma.ticketScan.create({ data: { ticketId: ticket.id, scannedByUserId: currentUser.id, result: 'INVALID', notes: `trip_${ticket.reservation.trip.status.toLowerCase()}` } });
+    return { ...buildTicketScanResponse(ticket, 'INVALID', 'Voyage annulé ou terminé.', false), ticketCode };
   }
 
   if (ticket.status === 'CANCELLED') {
@@ -400,6 +429,8 @@ const scanTicketByQrCode = async (rawQrCode, currentUser) => {
           targetTicketId: ticket.id,
           ticketCode: ticket.ticketCode,
           reason: 'already_used',
+          reservationId: ticket.reservationId,
+          agencyId: ticket.reservation?.agencyId || ticket.reservation?.trip?.schedule?.agencyId,
         },
       },
     });
@@ -562,6 +593,7 @@ const scanTicketByQrCode = async (rawQrCode, currentUser) => {
           ticketCode: ticket.ticketCode,
           ticketScanId: acceptedScan.id,
           reservationId: ticket.reservationId,
+          agencyId: ticket.reservation?.agencyId || ticket.reservation?.trip?.schedule?.agencyId,
         },
       },
     });
@@ -662,12 +694,18 @@ const createTicketForReservationInTransaction = async (tx, reservationId, curren
     return { ticket: existingTicket, created: false };
   }
 
-  const ticketCode = buildTicketCode();
+  const id = crypto.randomUUID();
+  let ticketCode = buildTicketCode();
+  while (await tx.ticket.findUnique({ where: { ticketCode }, select: { id: true } })) ticketCode = buildTicketCode();
   const serialNumber = buildSerialNumber();
-  const qrCode = buildQrCode(ticketCode);
+  const issuedAt = new Date();
+  const expiresAt = new Date(reservation.trip.departureAt);
+  expiresAt.setTime(expiresAt.getTime() + 24 * 60 * 60 * 1000);
+  const qrCode = buildSignedTicketQr({ ticketCode, ticketId: id, tripId: reservation.tripId, issuedAt, expiresAt }, env.ticketQrSecret);
 
   const ticket = await tx.ticket.create({
     data: {
+      id,
       ticketCode,
       reservationId,
       qrCode,
@@ -698,7 +736,7 @@ const createTicketForReservationInTransaction = async (tx, reservationId, curren
     data: {
       action: 'create_ticket',
       actorId: currentUser?.id || null,
-      details: { targetTicketId: ticket.id, reservationId },
+      details: { targetTicketId: ticket.id, reservationId, agencyId: reservation.agencyId || reservation.trip?.schedule?.agencyId, paymentIds: reservation.payments.map((payment) => payment.id) },
     },
   });
 
@@ -718,9 +756,11 @@ module.exports = {
   createTicketForReservation,
   createTicketForReservationInTransaction,
   getTicketByCode,
+  getPublicTicketByCode,
   listTickets,
   listTicketScans,
   getTicketPrintContext,
+  recordPublicTicketPrint,
   scanTicketByQrCode,
   cancelTicketByCode,
   extractTicketCodeFromQr,

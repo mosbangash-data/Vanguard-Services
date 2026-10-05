@@ -141,6 +141,8 @@ export function ResourcePage({ resource }) {
         result = await patchResource(resource.endpoint, id, '/status', payload)
       } else if (action === 'reset') {
         result = await patchResource(resource.endpoint, id, '/password-reset', payload)
+      } else if (action === 'cancel') {
+        result = await api.post(`${resource.endpoint}/${id}/cancel`, payload).then((response) => response.data?.data || response.data)
       } else {
         result = await deleteResource(resource.endpoint, id)
       }
@@ -197,6 +199,8 @@ export function ResourcePage({ resource }) {
           : t('resourceUi.created')
         : variables.action === 'delete'
         ? t('resourceUi.deleted')
+        : variables.action === 'cancel'
+        ? t('resourceUi.reservationCancelled')
         : t('resourceUi.saved')
       setNotice(msg)
 
@@ -513,6 +517,13 @@ export function ResourcePage({ resource }) {
                                   </button>
                                 )}
 
+                                {id && resource.endpoint === '/api/reservations' && canUpdate && ['PENDING', 'CONFIRMED'].includes(item.status) && (
+                                  <button type="button" className="table-action-btn" disabled={mutation.isPending} onClick={() => {
+                                    const reason = window.prompt(t('resourceUi.cancellationReason'))
+                                    if (reason?.trim()) mutation.mutate({ action: 'cancel', id, data: { reason: reason.trim() } })
+                                  }}>{t('resourceUi.cancelReservation')}</button>
+                                )}
+
                                 {id && resource.status && (
                                   <button
                                     type="button"
@@ -616,6 +627,13 @@ export function ResourcePage({ resource }) {
                             <Edit2 size={14} />
                             <span>{t('resourceUi.edit')}</span>
                           </Button>
+                        )}
+
+                        {id && resource.endpoint === '/api/reservations' && canUpdate && ['PENDING', 'CONFIRMED'].includes(item.status) && (
+                          <Button size="sm" variant="secondary" disabled={mutation.isPending} onClick={() => {
+                            const reason = window.prompt(t('resourceUi.cancellationReason'))
+                            if (reason?.trim()) mutation.mutate({ action: 'cancel', id, data: { reason: reason.trim() } })
+                          }}>{t('resourceUi.cancelReservation')}</Button>
                         )}
 
                         {id && canDelete && (

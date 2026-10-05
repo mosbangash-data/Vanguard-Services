@@ -293,7 +293,10 @@ export function DynamicResourceForm({
     deleted: [],
   })
 
-  const allFields = resource.fields || []
+  const updateFields = resource.updateFields?.map((field) => typeof field === 'string'
+    ? (resource.fields || []).find((resourceField) => resourceField.name === field)
+    : field).filter(Boolean)
+  const allFields = mode === 'edit' && resource.updateFields ? updateFields : (resource.fields || [])
   const fields = allFields.filter((field) => !field.visibleWhen || field.visibleWhen(formData))
 
   useEffect(() => {
@@ -496,7 +499,9 @@ export function DynamicResourceForm({
     e.preventDefault()
     if (!validate()) return
 
-    const payload = { ...formData }
+    const payload = mode === 'edit' && resource.updateFields
+      ? Object.fromEntries(updateFields.map((field) => [field.name, formData[field.name]]))
+      : { ...formData }
 
     const hasMediaField = resource.fields?.some((field) => ['file', 'image', 'gallery'].includes(field.type))
     if (hasMediaField) {
