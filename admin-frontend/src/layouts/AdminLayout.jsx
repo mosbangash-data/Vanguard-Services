@@ -26,6 +26,8 @@ import {
   Ticket,
   CreditCard,
   Package,
+  MapPin,
+  UserRoundPlus,
   Wrench,
   Settings,
   Sun,
@@ -108,6 +110,39 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
 
   // Navigation Items Definitions
   const navSections = useMemo(() => {
+    // The coach agent works from operational queues, not the department's
+    // administrative CRUD catalog. Keep each destination on its real route.
+    if (user?.role === 'AGENT' && userDept === 'VANGUARD_COACH') {
+      const agentSections = [
+        { id: 'agent-dashboard', titleKey: 'navigation.sections.agentDashboard', items: [
+          { path: '/transport/agent', labelKey: 'navigation.items.dashboard', icon: LayoutDashboard },
+        ] },
+        { id: 'agent-sales', titleKey: 'navigation.sections.agentSales', items: [
+          { path: '/transport/reservations', labelKey: 'navigation.items.newReservation', icon: UserRoundPlus, permission: 'CREATE_RESERVATION' },
+          { path: '/transport/reservations', labelKey: 'navigation.items.reservations', icon: Ticket, permission: 'VIEW_RESERVATION' },
+          { path: '/transport/operations', labelKey: 'navigation.items.cashPayments', icon: CreditCard, permission: 'VIEW_PAYMENT' },
+          { path: '/transport/tickets', labelKey: 'navigation.items.tickets', icon: Ticket, permission: 'VIEW_RESERVATION' },
+        ] },
+        { id: 'agent-boarding', titleKey: 'navigation.sections.agentBoarding', items: [
+          { path: '/transport/scanner', labelKey: 'navigation.items.scanner', icon: QrCode, permission: 'SCAN_TICKET' },
+          { path: '/transport/trips', labelKey: 'navigation.items.departures', icon: Bus, permission: 'VIEW_TRIP' },
+        ] },
+        { id: 'agent-parcels', titleKey: 'navigation.sections.agentParcels', items: [
+          { path: '/transport/parcels', labelKey: 'navigation.items.registerParcel', icon: Package, permission: 'CREATE_PARCEL' },
+          { path: '/transport/parcels', labelKey: 'navigation.items.parcelOperations', icon: Package, permission: 'VIEW_PARCEL' },
+          { path: '/transport/parcels', labelKey: 'navigation.items.parcelTracking', icon: MapPin, permission: 'VIEW_PARCEL' },
+        ] },
+        { id: 'agent-account', titleKey: 'navigation.sections.agentAccount', items: [
+          { path: '/admin/account', labelKey: 'navigation.items.account', icon: Settings },
+        ] },
+      ]
+      return agentSections.map((section) => ({
+        id: section.id,
+        title: t(section.titleKey),
+        items: section.items.filter((item) => !item.permission || hasPermission(user, item.permission)).map((item) => ({ ...item, label: t(item.labelKey) })),
+      })).filter((section) => section.items.length)
+    }
+
     if (customNavigation) {
       let customTitle = pageTitleOverride || t('navigation.title', {}, 'Navigation')
       if (location.pathname.startsWith('/transport')) {
@@ -298,7 +333,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
             const isExpanded = expandedSections[section.id] ?? true
 
             return (
-              <div key={section.id} className="vanguard-nav-section">
+              <div key={section.id} className={`vanguard-nav-section ${section.id.startsWith('agent-') ? 'vanguard-nav-section--agent' : ''}`}>
                 <div
                   className={`vanguard-nav-section-header ${isCollapsible ? 'is-collapsible' : ''}`}
                   onClick={() => isCollapsible && toggleSection(section.id)}
@@ -324,7 +359,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
                       const Icon = item.icon || ChevronRight
                       return (
                         <NavLink
-                          key={item.path}
+                          key={`${item.path}:${item.labelKey || item.label}`}
                           to={item.path}
                           end={item.end}
                           className={({ isActive }) =>
@@ -332,7 +367,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
                           }
                           onClick={() => setMobileOpen(false)}
                         >
-                          <Icon className="vanguard-sidebar-icon" size={17} />
+                          <span className="vanguard-sidebar-icon-wrap"><Icon className="vanguard-sidebar-icon" size={17} /></span>
                           <span className="vanguard-sidebar-label">{item.labelKey ? t(item.labelKey) : PATH_KEYS[item.path] ? t(`navigation.items.${PATH_KEYS[item.path]}`) : item.label}</span>
                         </NavLink>
                       )

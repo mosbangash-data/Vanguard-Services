@@ -35,6 +35,7 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
   // API states
   const [agencies, setAgencies] = useState([])
   const [loadingAgencies, setLoadingAgencies] = useState(false)
+  const [agencyLoadError, setAgencyLoadError] = useState(false)
   const [quoteLoading, setQuoteLoading] = useState(false)
   const [quote, setQuote] = useState(null)
   const [quoteError, setQuoteError] = useState('')
@@ -52,15 +53,17 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
     if (!isOpen) return
     let isMounted = true
     setLoadingAgencies(true)
+    setAgencyLoadError(false)
     api.get('/api/agencies?limit=100')
       .then((res) => {
         if (!isMounted) return
-        const list = res?.data?.items || res?.items || (Array.isArray(res?.data) ? res.data : [])
+        const list = res?.data?.data?.items || res?.data?.items || res?.items || (Array.isArray(res?.data) ? res.data : [])
         const activeList = list.filter((a) => a.isActive !== false)
         setAgencies(activeList)
       })
       .catch((err) => {
         console.error('Failed to load agencies', err)
+        if (isMounted) setAgencyLoadError(true)
       })
       .finally(() => {
         if (isMounted) setLoadingAgencies(false)
@@ -461,6 +464,8 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
                     </option>
                   ))}
                 </select>
+                {agencyLoadError && <small className="form-error" role="alert">{t('agentParcel.agenciesLoadError')}</small>}
+                {!loadingAgencies && !agencyLoadError && destinationAgencies.length === 0 && <small>{t('agentParcel.noDestinationAgencies')}</small>}
               </div>
             </div>
           </div>

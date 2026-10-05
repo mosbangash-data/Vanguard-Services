@@ -85,28 +85,28 @@ export default function Ticket() {
       <article className={`ticket-printable ticket--${printFormat}`} aria-label="Billet de voyage Vanguard Coach">
         <header className="ticket-print-header">
           <img src="/assets/transport/logo.jpeg" alt="Logo Vanguard Services" />
-          <div><strong>VANGUARD SERVICES</strong><span>VANGUARD COACH</span></div>
+          <div><strong>VANGUARD COACH</strong></div>
           <span className={`ticket-payment-status ${ticket?.status === 'VALID' && paid ? 'is-paid' : 'is-pending'}`}>{ticketStatus}</span>
         </header>
 
         <section className="ticket-print-route">
-          <div><span>DÉPART</span><strong>{route?.departureCity || '—'}</strong></div>
+          <div><span>DÉPART : </span><strong>{route?.departureCity || '—'}</strong></div>
           <span className="ticket-route-arrow" aria-hidden="true">→</span>
-          <div><span>DESTINATION</span><strong>{route?.arrivalCity || '—'}</strong></div>
+          <div><span>DESTINATION : </span><strong>{route?.arrivalCity || '—'}</strong></div>
         </section>
         <section className="ticket-print-times">
-          <div><span>DATE DU VOYAGE</span><strong>{formatDate(trip?.departureAt)}</strong></div>
-          <div><span>DÉPART</span><strong>{schedule?.departureTime || '—'}</strong></div>
+          <div><span>DATE DU VOYAGE : </span><strong>{formatDate(trip?.departureAt)}</strong></div>
+          <div><span>DÉPART : </span><strong>{schedule?.departureTime || '—'}</strong></div>
         </section>
 
         {(reservation?.customerName || reservation?.customerPhone) && <section className="ticket-print-passenger">
-          <span>PASSAGER</span><strong>{reservation?.customerName || '—'}</strong>
+          <span>PASSAGER : </span><strong>{reservation?.customerName || '—'}</strong>
           {reservation?.customerPhone && <small>{reservation.customerPhone}</small>}
         </section>}
 
         <section className="ticket-print-details">
-          <div><span>SIÈGE</span><strong>{reservation?.seatNumber || '—'}</strong></div>
-          <div><span>BILLET</span><strong>{ticket.ticketCode}</strong></div>
+          <div><span>SIÈGE : </span><strong>{reservation?.seatNumber || '—'}</strong></div>
+          <div><span>BILLET : </span><strong>{ticket.ticketCode}</strong></div>
         </section>
 
         <section className="ticket-print-qr" aria-label="QR code du billet">
