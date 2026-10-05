@@ -2,7 +2,7 @@ const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const { requireDepartmentType } = require('./departmentAccessService');
-const { calculateOfficialPrice, applyPricingBasis } = require('./parcelPricingService');
+const { applyPricingBasis } = require('./parcelPricingService');
 const { encryptSensitiveData, decryptSensitiveData, maskIdNumber, generateSecureTrackingCode } = require('../utils/cryptoUtils');
 const { buildSignedQrPayload } = require('../utils/qrUtils');
 const { getProvider } = require('./payment');
@@ -53,6 +53,20 @@ const resolvePricingDimensions = (basis, weightKg, volumeM3) => {
     throw new AppError('A positive volume is required for volume-based pricing', 400);
   }
   return applyPricingBasis(normalizedBasis, weightKg, volumeM3);
+};
+
+const resolveManualParcelPrice = (value, currencyValue, defaultCurrency = 'USD') => {
+  const raw = typeof value === 'number' ? String(value) : String(value ?? '').trim();
+  if (!/^\d+(?:\.\d{1,2})?$/.test(raw)) {
+    throw new AppError('A valid parcel price with at most two decimal places is required', 400);
+  }
+  const amount = Number(raw);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) {
+    throw new AppError('Parcel price must be greater than zero and within the supported limit', 400);
+  }
+  const currency = String(currencyValue || defaultCurrency || 'USD').trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) throw new AppError('A valid three-letter parcel currency is required', 400);
+  return { amount: amount.toFixed(2), currency };
 };
 
 const assertParcelAgencyAccess = (currentUser, parcel, action = 'view') => {
@@ -187,6 +201,7 @@ const createParcel = async (data, currentUser) => {
   const dept = await getCoachDepartment();
   if (!dept) throw new AppError('Vanguard Coach department is not configured', 500);
   const pricingDimensions = resolvePricingDimensions(pricingBasis, data.weightKg, data.volumeM3);
+  const manualPrice = resolveManualParcelPrice(data.amount, data.currency, dept.settings?.currency);
   data.originAgencyId = resolveOriginAgencyId(data.originAgencyId, currentUser);
 
   if (data.originAgencyId) {
@@ -219,15 +234,6 @@ const createParcel = async (data, currentUser) => {
     throw new AppError('Sender, recipient, and route (origin/destination) information are required', 400);
   }
 
-  const pricing = await calculateOfficialPrice({
-    originCity: data.originCity,
-    destinationCity: data.destinationCity,
-    ...pricingDimensions,
-    category: data.category,
-    declaredValue: data.declaredValue,
-    departmentId: dept?.id,
-  });
-
   const trackingCode = generateSecureTrackingCode();
   const initialStatus = 'REGISTERED';
 
@@ -249,8 +255,8 @@ const createParcel = async (data, currentUser) => {
         description: data.description ? String(data.description).trim() : null,
         ...pricingDimensions,
         declaredValue: data.declaredValue ? Number(data.declaredValue) : null,
-        amount: pricing.amount,
-        currency: pricing.currency,
+        amount: manualPrice.amount,
+        currency: manualPrice.currency,
         status: initialStatus,
         receivedByUserId: currentUser?.id || null,
         receivedAt: new Date(),
@@ -286,7 +292,7 @@ const createParcel = async (data, currentUser) => {
         newStatus: initialStatus,
         changedByUserId: currentUser?.id || null,
         reason: 'Initial parcel registration and physical reception',
-        details: { pricingBreakdown: pricing.breakdown, paymentMethod: data.paymentMethod || null },
+        details: { pricingBasis: pricingBasis || null, paymentMethod: data.paymentMethod || null },
       },
     });
 
@@ -300,7 +306,7 @@ const createParcel = async (data, currentUser) => {
     currency: parcel.currency,
   });
 
-  return { parcel, pricingBreakdown: pricing.breakdown };
+  return { parcel };
 };
 
 const payParcel = async (id, paymentData = {}, currentUser) => {
@@ -674,5 +680,6 @@ module.exports = {
   deleteParcel,
   resolveOriginAgencyId,
   resolvePricingDimensions,
+  resolveManualParcelPrice,
 };
 

@@ -37,6 +37,7 @@ const AgentDashboard = lazy(() => import('./features/admin/coach/AgentDashboard'
 const AgenciesManagementPage = lazy(() => import('./features/admin/coach/AgenciesManagementPage').then((m) => ({ default: m.AgenciesManagementPage })))
 const AgencyDetailPage = lazy(() => import('./features/admin/coach/AgencyDetailPage').then((m) => ({ default: m.AgencyDetailPage })))
 const TicketScanner = lazy(() => import('./features/admin/coach/TicketScanner').then((m) => ({ default: m.TicketScanner })))
+const TicketDetailPage = lazy(() => import('./features/admin/coach/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage })))
 const AutoSalesDashboardPage = lazy(() => import('./features/admin/autosales/AutoSalesDashboardPage').then((m) => ({ default: m.AutoSalesDashboardPage })))
 const AutoSalesAgentManagementPage = lazy(() => import('./features/admin/autosales/AutoSalesAgentWorkspacePage').then((m) => ({ default: m.AutoSalesAgentManagementPage })))
 const AutoSalesAgentWorkspacePage = lazy(() => import('./features/admin/autosales/AutoSalesAgentWorkspacePage').then((m) => ({ default: m.AutoSalesAgentWorkspacePage })))
@@ -114,6 +115,7 @@ function renderDepartmentRoutes({ base, department, title, resources, DashboardC
         {department === 'VANGUARD_COACH' && <Route path="/transport/agencies/:id" element={<AgencyDetailPage />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/scanner" element={<TicketScanner />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/operations" element={<CoachOperationsPage />} />}
+        {department === 'VANGUARD_COACH' && <Route path="/transport/tickets/:ticketCode" element={<TicketDetailPage />} />}
 
         {/* Automobile dedicated routes */}
         {department === 'AUTO_SALES' && <Route path="/automobile/vehicles" element={<VehicleManagementPage />} />}

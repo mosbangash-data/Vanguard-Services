@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Plus, RefreshCw, Search, X, Edit2, Trash2, KeyRound, AlertTriangle, CheckCircle2, Eye, Ticket } from 'lucide-react'
+import { Plus, RefreshCw, Search, X, Edit2, Trash2, KeyRound, AlertTriangle, CheckCircle2, Eye, Ticket, Printer } from 'lucide-react'
 import { hasPermission } from '../auth/permissions'
 import { useAuth } from '../auth/authContext'
 import { useLanguage } from '../../i18n/useLanguage'
@@ -9,6 +9,7 @@ import { getResourceTitle, getResourceSingular } from '../../i18n/resourceLabels
 import { createResource, deleteResource, listResource, patchResource, updateResource } from './resourceApi'
 import { DynamicResourceForm } from './DynamicResourceForm'
 import { AgentParcelModal } from '../admin/coach/AgentParcelModal'
+import { printTicket as printTicketDocument } from '../admin/coach/ticketPrint'
 import { api, uploadMedia } from '../../services/api'
 import { syncMediaRelations } from '../../utils/mediaSync'
 import { normalizeListResponse, getRelationValue } from '../../utils/apiResponse'
@@ -78,6 +79,7 @@ export function ResourcePage({ resource }) {
   const [viewTripModal, setViewTripModal] = useState(null)
   const isAgentTrips = user?.role === 'AGENT' && resource.endpoint === '/api/trips'
   const isAgentParcels = user?.role === 'AGENT' && resource.endpoint === '/api/parcels'
+  const isTicketResource = resource.endpoint === '/api/tickets'
   const displayPageTitle = isAgentTrips ? t('trips.scheduledTrips') : pageTitle
 
   const [search, setSearch] = useState('')
@@ -88,6 +90,9 @@ export function ResourcePage({ resource }) {
   const [newPassword, setNewPassword] = useState('')
   const [notice, setNotice] = useState('')
   const [serverError, setServerError] = useState('')
+  const [ticketActionError, setTicketActionError] = useState('')
+  const [printingTicketId, setPrintingTicketId] = useState(null)
+  const [ticketPrintFormat] = useState('80mm')
   const [mediaProgress, setMediaProgress] = useState('')
 
   // Debounce search input
@@ -113,6 +118,19 @@ export function ResourcePage({ resource }) {
       ),
     enabled,
   })
+
+  const handleTicketPrint = async (ticketCode) => {
+    if (printingTicketId) return
+    setPrintingTicketId(ticketCode)
+    setTicketActionError('')
+    try {
+      await printTicketDocument(ticketCode, ticketPrintFormat)
+    } catch {
+      setTicketActionError(t('ticket.printFailed'))
+    } finally {
+      setPrintingTicketId(null)
+    }
+  }
 
   const refresh = () => {
     setServerError('')
@@ -426,6 +444,8 @@ export function ResourcePage({ resource }) {
         </div>
       )}
 
+      {ticketActionError && <div className="vanguard-alert vanguard-alert--danger" role="alert"><AlertTriangle size={16} /><span>{ticketActionError}</span></div>}
+
       {mutation.isError && !formState && (
         <div className="vanguard-alert vanguard-alert--danger" role="alert">
           <AlertTriangle size={16} />
@@ -477,7 +497,16 @@ export function ResourcePage({ resource }) {
                         ))}
                         <td className="actions-cell">
                           <div className="action-buttons-wrap">
-                            {isAgentTrips ? (
+                            {isTicketResource ? (
+                              <>
+                                <button type="button" className="table-action-btn view-btn" onClick={() => navigate(`/transport/tickets/${encodeURIComponent(item.ticketCode)}`)} title={t('ticket.view')} aria-label={t('ticket.view')}>
+                                  <Eye size={14} /><span className="btn-label-desktop">{t('ticket.view')}</span>
+                                </button>
+                                <button type="button" className="table-action-btn" disabled={Boolean(printingTicketId)} onClick={() => handleTicketPrint(item.ticketCode)} title={t('ticket.print')} aria-label={t('ticket.print')}>
+                                  <Printer size={14} /><span className="btn-label-desktop">{printingTicketId === item.ticketCode ? t('ticket.printing') : t('ticket.print')}</span>
+                                </button>
+                              </>
+                            ) : isAgentTrips ? (
                               <>
                                 <button
                                   type="button"
@@ -592,7 +621,16 @@ export function ResourcePage({ resource }) {
                   </div>
 
                   <div className="resource-mobile-card-actions">
-                    {isAgentTrips ? (
+                    {isTicketResource ? (
+                      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                        <Button size="sm" variant="secondary" style={{ flex: 1 }} onClick={() => navigate(`/transport/tickets/${encodeURIComponent(item.ticketCode)}`)}>
+                          <Eye size={14} /><span>{t('ticket.view')}</span>
+                        </Button>
+                        <Button size="sm" variant="primary" style={{ flex: 1 }} disabled={Boolean(printingTicketId)} onClick={() => handleTicketPrint(item.ticketCode)}>
+                          <Printer size={14} /><span>{printingTicketId === item.ticketCode ? t('ticket.printing') : t('ticket.print')}</span>
+                        </Button>
+                      </div>
+                    ) : isAgentTrips ? (
                       <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
                         <Button
                           size="sm"

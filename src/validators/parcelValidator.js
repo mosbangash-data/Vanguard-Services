@@ -3,6 +3,17 @@
   if (body.pricingBasis && !['WEIGHT', 'VOLUME'].includes(String(body.pricingBasis).toUpperCase())) {
     return res.status(400).json({ success: false, message: 'pricingBasis must be WEIGHT or VOLUME' });
   }
+  const priceText = typeof body.amount === 'number' ? String(body.amount) : String(body.amount ?? '').trim();
+  const price = Number(priceText);
+  if (!/^\d+(?:\.\d{1,2})?$/.test(priceText) || !Number.isFinite(price) || price <= 0 || price > 99999999.99) {
+    return res.status(400).json({ success: false, message: 'A valid positive parcel price with at most two decimal places is required' });
+  }
+  if (body.currency !== undefined && !/^[A-Za-z]{3}$/.test(String(body.currency).trim())) {
+    return res.status(400).json({ success: false, message: 'currency must be a three-letter currency code' });
+  }
+  if (body.currency === undefined || !String(body.currency).trim()) {
+    return res.status(400).json({ success: false, message: 'currency is required' });
+  }
   if (!body.senderName || typeof body.senderName !== 'string' || !body.senderName.trim()) {
     return res.status(400).json({ success: false, message: 'senderName is required' });
   }

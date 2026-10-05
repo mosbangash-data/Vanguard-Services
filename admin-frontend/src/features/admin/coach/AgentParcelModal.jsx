@@ -30,21 +30,20 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
   const [weightKg, setWeightKg] = useState('')
   const [volumeM3, setVolumeM3] = useState('')
   const [destinationAgencyId, setDestinationAgencyId] = useState('')
+  const [amount, setAmount] = useState('')
+  const [currency, setCurrency] = useState('USD')
   const paymentMethod = 'CASH'
 
   // API states
   const [agencies, setAgencies] = useState([])
   const [loadingAgencies, setLoadingAgencies] = useState(false)
   const [agencyLoadError, setAgencyLoadError] = useState(false)
-  const [quoteLoading, setQuoteLoading] = useState(false)
-  const [quote, setQuote] = useState(null)
-  const [quoteError, setQuoteError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [successResult, setSuccessResult] = useState(null)
 
   // Agent origin agency info
-  const agentAgency = user?.agency || null
+  const agentAgency = user?.agency || agencies.find((agency) => agency.id === user?.agencyId) || null
   const originAgencyName = agentAgency?.name || (user?.agencyId ? `Agence (${user.agencyId})` : '')
   const originCity = agentAgency?.city || ''
 
@@ -95,56 +94,12 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
       setWeightKg('')
       setVolumeM3('')
       setDestinationAgencyId('')
-      setQuote(null)
-      setQuoteError('')
+      setAmount('')
+      setCurrency('USD')
       setSubmitError('')
       setSuccessResult(null)
     }
   }, [isOpen])
-
-  // Auto calculate quote when relevant fields change
-  useEffect(() => {
-    if (!isOpen || successResult) return
-
-    const destCity = selectedDestinationAgency?.city
-    const orgCity = originCity || (agentAgency?.city)
-
-    const numericWeight = pricingBasis === 'WEIGHT' ? parseFloat(weightKg) : 0
-    const numericVolume = pricingBasis === 'VOLUME' ? parseFloat(volumeM3) : 0
-
-    const hasDimension = pricingBasis === 'WEIGHT' ? (numericWeight > 0) : (numericVolume > 0)
-
-    if (!destCity || !hasDimension) {
-      setQuote(null)
-      setQuoteError('')
-      return
-    }
-
-    const timer = setTimeout(async () => {
-      setQuoteLoading(true)
-      setQuoteError('')
-      try {
-        const payload = {
-          originCity: orgCity || 'Kinshasa',
-          destinationCity: destCity,
-          pricingBasis,
-          weightKg: numericWeight,
-          volumeM3: numericVolume,
-          category,
-        }
-        const res = await api.post('/api/parcels/quote', payload)
-        const quoteData = res?.data || res
-        setQuote(quoteData)
-      } catch (err) {
-        setQuote(null)
-        setQuoteError(err?.response?.data?.message || err?.message || 'Erreur lors du calcul du tarif')
-      } finally {
-        setQuoteLoading(false)
-      }
-    }, 400)
-
-    return () => clearTimeout(timer)
-  }, [isOpen, destinationAgencyId, selectedDestinationAgency, pricingBasis, weightKg, volumeM3, category, originCity, agentAgency, successResult])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -174,6 +129,11 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
       setSubmitError(t('agentParcel.volumeM3') + ' : ' + t('resourceUi.required'))
       return
     }
+    const numericAmount = Number(amount)
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0 || !/^\d+(?:\.\d{1,2})?$/.test(amount.trim())) {
+      setSubmitError(t('agentParcel.priceRequired'))
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -187,6 +147,8 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
         pricingBasis,
         weightKg: numericWeight,
         volumeM3: numericVolume,
+        amount: numericAmount,
+        currency: currency.trim().toUpperCase(),
         originAgencyId: user?.agencyId || undefined,
         originCity: originCity || agentAgency?.city || undefined,
         destinationAgencyId,
@@ -195,7 +157,7 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
       }
 
       const res = await api.post('/api/parcels', payload)
-      const parcel = res?.data?.parcel || res?.parcel || res?.data
+      const parcel = res?.data?.data?.parcel || res?.data?.parcel || res?.parcel || res?.data
       setSuccessResult(parcel)
       if (onSuccess) {
         onSuccess(parcel)
@@ -470,29 +432,21 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
             </div>
           </div>
 
-          {/* Section 5: Prix du colis */}
+          {/* Section 5: Agent-entered parcel price */}
           <div className="form-section-card" style={{ border: '1px solid var(--border-color, #e5e7eb)', borderRadius: '8px', padding: '1rem', background: 'var(--surface-raised, #f9fafb)' }}>
             <h5 style={{ margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem', fontWeight: 600 }}>
               <Calculator size={16} /> {t('agentParcel.pricingSection')}
             </h5>
-            {quoteLoading ? (
-              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>
-                {t('agentParcel.calculating')}
-              </p>
-            ) : quote ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.95rem', color: 'var(--text-muted)' }}>{t('agentParcel.totalToPay')} :</span>
-                <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--primary, #2563eb)' }}>
-                  {quote.amount} {quote.currency || 'USD'}
-                </span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 2fr) minmax(120px, 1fr)', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="agent-parcel-price">{t('agentParcel.manualPrice')} *</label>
+                <input id="agent-parcel-price" className="form-control" type="number" min="0.01" max="99999999.99" step="0.01" required value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="25.00" />
               </div>
-            ) : quoteError ? (
-              <p style={{ margin: 0, color: '#ef4444', fontSize: '0.85rem' }}>{quoteError}</p>
-            ) : (
-              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                {t('agentParcel.fillRequired')}
-              </p>
-            )}
+              <div className="form-group">
+                <label className="form-label" htmlFor="agent-parcel-currency">{t('agentParcel.currency')} *</label>
+                <input id="agent-parcel-currency" className="form-control" type="text" required minLength="3" maxLength="3" pattern="[A-Za-z]{3}" value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} />
+              </div>
+            </div>
           </div>
 
           {/* Section 6: Paiement colis */}
@@ -518,7 +472,7 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
             <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
               {t('resourceUi.cancel')}
             </Button>
-            <Button type="submit" variant="primary" disabled={submitting || quoteLoading || !quote}>
+            <Button type="submit" variant="primary" disabled={submitting}>
               {submitting ? t('agentParcel.submitting') : t('agentParcel.submit')}
             </Button>
           </div>

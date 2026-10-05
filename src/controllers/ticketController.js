@@ -45,6 +45,17 @@ const getTicket = async (req, res, next) => {
     const result = req.user
       ? { ticket: await ticketService.getTicketByCode(req.params.ticketCode, req.user) }
       : await ticketService.getPublicTicketByCode(req.params.ticketCode);
+    // The authenticated API route is permission protected and agency scoped.
+    // Render the QR from the ticket's stored signed payload; do not sign or
+    // invent another ticket payload in the client.
+    if (req.user && req.baseUrl === '/api/tickets') {
+      result.ticket.qrDataUrl = await QRCode.toDataURL(result.ticket.qrCode, {
+        width: 240,
+        margin: 3,
+        errorCorrectionLevel: 'Q',
+        color: { dark: '#111827', light: '#ffffff' },
+      });
+    }
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

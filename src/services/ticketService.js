@@ -228,7 +228,12 @@ const getTicketPrintContext = async (ticketCode, actorId = null, currentUser = n
 const recordTicketPrintAudit = async (ticket, actorId = null, printMetadata = {}) => {
   if (typeof ticket === 'string') ticket = await getTicketByCode(ticket);
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${ticket.id})::bigint)`;
+    // Keep the per-ticket print audit serialized without asking Prisma to
+    // deserialize PostgreSQL's `void` lock-function result (P2010).
+    await tx.$queryRaw`WITH ticket_lock AS MATERIALIZED (
+      SELECT pg_advisory_xact_lock(hashtext(${ticket.id})::bigint)
+    )
+    SELECT 1::int AS locked FROM ticket_lock`;
     const previousPrints = await tx.auditLog.count({
       where: { action: 'print_ticket', details: { path: ['targetTicketId'], equals: ticket.id } },
     });

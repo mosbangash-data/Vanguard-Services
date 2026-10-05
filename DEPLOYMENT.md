@@ -58,7 +58,17 @@ Configure these in Render only; do not commit real values:
 - `SUPER_ADMIN_PASSWORD=<strong password>`
 - `JWT_SECRET=<strong secret>`
 - `SESSION_SECRET=<strong secret>`
+- `TICKET_QR_SECRET=<stable secret with at least 32 characters>`
 - `CORS_ORIGIN=<allowed production origin>`
+
+`TICKET_QR_SECRET` is required in every non-test environment because ticket QR
+codes are signed with it. Add it in **Render → Service → Environment →
+Environment Variables**. Generate a cryptographically random value of at least
+32 characters, store it only in Render's secret environment settings, and keep
+the same value across deploys and restarts. Rotating it invalidates QR codes
+signed with the previous value. Never put the real value in Git, frontend
+variables, logs, or API responses. The value shown in `.env.example` is only a
+placeholder.
 
 The Super Admin password is required in production and has no default.
 

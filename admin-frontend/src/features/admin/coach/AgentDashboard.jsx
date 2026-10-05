@@ -8,6 +8,7 @@ import { hasPermission } from '../../auth/permissions'
 import { api } from '../../../services/api'
 import { Button, EmptyState, ErrorState, LoadingState, StatCard, StatusBadge } from '../../../components/ui'
 import { TicketScanner } from './TicketScanner'
+import { printTicket as printTicketDocument } from './ticketPrint'
 
 const queryKey = (id) => ['agent-dashboard', id]
 const errorMessage = (error, t) => {
@@ -59,19 +60,23 @@ export function AgentReservations({ reservations, lang, user }) {
   const [search, setSearch] = useState('')
   const [printFormat, setPrintFormat] = useState('80mm')
   const [ticketError, setTicketError] = useState(null)
+  const [printingTicketCode, setPrintingTicketCode] = useState(null)
   const term = search.trim().toLowerCase()
   const visible = reservations.filter((item) => !term || [item.reservationCode, item.customerName, item.customerPhone].some((value) => String(value || '').toLowerCase().includes(term)))
   const printTicket = async (ticketCode) => {
+    if (printingTicketCode) return
+    setPrintingTicketCode(ticketCode)
     try {
       setTicketError(null)
-      const response = await api.get(`/api/tickets/${ticketCode}/print`, { params: { format: printFormat }, responseType: 'blob' })
-      window.open(URL.createObjectURL(response.data), '_blank', 'noopener,noreferrer')
+      await printTicketDocument(ticketCode, printFormat)
     } catch (error) {
       setTicketError(errorMessage(error, t))
+    } finally {
+      setPrintingTicketCode(null)
     }
   }
   return <section className="dashboard-panel agent-section"><div className="section-heading"><div><h2>{t('agent.reservations')}</h2><p>{t('agent.reservationWork')}</p></div><div className="agent-header-actions"><label>{t('operations.printFormat')} <select value={printFormat} onChange={(event) => setPrintFormat(event.target.value)}><option value="a4">A4</option><option value="58mm">58 mm</option><option value="80mm">80 mm</option><option value="110mm">110 mm</option></select></label><Link to="/transport/reservations" className="button secondary sm">{t('agent.openManagement')}</Link></div></div><div className="agent-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('agent.reservationSearchPlaceholder')} aria-label={t('agent.searchReservationLabel')} /></div>{ticketError && <div className="alert alert-danger" role="alert">{ticketError}</div>}
-    {!visible.length ? <EmptyState title={reservations.length ? t('agent.noResults') : t('agent.noReservations')} description={reservations.length ? t('agent.noReservationMatches') : t('agent.backendNoReservations')} /> : <div className="table-responsive"><table className="data-table"><thead><tr><th>{t('agent.reservations')}</th><th>{t('agent.client')}</th><th>{t('agent.trip')}</th><th>{t('agent.seat')}</th><th>{t('agent.amount')}</th><th>{t('agent.payment')}</th><th>{t('agent.actions')}</th></tr></thead><tbody>{visible.slice(0, 50).map((item) => { const ticketCode = item.tickets?.[0]?.ticketCode; return <tr key={item.id}><td><strong>{item.reservationCode}</strong><br /><small>{dateTime(item.createdAt, lang)}</small></td><td>{item.customerName}<br /><small>{item.customerPhone}</small></td><td>{route(item)}<br /><small>{item.trip?.departureAt ? dateTime(item.trip.departureAt, lang) : '-'}</small></td><td>{item.seatNumber}</td><td>{money(item.totalAmount, item.currency, lang)}</td><td><StatusBadge status={item.payments?.[0]?.status || 'PENDING'} /></td><td className="agent-inline-actions"><Link to="/transport/reservations" className="button secondary sm">{t('agent.view')}</Link>{hasPermission(user, 'VIEW_PAYMENT') && <Link to="/transport/operations" className="button secondary sm">{t('agent.paymentAction')}</Link>}{ticketCode && <button type="button" className="button secondary sm" onClick={() => printTicket(ticketCode)}>{t('agent.ticket')}</button>}</td></tr> })}</tbody></table></div>}
+    {!visible.length ? <EmptyState title={reservations.length ? t('agent.noResults') : t('agent.noReservations')} description={reservations.length ? t('agent.noReservationMatches') : t('agent.backendNoReservations')} /> : <div className="table-responsive"><table className="data-table"><thead><tr><th>{t('agent.reservations')}</th><th>{t('agent.client')}</th><th>{t('agent.trip')}</th><th>{t('agent.seat')}</th><th>{t('agent.amount')}</th><th>{t('agent.payment')}</th><th>{t('agent.actions')}</th></tr></thead><tbody>{visible.slice(0, 50).map((item) => { const ticketCode = item.tickets?.[0]?.ticketCode; return <tr key={item.id}><td><strong>{item.reservationCode}</strong><br /><small>{dateTime(item.createdAt, lang)}</small></td><td>{item.customerName}<br /><small>{item.customerPhone}</small></td><td>{route(item)}<br /><small>{item.trip?.departureAt ? dateTime(item.trip.departureAt, lang) : '-'}</small></td><td>{item.seatNumber}</td><td>{money(item.totalAmount, item.currency, lang)}</td><td><StatusBadge status={item.payments?.[0]?.status || 'PENDING'} /></td><td className="agent-inline-actions"><Link to="/transport/reservations" className="button secondary sm">{t('agent.view')}</Link>{hasPermission(user, 'VIEW_PAYMENT') && <Link to="/transport/operations" className="button secondary sm">{t('agent.paymentAction')}</Link>}{ticketCode && <><Link to={`/transport/tickets/${encodeURIComponent(ticketCode)}`} className="button secondary sm">{t('ticket.view')}</Link><button type="button" className="button secondary sm" disabled={Boolean(printingTicketCode)} onClick={() => printTicket(ticketCode)}>{printingTicketCode === ticketCode ? t('ticket.printing') : t('ticket.print')}</button></>}</td></tr> })}</tbody></table></div>}
   </section>
 }
 
