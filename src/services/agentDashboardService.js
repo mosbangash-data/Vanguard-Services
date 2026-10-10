@@ -6,6 +6,7 @@ const {
   getUserAgencyId,
   assertDepartmentIdForUser,
 } = require('./departmentAccessService');
+const { aggregateAgentRevenue } = require('../utils/agentRevenue');
 
 const VALIDATED_PAYMENT_STATUSES = ['VERIFIED', 'COMPLETED'];
 const TRACKED_PARCEL_STATUSES = ['REGISTERED', 'IN_TRANSIT', 'ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP'];
@@ -242,7 +243,13 @@ const getAgentDashboard = async (currentUser, dateValue) => {
   const ownsActivity = currentUser.role === 'AGENT' && currentUser.id;
   const historyStartDate = addDateKeyDays(businessDate, -6);
   const historyStart = businessDayRange(historyStartDate).start;
-  const [issuedTickets, receivedPayments, recentAgentReservations, recentAgentTickets, recentAgentPayments, recentAgentCancellations, recentAgentScans, recentAgentParcels] = ownsActivity
+  const agentParcelPaymentWhere = {
+    method: 'CASH',
+    status: { in: VALIDATED_PAYMENT_STATUSES },
+    validatedById: currentUser.id,
+    validatedAt: { gte: historyStart, lt: tomorrowStart },
+  };
+  const [issuedTickets, receivedPayments, receivedParcelPayments, recentAgentReservations, recentAgentTickets, recentAgentPayments, recentAgentCancellations, recentAgentScans, recentAgentParcels] = ownsActivity
     ? await Promise.all([
       hasPermission(currentUser, 'VIEW_RESERVATION') ? prisma.ticket.findMany({
         where: { issuedByUserId: currentUser.id, issuedAt: { gte: todayStart, lt: tomorrowStart }, status: { in: ['VALID', 'USED'] } },
@@ -257,7 +264,19 @@ const getAgentDashboard = async (currentUser, dateValue) => {
           validatedAt: { gte: historyStart, lt: tomorrowStart },
         },
         orderBy: { validatedAt: 'desc' },
-        select: { id: true, amount: true, currency: true, reference: true, reservation: { select: { reservationCode: true, customerName: true } }, validatedAt: true, status: true },
+        select: { id: true, amount: true, currency: true, reference: true, validatedById: true, reservation: { select: { reservationCode: true, customerName: true } }, validatedAt: true, status: true },
+      }) : [],
+      hasPermission(currentUser, 'VIEW_PAYMENT') && (hasPermission(currentUser, 'CREATE_PARCEL') || hasPermission(currentUser, 'VERIFY_PARCEL_PAYMENT')) ? prisma.parcel.findMany({
+        where: { ...buildParcelScope(departmentId, currentUser), payments: { some: agentParcelPaymentWhere } },
+        select: {
+          trackingCode: true,
+          recipientName: true,
+          payments: {
+            where: agentParcelPaymentWhere,
+            orderBy: { validatedAt: 'desc' },
+            select: { id: true, amount: true, currency: true, method: true, status: true, validatedById: true, validatedAt: true, reference: true },
+          },
+        },
       }) : [],
       hasPermission(currentUser, 'VIEW_RESERVATION') ? prisma.reservation.findMany({
         where: { ...reservationScope, createdByUserId: currentUser.id, createdAt: { gte: todayStart, lt: tomorrowStart } },
@@ -305,21 +324,28 @@ const getAgentDashboard = async (currentUser, dateValue) => {
         select: { id: true, trackingCode: true, amount: true, currency: true, status: true, createdAt: true },
       }) : [],
     ])
-    : [[], [], [], [], [], [], [], []];
+    : [[], [], [], [], [], [], [], [], []];
 
-  const revenueByDay = Array.from({ length: 7 }, (_, index) => {
-    return { date: addDateKeyDays(historyStartDate, index), currencies: {} };
+  const parcelReceivedPayments = receivedParcelPayments.flatMap((parcel) => parcel.payments.map((payment) => ({
+    ...payment,
+    parcelTrackingCode: parcel.trackingCode,
+    parcelRecipientName: parcel.recipientName,
+  })));
+
+  const revenue = aggregateAgentRevenue({
+    ticketPayments: receivedPayments,
+    parcelPayments: parcelReceivedPayments,
+    agentId: currentUser.id,
+    businessDate,
   });
-  for (const payment of receivedPayments) {
-    const day = revenueByDay.find((item) => item.date === dateKeyAt(payment.validatedAt));
-    if (!day) continue;
-    const currency = payment.currency || 'USD';
-    day.currencies[currency] = (day.currencies[currency] || 0) + Number(payment.amount || 0);
-  }
+  const ticketPaymentIds = new Set(receivedPayments.map((payment) => payment.id));
+  const recentParcelPayments = parcelReceivedPayments.filter((payment) =>
+    !ticketPaymentIds.has(payment.id) && payment.validatedAt >= todayStart && payment.validatedAt < tomorrowStart);
   const personalActivity = [
     ...recentAgentReservations.map((item) => ({ id: `reservation-${item.id}`, type: 'reservation', reference: item.reservationCode, customer: item.customerName, amount: null, currency: null, status: item.status, at: item.createdAt })),
     ...recentAgentTickets.map((item) => ({ id: `ticket-${item.id}`, type: 'ticket', reference: item.ticketCode, customer: item.reservation?.customerName || null, amount: null, currency: null, status: item.status, at: item.issuedAt })),
     ...recentAgentPayments.map((item) => ({ id: `payment-${item.id}`, type: 'payment', reference: item.reference || item.reservation?.reservationCode || item.id, customer: item.reservation?.customerName || null, amount: item.amount, currency: item.currency, status: item.status, at: item.validatedAt })),
+    ...recentParcelPayments.map((item) => ({ id: `payment-${item.id}`, type: 'payment', reference: item.reference || item.parcelTrackingCode || item.id, customer: item.parcelRecipientName || null, amount: item.amount, currency: item.currency, status: item.status, at: item.validatedAt })),
     ...recentAgentCancellations.map((item) => ({ id: `cancellation-${item.id}`, type: 'cancellation', reference: item.reservation?.reservationCode || item.id, customer: item.reservation?.customerName || null, amount: null, currency: null, status: item.status, at: item.createdAt })),
     ...recentAgentScans.map((item) => ({ id: `scan-${item.id}`, type: 'scan', reference: item.ticket?.ticketCode || item.id, customer: item.ticket?.reservation?.customerName || null, amount: null, currency: null, status: item.result, at: item.scannedAt })),
     ...recentAgentParcels.map((item) => ({ id: `parcel-${item.id}`, type: 'parcel', reference: item.trackingCode, customer: null, amount: item.amount, currency: item.currency, status: item.status, at: item.createdAt })),
@@ -335,12 +361,8 @@ const getAgentDashboard = async (currentUser, dateValue) => {
     agentDaily: {
       date: businessDate,
       ticketsSold: issuedTickets.length,
-      revenueByCurrency: receivedPayments.filter((payment) => payment.validatedAt >= todayStart).reduce((totals, payment) => {
-        const currency = payment.currency || 'USD';
-        totals[currency] = (totals[currency] || 0) + Number(payment.amount || 0);
-        return totals;
-      }, {}),
-      revenueHistory: revenueByDay,
+      revenueByCurrency: revenue.revenueByCurrency,
+      revenueHistory: revenue.revenueHistory,
       activity: personalActivity,
     },
     departures: {
