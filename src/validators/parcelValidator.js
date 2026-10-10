@@ -14,6 +14,18 @@
   if (body.currency === undefined || !String(body.currency).trim()) {
     return res.status(400).json({ success: false, message: 'currency is required' });
   }
+  if (!['AT_DEPOSIT', 'AT_PICKUP'].includes(String(body.paymentTiming || '').toUpperCase())) {
+    return res.status(400).json({ success: false, message: 'paymentTiming must be AT_DEPOSIT or AT_PICKUP' });
+  }
+  if (String(body.paymentTiming).toUpperCase() === 'AT_DEPOSIT' && body.cashCollected !== true) {
+    return res.status(400).json({ success: false, message: 'Confirm that CASH was actually collected at deposit' });
+  }
+  if (String(body.paymentTiming).toUpperCase() === 'AT_PICKUP' && body.cashCollected === true) {
+    return res.status(400).json({ success: false, message: 'Cash collected at deposit conflicts with payment due at pickup' });
+  }
+  if (body.paymentMethod !== undefined && String(body.paymentMethod).toUpperCase() !== 'CASH') {
+    return res.status(400).json({ success: false, message: 'Only CASH payments are supported for parcels' });
+  }
   if (!body.senderName || typeof body.senderName !== 'string' || !body.senderName.trim()) {
     return res.status(400).json({ success: false, message: 'senderName is required' });
   }

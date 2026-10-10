@@ -5,10 +5,9 @@ const { requireDepartmentType } = require('./departmentAccessService');
 const { applyPricingBasis } = require('./parcelPricingService');
 const { encryptSensitiveData, decryptSensitiveData, maskIdNumber, generateSecureTrackingCode } = require('../utils/cryptoUtils');
 const { buildSignedQrPayload } = require('../utils/qrUtils');
-const { getProvider } = require('./payment');
 
 const ALLOWED_PARCEL_TRANSITIONS = {
-  REGISTERED: ['PAYMENT_PENDING', 'PAID', 'CANCELLED'],
+  REGISTERED: ['PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'IN_TRANSIT', 'CANCELLED'],
   PAYMENT_PENDING: ['PAID', 'CANCELLED'],
   PAID: ['ACCEPTED', 'CANCELLED', 'RETURNED'],
   ACCEPTED: ['IN_TRANSIT', 'CANCELLED', 'RETURNED'],
@@ -111,8 +110,28 @@ const listParcels = async (query = {}, currentUser) => {
   const skip = (page - 1) * limit;
 
   const where = {};
-  if (query.trackingCode) where.trackingCode = String(query.trackingCode).trim();
+  const filters = [];
+  if (query.trackingCode) where.trackingCode = { contains: String(query.trackingCode).trim(), mode: 'insensitive' };
   if (query.status) where.status = query.status;
+  if (query.destinationAgencyId) where.destinationAgencyId = String(query.destinationAgencyId).trim();
+  if (query.paymentStatus) {
+    if (!['PENDING', 'VERIFIED', 'COMPLETED'].includes(String(query.paymentStatus).toUpperCase())) throw new AppError('Invalid parcel payment status filter', 400);
+    where.payments = { some: { status: String(query.paymentStatus).toUpperCase() } };
+  }
+  if (query.createdFrom || query.createdTo) {
+    const from = query.createdFrom ? new Date(query.createdFrom) : null;
+    const to = query.createdTo ? new Date(query.createdTo) : null;
+    if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime())) || (from && to && from > to)) throw new AppError('Invalid parcel date range', 400);
+    where.createdAt = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+  }
+  const search = String(query.search || '').trim().replace(/\s+/g, ' ');
+  if (search) filters.push({ OR: [
+    { trackingCode: { contains: search, mode: 'insensitive' } },
+    { senderName: { contains: search, mode: 'insensitive' } },
+    { recipientName: { contains: search, mode: 'insensitive' } },
+    { senderPhone: { contains: search } },
+    { recipientPhone: { contains: search } },
+  ] });
   if (query.originCity) where.originCity = { contains: String(query.originCity).trim(), mode: 'insensitive' };
   if (query.destinationCity) where.destinationCity = { contains: String(query.destinationCity).trim(), mode: 'insensitive' };
   if (query.senderPhone) where.senderPhone = { contains: String(query.senderPhone).trim() };
@@ -124,11 +143,12 @@ const listParcels = async (query = {}, currentUser) => {
     throw new AppError('Agent agency assignment is required', 403);
   }
   if (userAgencyId && currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SERVICE_ADMIN') {
-    where.OR = [
+    filters.push({ OR: [
       { originAgencyId: userAgencyId },
       { destinationAgencyId: userAgencyId },
-    ];
+    ] });
   }
+  if (filters.length) where.AND = filters;
 
   const [items, total] = await Promise.all([
     prisma.parcel.findMany({
@@ -191,7 +211,7 @@ const getParcelById = async (id, currentUser) => {
   });
 
   if (!parcel) throw new AppError('Parcel not found', 404);
-  assertParcelAgencyAccess(currentUser, parcel, 'view');
+  assertParcelAgencyAccess(currentUser, parcel, 'origin');
   return { parcel };
 };
 
@@ -202,6 +222,11 @@ const createParcel = async (data, currentUser) => {
   if (!dept) throw new AppError('Vanguard Coach department is not configured', 500);
   const pricingDimensions = resolvePricingDimensions(pricingBasis, data.weightKg, data.volumeM3);
   const manualPrice = resolveManualParcelPrice(data.amount, data.currency, dept.settings?.currency);
+  const paymentTiming = String(data.paymentTiming || '').toUpperCase();
+  if (!['AT_DEPOSIT', 'AT_PICKUP'].includes(paymentTiming)) throw new AppError('A parcel payment timing is required', 400);
+  if (paymentTiming === 'AT_DEPOSIT' && data.cashCollected !== true) throw new AppError('Confirm that CASH was actually collected at deposit', 400);
+  if (paymentTiming === 'AT_PICKUP' && data.cashCollected === true) throw new AppError('Cash collected at deposit conflicts with payment due at pickup', 400);
+  if (data.paymentMethod && String(data.paymentMethod).toUpperCase() !== 'CASH') throw new AppError('Only CASH payments are supported for parcels', 400);
   data.originAgencyId = resolveOriginAgencyId(data.originAgencyId, currentUser);
 
   if (data.originAgencyId) {
@@ -257,6 +282,7 @@ const createParcel = async (data, currentUser) => {
         declaredValue: data.declaredValue ? Number(data.declaredValue) : null,
         amount: manualPrice.amount,
         currency: manualPrice.currency,
+        paymentTiming,
         status: initialStatus,
         receivedByUserId: currentUser?.id || null,
         receivedAt: new Date(),
@@ -268,22 +294,21 @@ const createParcel = async (data, currentUser) => {
       },
     });
 
-    if (data.paymentMethod) {
-      const paymentMethod = String(data.paymentMethod).toUpperCase();
-      await tx.payment.create({
+    const payment = await tx.payment.create({
         data: {
           parcelId: created.id,
           agencyId: created.originAgencyId || null,
           amount: created.amount,
           currency: created.currency,
           channel: 'AGENCY',
-          method: paymentMethod === 'MOBILE_MONEY' ? 'MOBILE_MONEY' : 'CASH',
-          status: 'PENDING',
-          provider: paymentMethod === 'MOBILE_MONEY' ? 'MOBILE_MONEY' : 'CASH',
-          comment: 'Initial payment recorded upon parcel registration',
+          method: 'CASH',
+          status: paymentTiming === 'AT_DEPOSIT' ? 'VERIFIED' : 'PENDING',
+          provider: 'CASH',
+          comment: paymentTiming === 'AT_DEPOSIT' ? 'Cash collected at parcel deposit' : 'Cash due at parcel pickup',
+          validatedById: paymentTiming === 'AT_DEPOSIT' ? currentUser?.id : null,
+          validatedAt: paymentTiming === 'AT_DEPOSIT' ? new Date() : null,
         },
       });
-    }
 
     await tx.parcelStatusHistory.create({
       data: {
@@ -292,7 +317,7 @@ const createParcel = async (data, currentUser) => {
         newStatus: initialStatus,
         changedByUserId: currentUser?.id || null,
         reason: 'Initial parcel registration and physical reception',
-        details: { pricingBasis: pricingBasis || null, paymentMethod: data.paymentMethod || null },
+        details: { pricingBasis: pricingBasis || null, paymentMethod: 'CASH', paymentTiming, paymentId: payment.id },
       },
     });
 
@@ -313,70 +338,31 @@ const payParcel = async (id, paymentData = {}, currentUser) => {
   assertCoachAccess(currentUser);
   const parcel = await prisma.parcel.findUnique({ where: { id }, include: { payments: true } });
   if (!parcel) throw new AppError('Parcel not found', 404);
-  assertParcelAgencyAccess(currentUser, parcel, 'origin');
-
-  if (parcel.status !== 'REGISTERED' && parcel.status !== 'PAYMENT_PENDING') {
+  assertParcelAgencyAccess(currentUser, parcel, 'view');
+  if (parcel.status === 'COLLECTED' || parcel.status === 'CANCELLED' || parcel.status === 'RETURNED') {
     throw new AppError(`Parcel is not in a payable state (current status: ${parcel.status})`, 409);
   }
-
-  const channel = String(paymentData.channel || 'AGENCY').toUpperCase();
   const method = String(paymentData.method || 'CASH').toUpperCase();
-  const provider = getProvider(channel);
-
-  const paymentInit = await provider.initiatePayment({
-    amount: Number(parcel.amount),
-    currency: parcel.currency,
-    reference: paymentData.reference,
-    agentId: currentUser?.id,
-    method,
-  });
-
+  if (method !== 'CASH') throw new AppError('Only CASH payments are supported for parcels', 400);
+  const channel = 'AGENCY';
   const result = await prisma.$transaction(async (tx) => {
-    const payment = await tx.payment.create({
-      data: {
-        parcelId: parcel.id,
-        amount: parcel.amount,
-        currency: parcel.currency,
-        channel: channel === 'ONLINE' ? 'ONLINE' : 'AGENCY',
-        method,
-        status: paymentInit.status === 'VERIFIED' ? 'VERIFIED' : 'PENDING',
-        provider: provider.name,
-        providerTransactionId: paymentInit.providerTransactionId || null,
-        providerReference: paymentData.reference ? String(paymentData.reference).trim() : null,
-        reference: paymentInit.providerTransactionId || null,
-        comment: paymentData.comment ? String(paymentData.comment).trim() : null,
-        validatedById: paymentInit.status === 'VERIFIED' ? currentUser?.id : null,
-        validatedAt: paymentInit.status === 'VERIFIED' ? new Date() : null,
-      },
+    const pending = await tx.payment.findMany({ where: { parcelId: id, status: 'PENDING', method: 'CASH' } });
+    if (pending.length !== 1) throw new AppError(pending.length ? 'Multiple pending parcel payments require review' : 'Parcel has no unpaid CASH payment', 409);
+    const updated = await tx.payment.updateMany({
+      where: { id: pending[0].id, status: 'PENDING', method: 'CASH' },
+      data: { status: 'VERIFIED', validatedById: currentUser.id, validatedAt: new Date(), comment: paymentData.comment ? String(paymentData.comment).trim() : 'Cash collected at agency' },
     });
-
-    let newStatus = parcel.status;
-    if (payment.status === 'VERIFIED') {
-      newStatus = 'PAID';
-      await tx.parcel.update({
-        where: { id: parcel.id },
-        data: { status: newStatus },
-      });
-
-      await tx.parcelStatusHistory.create({
-        data: {
-          parcelId: parcel.id,
-          previousStatus: parcel.status,
-          newStatus,
-          changedByUserId: currentUser?.id || null,
-          reason: `Parcel payment verified via ${channel} (${method})`,
-          details: { paymentId: payment.id, amount: payment.amount, reference: payment.reference },
-        },
-      });
-    } else if (channel === 'ONLINE') {
-      newStatus = 'PAYMENT_PENDING';
-      await tx.parcel.update({
-        where: { id: parcel.id },
-        data: { status: newStatus },
-      });
-    }
-
-    return { payment, newStatus };
+    if (updated.count !== 1) throw new AppError('Parcel payment was already collected', 409);
+    const payment = await tx.payment.findUnique({ where: { id: pending[0].id } });
+    await tx.parcelStatusHistory.create({ data: {
+      parcelId: id,
+      previousStatus: parcel.status,
+      newStatus: parcel.status,
+      changedByUserId: currentUser.id,
+      reason: 'Parcel CASH payment collected',
+      details: { paymentId: payment.id, financialStatus: 'VERIFIED', amount: payment.amount },
+    } });
+    return { payment, newStatus: parcel.status };
   });
 
   await auditService.log('pay_parcel', currentUser?.id || null, {
@@ -454,7 +440,7 @@ const collectParcel = async (id, pickupData = {}, currentUser) => {
     throw new AppError('Collector name, phone, ID type and ID number are strictly required for parcel pickup', 400);
   }
 
-  const parcel = await prisma.parcel.findUnique({ where: { id } });
+  const parcel = await prisma.parcel.findUnique({ where: { id }, include: { payments: true } });
   if (!parcel) throw new AppError('Parcel not found', 404);
   assertParcelAgencyAccess(currentUser, parcel, 'collect');
 
@@ -479,6 +465,21 @@ const collectParcel = async (id, pickupData = {}, currentUser) => {
       throw new AppError('Parcel has already been collected or status changed concurrently', 409);
     }
 
+    const parcelPayments = await tx.payment.findMany({ where: { parcelId: id, method: 'CASH' } });
+    const pendingPayments = parcelPayments.filter((payment) => payment.status === 'PENDING');
+    const validatedPayments = parcelPayments.filter((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status));
+    let collectedPayment = validatedPayments[0] || null;
+    if (pendingPayments.length) {
+      if (pendingPayments.length !== 1 || collectedPayment) throw new AppError('Parcel payment state is inconsistent', 409);
+      const paid = await tx.payment.updateMany({
+        where: { id: pendingPayments[0].id, status: 'PENDING', method: 'CASH', amount: parcel.amount },
+        data: { status: 'VERIFIED', validatedById: currentUser.id, validatedAt: new Date(), comment: 'Cash collected at parcel pickup' },
+      });
+      if (paid.count !== 1) throw new AppError('Parcel payment was already collected or does not match its price', 409);
+      collectedPayment = await tx.payment.findUnique({ where: { id: pendingPayments[0].id } });
+    }
+    if (!collectedPayment) throw new AppError('Parcel must be paid in CASH before pickup', 409);
+
     const pickup = await tx.parcelPickup.create({
       data: {
         parcelId: id,
@@ -500,16 +501,17 @@ const collectParcel = async (id, pickupData = {}, currentUser) => {
         newStatus: 'COLLECTED',
         changedByUserId: currentUser.id,
         reason: `Parcel successfully delivered to collector ${collectorName}`,
-        details: { pickupId: pickup.id, collectorPhone, idType },
+        details: { pickupId: pickup.id, collectorPhone, idType, paymentId: collectedPayment.id, financialStatus: 'VERIFIED' },
       },
     });
 
-    return { pickup, parcel: await tx.parcel.findUnique({ where: { id } }) };
+    return { pickup, payment: collectedPayment, parcel: await tx.parcel.findUnique({ where: { id } }) };
   });
 
   await auditService.log('collect_parcel', currentUser.id, {
     targetParcelId: id,
     pickupId: result.pickup.id,
+    paymentId: result.payment.id,
     collectorName: result.pickup.collectorName,
     idType: result.pickup.idType,
     idNumberMasked: result.pickup.idNumberMasked,
@@ -567,7 +569,7 @@ const getParcelReceiptContext = async (id, currentUser) => {
     include: {
       originAgency: true,
       destinationAgency: true,
-      payments: { where: { status: 'VERIFIED' }, take: 1, orderBy: { createdAt: 'desc' } },
+      payments: { where: { status: { in: ['VERIFIED', 'COMPLETED', 'PENDING'] } }, take: 1, orderBy: { createdAt: 'desc' } },
       receivedBy: { select: { id: true, firstName: true, lastName: true } },
     },
   });
@@ -594,8 +596,11 @@ const getParcelReceiptContext = async (id, currentUser) => {
     volumeM3: Number(parcel.volumeM3),
     amount: Number(parcel.amount).toFixed(2),
     currency: parcel.currency,
-    paymentStatus: payment ? 'PAID' : (parcel.status === 'PAID' ? 'PAID' : 'PENDING'),
+    paymentStatus: payment && ['VERIFIED', 'COMPLETED'].includes(payment.status) ? 'PAID' : 'PENDING',
+    paymentTiming: parcel.paymentTiming,
+    paymentDueAtPickup: parcel.paymentTiming === 'AT_PICKUP',
     paymentReference: payment?.reference || payment?.providerTransactionId || 'N/A',
+    paidAt: payment?.validatedAt || null,
     receivedAt: parcel.receivedAt || parcel.createdAt,
     receivedBy: parcel.receivedBy ? `${parcel.receivedBy.firstName} ${parcel.receivedBy.lastName}` : 'Agent Vanguard',
   };

@@ -1,22 +1,14 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
+const { dateKeyAt, parseDateKey, addDateKeyDays, businessDayRange } = require('../utils/businessTime');
 const {
   requireCoachOperational,
   getUserAgencyId,
   assertDepartmentIdForUser,
 } = require('./departmentAccessService');
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const VALIDATED_PAYMENT_STATUSES = ['VERIFIED', 'COMPLETED'];
 const TRACKED_PARCEL_STATUSES = ['REGISTERED', 'IN_TRANSIT', 'ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP'];
-
-const startOfDay = (date) => {
-  const value = new Date(date);
-  value.setHours(0, 0, 0, 0);
-  return value;
-};
-
-const endOfDay = (date) => new Date(startOfDay(date).getTime() + DAY_MS);
 
 const hasPermission = (user, permission) => user.permissions?.includes(permission);
 
@@ -75,12 +67,21 @@ const mapPayment = (payment) => ({
   reservation: payment.reservation,
 });
 
-const getAgentDashboard = async (currentUser) => {
+const parseDashboardDate = (value) => {
+  const dateValue = value === undefined ? dateKeyAt(new Date()) : value;
+  if (!parseDateKey(dateValue)) {
+    throw new AppError('Invalid dashboard date', 400);
+  }
+  if (dateValue > dateKeyAt(new Date())) throw new AppError('Dashboard date cannot be in the future', 400);
+  return dateValue;
+};
+
+const getAgentDashboard = async (currentUser, dateValue) => {
   requireCoachOperational(currentUser);
   const departmentId = await getCoachDepartmentId(currentUser);
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const tomorrowStart = endOfDay(now);
+  const businessDate = parseDashboardDate(dateValue);
+  const { start: todayStart, end: tomorrowStart } = businessDayRange(businessDate);
   const reservationScope = buildReservationScope(departmentId, currentUser);
   const agentAgencyId = currentUser.role === 'AGENT' ? getUserAgencyId(currentUser) : null;
   const tripScope = {
@@ -209,7 +210,7 @@ const getAgentDashboard = async (currentUser) => {
     .slice(0, 20).map(({ id, reservationCode, customerName }) => ({ id, reservationCode, customerName }));
   const reservationsForTrips = tripIds.length && hasPermission(currentUser, 'VIEW_RESERVATION')
     ? await prisma.reservation.findMany({
-      where: { ...reservationScope, tripId: { in: tripIds }, status: { not: 'CANCELLED' } },
+      where: { ...reservationScope, tripId: { in: tripIds }, status: { in: ['PENDING', 'CONFIRMED'] } },
       select: { tripId: true },
     })
     : [];
@@ -238,12 +239,106 @@ const getAgentDashboard = async (currentUser) => {
     return totals;
   }, { byChannel: {}, byStatus: {}, amountByCurrency: {} });
 
+  const ownsActivity = currentUser.role === 'AGENT' && currentUser.id;
+  const historyStartDate = addDateKeyDays(businessDate, -6);
+  const historyStart = businessDayRange(historyStartDate).start;
+  const [issuedTickets, receivedPayments, recentAgentReservations, recentAgentTickets, recentAgentPayments, recentAgentCancellations, recentAgentScans, recentAgentParcels] = ownsActivity
+    ? await Promise.all([
+      hasPermission(currentUser, 'VIEW_RESERVATION') ? prisma.ticket.findMany({
+        where: { issuedByUserId: currentUser.id, issuedAt: { gte: todayStart, lt: tomorrowStart }, status: { in: ['VALID', 'USED'] } },
+        select: { id: true },
+      }) : [],
+      hasPermission(currentUser, 'VIEW_PAYMENT') ? prisma.payment.findMany({
+        where: {
+          reservation: { trip: { schedule: { departmentId } } },
+          ...paymentAgencyFilter,
+          validatedById: currentUser.id,
+          status: { in: VALIDATED_PAYMENT_STATUSES },
+          validatedAt: { gte: historyStart, lt: tomorrowStart },
+        },
+        orderBy: { validatedAt: 'desc' },
+        select: { id: true, amount: true, currency: true, reference: true, reservation: { select: { reservationCode: true, customerName: true } }, validatedAt: true, status: true },
+      }) : [],
+      hasPermission(currentUser, 'VIEW_RESERVATION') ? prisma.reservation.findMany({
+        where: { ...reservationScope, createdByUserId: currentUser.id, createdAt: { gte: todayStart, lt: tomorrowStart } },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: { id: true, reservationCode: true, customerName: true, totalAmount: true, status: true, createdAt: true },
+      }) : [],
+      hasPermission(currentUser, 'VIEW_RESERVATION') ? prisma.ticket.findMany({
+        where: { issuedByUserId: currentUser.id, issuedAt: { gte: todayStart, lt: tomorrowStart } },
+        orderBy: { issuedAt: 'desc' },
+        take: 50,
+        select: { id: true, ticketCode: true, status: true, issuedAt: true, reservation: { select: { customerName: true } } },
+      }) : [],
+      hasPermission(currentUser, 'VIEW_PAYMENT') ? prisma.payment.findMany({
+        where: {
+          reservation: { trip: { schedule: { departmentId } } },
+          ...paymentAgencyFilter,
+          validatedById: currentUser.id,
+          status: { in: VALIDATED_PAYMENT_STATUSES },
+          validatedAt: { gte: todayStart, lt: tomorrowStart },
+        },
+        orderBy: { validatedAt: 'desc' },
+        take: 50,
+        select: { id: true, amount: true, currency: true, reference: true, reservation: { select: { reservationCode: true, customerName: true } }, validatedAt: true, status: true },
+      }) : [],
+      hasPermission(currentUser, 'UPDATE_RESERVATION') ? prisma.reservationCancellation.findMany({
+        where: { cancelledByUserId: currentUser.id, createdAt: { gte: todayStart, lt: tomorrowStart }, reservation: reservationScope },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: { id: true, status: true, reason: true, createdAt: true, reservation: { select: { reservationCode: true, customerName: true } } },
+      }) : [],
+      hasPermission(currentUser, 'VIEW_TICKET_SCAN') ? prisma.ticketScan.findMany({
+        where: { scannedByUserId: currentUser.id, scannedAt: { gte: todayStart, lt: tomorrowStart }, ticket: buildTicketScope(departmentId, currentUser) },
+        orderBy: { scannedAt: 'desc' },
+        take: 50,
+        select: { id: true, result: true, scannedAt: true, ticket: { select: { ticketCode: true, reservation: { select: { customerName: true } } } } },
+      }) : [],
+      hasPermission(currentUser, 'CREATE_PARCEL') ? prisma.parcel.findMany({
+        where: { ...buildParcelScope(departmentId, currentUser), receivedByUserId: currentUser.id, receivedAt: { gte: todayStart, lt: tomorrowStart } },
+        orderBy: { receivedAt: 'desc' },
+        take: 50,
+        select: { id: true, trackingCode: true, amount: true, currency: true, status: true, receivedAt: true },
+      }) : [],
+    ])
+    : [[], [], [], [], [], [], [], []];
+
+  const revenueByDay = Array.from({ length: 7 }, (_, index) => {
+    return { date: addDateKeyDays(historyStartDate, index), currencies: {} };
+  });
+  for (const payment of receivedPayments) {
+    const day = revenueByDay.find((item) => item.date === dateKeyAt(payment.validatedAt));
+    if (!day) continue;
+    const currency = payment.currency || 'USD';
+    day.currencies[currency] = (day.currencies[currency] || 0) + Number(payment.amount || 0);
+  }
+  const personalActivity = [
+    ...recentAgentReservations.map((item) => ({ id: `reservation-${item.id}`, type: 'reservation', reference: item.reservationCode, customer: item.customerName, amount: null, currency: null, status: item.status, at: item.createdAt })),
+    ...recentAgentTickets.map((item) => ({ id: `ticket-${item.id}`, type: 'ticket', reference: item.ticketCode, customer: item.reservation?.customerName || null, amount: null, currency: null, status: item.status, at: item.issuedAt })),
+    ...recentAgentPayments.map((item) => ({ id: `payment-${item.id}`, type: 'payment', reference: item.reference || item.reservation?.reservationCode || item.id, customer: item.reservation?.customerName || null, amount: item.amount, currency: item.currency, status: item.status, at: item.validatedAt })),
+    ...recentAgentCancellations.map((item) => ({ id: `cancellation-${item.id}`, type: 'cancellation', reference: item.reservation?.reservationCode || item.id, customer: item.reservation?.customerName || null, amount: null, currency: null, status: item.status, at: item.createdAt })),
+    ...recentAgentScans.map((item) => ({ id: `scan-${item.id}`, type: 'scan', reference: item.ticket?.ticketCode || item.id, customer: item.ticket?.reservation?.customerName || null, amount: null, currency: null, status: item.result, at: item.scannedAt })),
+    ...recentAgentParcels.map((item) => ({ id: `parcel-${item.id}`, type: 'parcel', reference: item.trackingCode, customer: null, amount: item.amount, currency: item.currency, status: item.status, at: item.receivedAt })),
+  ].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 50);
+
   return {
     overview: {
       todayTrips: todayTrips.length,
       todayReservations: todayReservationCount,
       pendingPayments: pendingPayments.length,
       ticketsToControl: pendingTickets.length,
+    },
+    agentDaily: {
+      date: businessDate,
+      ticketsSold: issuedTickets.length,
+      revenueByCurrency: receivedPayments.filter((payment) => payment.validatedAt >= todayStart).reduce((totals, payment) => {
+        const currency = payment.currency || 'USD';
+        totals[currency] = (totals[currency] || 0) + Number(payment.amount || 0);
+        return totals;
+      }, {}),
+      revenueHistory: revenueByDay,
+      activity: personalActivity,
     },
     departures: {
       today: todayTrips.map(enrichTrip),

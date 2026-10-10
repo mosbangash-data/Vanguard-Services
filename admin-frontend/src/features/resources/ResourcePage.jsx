@@ -78,12 +78,19 @@ export function ResourcePage({ resource }) {
 
   const [viewTripModal, setViewTripModal] = useState(null)
   const isAgentTrips = user?.role === 'AGENT' && resource.endpoint === '/api/trips'
+  const isParcelResource = resource.endpoint === '/api/parcels'
   const isAgentParcels = user?.role === 'AGENT' && resource.endpoint === '/api/parcels'
   const isTicketResource = resource.endpoint === '/api/tickets'
   const displayPageTitle = isAgentTrips ? t('trips.scheduledTrips') : pageTitle
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [parcelStatusFilter, setParcelStatusFilter] = useState('')
+  const [parcelPaymentFilter, setParcelPaymentFilter] = useState('')
+  const [parcelDestinationFilter, setParcelDestinationFilter] = useState('')
+  const [parcelFromFilter, setParcelFromFilter] = useState('')
+  const [parcelToFilter, setParcelToFilter] = useState('')
   const [formState, setFormState] = useState(null) // { mode: 'create' | 'edit', item: {...} }
   const [deleteDialog, setDeleteDialog] = useState(null) // item to delete
   const [passwordModal, setPasswordModal] = useState(null) // item to reset password
@@ -93,6 +100,8 @@ export function ResourcePage({ resource }) {
   const [ticketActionError, setTicketActionError] = useState('')
   const [printingTicketId, setPrintingTicketId] = useState(null)
   const [ticketPrintFormat] = useState('80mm')
+  const [parcelReceipt, setParcelReceipt] = useState(null)
+  const [parcelActionId, setParcelActionId] = useState(null)
   const [mediaProgress, setMediaProgress] = useState('')
 
   // Debounce search input
@@ -102,6 +111,8 @@ export function ResourcePage({ resource }) {
     }, 300)
     return () => clearTimeout(timer)
   }, [search])
+  useEffect(() => { setPage(1) }, [debouncedSearch])
+  useEffect(() => { setPage(1) }, [parcelStatusFilter, parcelPaymentFilter, parcelDestinationFilter, parcelFromFilter, parcelToFilter])
 
   const hasRequiredRole = !resource.roles || resource.roles.includes(user?.role)
   const enabled =
@@ -110,13 +121,24 @@ export function ResourcePage({ resource }) {
     (!resource.permission || hasPermission(user, resource.permission) || user?.role === 'SUPER_ADMIN')
 
   const query = useQuery({
-    queryKey: ['resource', resource.endpoint, debouncedSearch],
+    queryKey: ['resource', resource.endpoint, debouncedSearch, page, parcelStatusFilter, parcelPaymentFilter, parcelDestinationFilter, parcelFromFilter, parcelToFilter],
     queryFn: () =>
       listResource(
         resource.endpoint,
-        debouncedSearch ? { search: debouncedSearch, page: 1, limit: 100 } : { page: 1, limit: 100 }
+        { ...(debouncedSearch ? { search: debouncedSearch } : {}), ...(isParcelResource ? {
+          ...(parcelStatusFilter ? { status: parcelStatusFilter } : {}),
+          ...(parcelPaymentFilter ? { paymentStatus: parcelPaymentFilter } : {}),
+          ...(parcelDestinationFilter ? { destinationAgencyId: parcelDestinationFilter } : {}),
+          ...(parcelFromFilter ? { createdFrom: new Date(`${parcelFromFilter}T00:00:00`).toISOString() } : {}),
+          ...(parcelToFilter ? { createdTo: new Date(`${parcelToFilter}T23:59:59.999`).toISOString() } : {}),
+        } : {}), page, limit: isTicketResource || isParcelResource ? 25 : 100 }
       ),
     enabled,
+  })
+  const parcelAgenciesQuery = useQuery({
+    queryKey: ['resource-parcel-agencies'],
+    queryFn: async () => normalizeListResponse((await api.get('/api/agencies?limit=100')).data?.data),
+    enabled: isParcelResource,
   })
 
   const handleTicketPrint = async (ticketCode) => {
@@ -130,6 +152,64 @@ export function ResourcePage({ resource }) {
     } finally {
       setPrintingTicketId(null)
     }
+  }
+
+  const viewParcelReceipt = async (parcelId) => {
+    setParcelActionId(parcelId)
+    setTicketActionError('')
+    try {
+      const response = await api.get(`/api/parcels/${encodeURIComponent(parcelId)}/receipt`)
+      setParcelReceipt(response.data?.data)
+    } catch (error) {
+      setTicketActionError(errorMessage(error, t))
+    } finally {
+      setParcelActionId(null)
+    }
+  }
+
+  const payParcel = async (parcelId) => {
+    setParcelActionId(parcelId)
+    setTicketActionError('')
+    try {
+      await api.post(`/api/parcels/${encodeURIComponent(parcelId)}/pay`, { method: 'CASH' })
+      await query.refetch()
+    } catch (error) {
+      setTicketActionError(errorMessage(error, t))
+    } finally {
+      setParcelActionId(null)
+    }
+  }
+
+  const collectParcel = async (parcelId) => {
+    const collectorName = window.prompt(t('parcel.collectorName'))?.trim()
+    if (!collectorName) return
+    const collectorPhone = window.prompt(t('parcel.collectorPhone'))?.trim()
+    if (!collectorPhone) return
+    const idType = window.prompt(t('parcel.idType'))?.trim()
+    if (!idType) return
+    const idNumber = window.prompt(t('parcel.idNumber'))?.trim()
+    if (!idNumber) return
+    setParcelActionId(parcelId)
+    setTicketActionError('')
+    try {
+      await api.post(`/api/parcels/${encodeURIComponent(parcelId)}/collect`, { collectorName, collectorPhone, idType, idNumber })
+      await query.refetch()
+    } catch (error) {
+      setTicketActionError(errorMessage(error, t))
+    } finally {
+      setParcelActionId(null)
+    }
+  }
+
+  const printParcelReceipt = () => {
+    if (!parcelReceipt) return
+    const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+    printWindow.opener = null
+    const paid = parcelReceipt.paymentStatus === 'PAID'
+    printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(parcelReceipt.trackingCode)}</title><style>@page{size:80mm auto;margin:4mm}body{font:14px Arial,sans-serif;color:#111;margin:0}.receipt{padding:14px}.brand{text-align:center;border-bottom:1px dashed #777;padding-bottom:10px}.code{text-align:center;font-size:18px;font-weight:bold;margin:14px}.row{display:flex;justify-content:space-between;gap:10px;margin:9px 0}.total{font-size:18px;font-weight:bold;border-top:1px solid #333;padding-top:10px}</style></head><body><article class="receipt"><header class="brand"><strong>VANGUARD SERVICES</strong><p>${escape(parcelReceipt.origin)} → ${escape(parcelReceipt.destination)}</p></header><p class="code">${escape(parcelReceipt.trackingCode)}</p><div class="row"><span>Enregistré</span><strong>${escape(new Date(parcelReceipt.receivedAt).toLocaleString())}</strong></div><div class="row"><span>Expéditeur</span><strong>${escape(parcelReceipt.senderName)}</strong></div><div class="row"><span>Destinataire</span><strong>${escape(parcelReceipt.recipientName)}</strong></div>${parcelReceipt.description ? `<p>${escape(parcelReceipt.description)}</p>` : ''}<div class="row total"><span>Total</span><strong>${escape(parcelReceipt.amount)} ${escape(parcelReceipt.currency)}</strong></div><div class="row"><span>Espèces</span><strong>${paid ? 'Payé' : 'À payer au retrait'}</strong></div></article><script>window.onload=()=>window.print()</script></body></html>`)
+    printWindow.document.close()
   }
 
   const refresh = () => {
@@ -436,6 +516,22 @@ export function ResourcePage({ resource }) {
         </div>
       </div>
 
+      {isParcelResource && <div className="resource-toolbar parcel-filters" aria-label={t('resourceUi.parcelFilters')}>
+        <select className="form-control" value={parcelStatusFilter} onChange={(event) => setParcelStatusFilter(event.target.value)} aria-label={t('resourceUi.parcelStatus')}>
+          <option value="">{t('resourceUi.allParcelStatuses')}</option>
+          {['REGISTERED', 'PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'IN_TRANSIT', 'ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP', 'COLLECTED', 'RETURNED', 'CANCELLED'].map((status) => <option key={status} value={status}>{t(`status.${status.toLowerCase()}`)}</option>)}
+        </select>
+        <select className="form-control" value={parcelPaymentFilter} onChange={(event) => setParcelPaymentFilter(event.target.value)} aria-label={t('resourceUi.parcelPayment')}>
+          <option value="">{t('resourceUi.allPaymentStatuses')}</option><option value="PENDING">{t('status.pending')}</option><option value="VERIFIED">{t('status.verified')}</option><option value="COMPLETED">{t('status.completed')}</option>
+        </select>
+        <select className="form-control" value={parcelDestinationFilter} onChange={(event) => setParcelDestinationFilter(event.target.value)} aria-label={t('resourceUi.destinationAgency')}>
+          <option value="">{t('resourceUi.allDestinationAgencies')}</option>
+          {(parcelAgenciesQuery.data || []).map((agency) => <option key={agency.id} value={agency.id}>{agency.name} {agency.city ? `· ${agency.city}` : ''}</option>)}
+        </select>
+        <label>{t('resourceUi.from')} <input className="form-control" type="date" value={parcelFromFilter} onChange={(event) => setParcelFromFilter(event.target.value)} /></label>
+        <label>{t('resourceUi.to')} <input className="form-control" type="date" value={parcelToFilter} onChange={(event) => setParcelToFilter(event.target.value)} /></label>
+      </div>}
+
       {/* Feedback Alerts */}
       {notice && (
         <div className="vanguard-alert vanguard-alert--success" role="status">
@@ -527,6 +623,12 @@ export function ResourcePage({ resource }) {
                                   <Ticket size={14} />
                                   <span className="btn-label-desktop">{t('trips.book')}</span>
                                 </button>
+                              </>
+                            ) : isParcelResource ? (
+                              <>
+                                {hasPermission(user, 'PRINT_PARCEL_RECEIPT') && <button type="button" className="table-action-btn view-btn" disabled={Boolean(parcelActionId)} onClick={() => viewParcelReceipt(item.id)}>{t('operations.receipt')}</button>}
+                                {hasPermission(user, 'VERIFY_PARCEL_PAYMENT') && !item.payments?.some((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status)) && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId)} onClick={() => payParcel(item.id)}>{parcelActionId === item.id ? t('operations.validating') : t('operations.validate')}</button>}
+                                {hasPermission(user, 'COLLECT_PARCEL') && ['READY_FOR_PICKUP', 'ARRIVED_AT_AGENCY'].includes(item.status) && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId)} onClick={() => collectParcel(item.id)}>{t('parcel.confirmPickup')}</button>}
                               </>
                             ) : (
                               <>
@@ -691,8 +793,29 @@ export function ResourcePage({ resource }) {
               )
             })}
           </div>
+
+          {(isTicketResource || isParcelResource) && Number(query.data?.total) > 25 && <nav className="resource-pagination" aria-label={t('resourceUi.pagination')}>
+            <Button variant="secondary" size="sm" disabled={page <= 1 || query.isFetching} onClick={() => setPage((current) => current - 1)}>{t('resourceUi.previousPage')}</Button>
+            <span>{t('resourceUi.page')} {page} / {Math.ceil(Number(query.data.total) / 25)}</span>
+            <Button variant="secondary" size="sm" disabled={page >= Math.ceil(Number(query.data.total) / 25) || query.isFetching} onClick={() => setPage((current) => current + 1)}>{t('resourceUi.nextPage')}</Button>
+          </nav>}
         </div>
       )}
+
+      {/* Creation / Modification Modal */}
+      <Modal isOpen={Boolean(parcelReceipt)} onClose={() => setParcelReceipt(null)} title={t('operations.receipt')} size="md">
+        {parcelReceipt && <div className="receipt-printable" style={{ padding: '1rem', background: '#fff', color: '#111827' }}>
+          <h2>VANGUARD SERVICES</h2>
+          <strong>{parcelReceipt.trackingCode}</strong>
+          <p>{parcelReceipt.origin} → {parcelReceipt.destination}</p>
+          <p>{parcelReceipt.senderName} ({parcelReceipt.senderPhone})</p>
+          <p>{parcelReceipt.recipientName} ({parcelReceipt.recipientPhone})</p>
+          {parcelReceipt.description && <p>{parcelReceipt.description}</p>}
+          <strong>{parcelReceipt.amount} {parcelReceipt.currency}</strong>
+          <p>{parcelReceipt.paymentStatus === 'PAID' ? t('agentParcel.paymentPaid') : t('agentParcel.paymentDueAtPickup')}</p>
+          <Button type="button" variant="primary" onClick={printParcelReceipt}><Printer size={14} />{t('operations.printReceipt')}</Button>
+        </div>}
+      </Modal>
 
       {/* Creation / Modification Modal */}
       {isAgentParcels ? (
@@ -703,7 +826,6 @@ export function ResourcePage({ resource }) {
             setServerError('')
           }}
           onSuccess={(parcel) => {
-            setFormState(null)
             setNotice(`${t('resourceUi.parcelCreated')} ${parcel.amount} ${parcel.currency || 'USD'}`)
             query.refetch()
             setTimeout(() => setNotice(''), 4000)

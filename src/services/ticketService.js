@@ -161,7 +161,7 @@ const listTickets = async ({ search = '', status, page = 1, limit = 50 } = {}, c
   const departmentId = await getCoachDepartmentIdForUser(currentUser);
   const take = Math.min(Math.max(Number(limit) || 50, 1), 100);
   const skip = Math.max((Number(page) || 1) - 1, 0) * take;
-  const term = String(search).trim();
+  const term = String(search).trim().replace(/\s+/g, ' ');
   const reservationScope = currentUser.role === 'AGENT'
     ? { agencyId: getUserAgencyId(currentUser), trip: { schedule: { departmentId } } }
     : { trip: { schedule: { departmentId } } };
@@ -205,6 +205,8 @@ const listTicketScans = async ({ ticketCode, page = 1, limit = 50 } = {}, curren
 const getTicketPrintContext = async (ticketCode, actorId = null, currentUser = null, printMetadata = {}) => {
   ensureCoachTicketAccess(currentUser);
   const ticket = await getTicketByCode(ticketCode, currentUser);
+  if (!ticket || ticket.status === 'CANCELLED') throw new AppError('Cancelled or unavailable tickets cannot be printed', 409);
+  if (!isReservationFullyPaid(ticket.reservation)) throw new AppError('Ticket printing requires a fully validated payment', 409);
 
   const printType = await recordTicketPrintAudit(ticket, actorId, printMetadata);
 

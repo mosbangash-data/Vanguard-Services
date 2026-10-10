@@ -153,6 +153,11 @@ enum ParcelStatus {
   DELIVERED
 }
 
+enum ParcelPaymentTiming {
+  AT_DEPOSIT
+  AT_PICKUP
+}
+
 enum ProjectStatus {
   DRAFT
   PUBLISHED
@@ -769,6 +774,7 @@ model Parcel {
   declaredValue       Decimal?              @db.Decimal(10, 2)
   amount              Decimal               @db.Decimal(10, 2)
   currency            String                @default("USD")
+    paymentTiming       ParcelPaymentTiming   @default(AT_DEPOSIT)
   status              ParcelStatus          @default(REGISTERED)
   receivedByUserId    String?
   receivedAt          DateTime?

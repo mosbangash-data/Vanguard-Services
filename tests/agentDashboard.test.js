@@ -157,7 +157,7 @@ test('Agent dashboard returns scoped operational data and occupancy from persist
     data: {
       reservationCode: id('RSV-A'), tripId: tripA.id, agencyId: agent.agencyId,
       customerName: 'Agency A Passenger', customerPhone: '0800000001', seatNumber: '1',
-      totalAmount: '20.00', status: 'PENDING',
+      totalAmount: '20.00', status: 'PENDING', createdByUserId: agent.id,
     },
   });
   createdIds.reservations.push(reservationA.id);
@@ -169,6 +169,14 @@ test('Agent dashboard returns scoped operational data and occupancy from persist
     },
   });
   createdIds.reservations.push(reservationB.id);
+  const cancelledReservation = await prisma.reservation.create({
+    data: {
+      reservationCode: id('RSV-CANCELLED'), tripId: tripA.id, agencyId: agent.agencyId,
+      customerName: 'Cancelled Passenger', customerPhone: '0800000003', seatNumber: '2',
+      totalAmount: '20.00', status: 'CANCELLED',
+    },
+  });
+  createdIds.reservations.push(cancelledReservation.id);
   const payment = await prisma.payment.create({
     data: { reservationId: reservationA.id, amount: '20.00', currency: 'USD', channel: 'AGENCY', method: 'CASH', status: 'PENDING' },
   });
@@ -181,9 +189,17 @@ test('Agent dashboard returns scoped operational data and occupancy from persist
   assert.equal(response.data.data.overview.pendingPayments, 1);
   assert.equal(response.data.data.departures.today[0].seatsReserved, 1);
   assert.equal(response.data.data.departures.today[0].seatsRemaining, 39);
+  assert.equal(response.data.data.agentDaily.ticketsSold, 0);
+  assert.deepEqual(response.data.data.agentDaily.revenueByCurrency, {});
+  assert.equal(response.data.data.agentDaily.activity.some((item) => item.reference === reservationA.reservationCode), true);
   assert.equal(response.data.data.reservations.some((item) => item.id === reservationA.id), true);
   assert.equal(response.data.data.reservations.some((item) => item.id === reservationB.id), false);
   assert.equal(response.data.data.payments.pending[0].id, payment.id);
+});
+
+test('Agent dashboard rejects invalid business dates', async () => {
+  const response = await request('GET', '/api/agent/dashboard?date=2026-02-30', null, agentToken);
+  assert.equal(response.status, 400);
 });
 
 test('Agent without agency is rejected by the dashboard endpoint', async () => {

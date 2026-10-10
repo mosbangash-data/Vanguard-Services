@@ -313,9 +313,9 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
 
       {/* Sidebar */}
       <aside className={`sidebar vanguard-sidebar ${mobileOpen ? 'open' : ''}`}>
-        <div className="sidebar-brand vanguard-sidebar-brand">
+        <div className={`sidebar-brand vanguard-sidebar-brand ${user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' ? 'vanguard-agent-brand' : ''}`}>
           <Link to={isSuperAdmin ? '/admin' : userDept === 'VANGUARD_COACH' ? '/transport' : userDept === 'AUTO_SALES' ? '/automobile' : '/construction'} className="sidebar-brand-link">
-            <img
+            {user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' ? <span className="vanguard-agent-brand-name">VANGUARD COACH</span> : <img
               src={`${import.meta.env.BASE_URL}assets/logos/vanguard-admin-logo.svg`}
               alt={`Vanguard Services · ${t('authUi.administration')}`}
               className="sidebar-logo vanguard-sidebar-logo-svg"
@@ -323,7 +323,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
                 e.target.onerror = null
                 e.target.src = `${import.meta.env.BASE_URL}assets/logos/vanguard-services.png`
               }}
-            />
+            />}
           </Link>
         </div>
 
