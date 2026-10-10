@@ -445,7 +445,7 @@ export const translations = {
     },
     agent: {
       dashboardTitle: 'Tableau de bord Agent', workspaceTitle: 'Espace Agent',
-      sessionExpired: 'Votre session a expiré. Connectez-vous à nouveau.', accessDenied: 'Vous n’avez pas les permissions nécessaires pour cet espace.', originAgency: 'Agence d’origine',
+      sessionExpired: 'Votre session a expiré. Connectez-vous à nouveau.', accessDenied: 'Vous n’avez pas les permissions nécessaires pour cet espace.', originAgency: 'Agence d’origine', shortcutSoldTicket: 'Billet vendu', shortcutQrScanner: 'Scanner QR', shortcutScheduledTrip: 'Voyage planifié',
       welcome: 'Bienvenue, {name}',
       todayTrips: 'Voyages aujourd’hui',
       todayReservations: 'Réservations aujourd’hui',
@@ -1075,7 +1075,7 @@ export const translations = {
     },
     agent: {
       dashboardTitle: 'Agent Dashboard', workspaceTitle: 'Agent workspace',
-      sessionExpired: 'Your session expired. Please sign in again.', accessDenied: 'You do not have the permissions required for this workspace.', originAgency: 'Origin agency',
+      sessionExpired: 'Your session expired. Please sign in again.', accessDenied: 'You do not have the permissions required for this workspace.', originAgency: 'Origin agency', shortcutSoldTicket: 'Sold ticket', shortcutQrScanner: 'QR scanner', shortcutScheduledTrip: 'Scheduled trip',
       welcome: 'Welcome, {name}',
       todayTrips: 'Today’s Trips',
       todayReservations: 'Today’s Reservations',

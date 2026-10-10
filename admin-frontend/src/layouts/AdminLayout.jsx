@@ -139,13 +139,6 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           { path: '/transport/operations', labelKey: 'navigation.items.payments', icon: CreditCard, permission: 'VIEW_PAYMENT' },
           { path: '/admin/account', labelKey: 'navigation.items.account', icon: Settings },
         ] },
-        { id: 'agent-tickets', titleKey: 'navigation.sections.agentTicketTools', collapsible: true, items: [
-          { path: '/transport/tickets', labelKey: 'navigation.items.tickets', icon: Ticket, permission: 'VIEW_RESERVATION' },
-        ] },
-        { id: 'agent-transport', titleKey: 'navigation.sections.agentTransportTools', collapsible: true, items: [
-          { path: '/transport/scanner', labelKey: 'navigation.items.scanner', icon: QrCode, permission: 'SCAN_TICKET' },
-          { path: '/transport/trips', labelKey: 'navigation.items.departures', icon: Bus, permission: 'VIEW_TRIP' },
-        ] },
       ]
       return agentSections.map((section) => ({
         id: section.id,
@@ -333,15 +326,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
       <aside id="app-navigation" className={`sidebar vanguard-sidebar ${mobileOpen ? 'open' : ''}`} aria-label={t('navigation.title')}>
         <div className={`sidebar-brand vanguard-sidebar-brand ${isCoachAgent ? 'vanguard-agent-brand' : ''}`}>
           <Link to={isSuperAdmin ? '/admin' : userDept === 'VANGUARD_COACH' ? '/transport' : userDept === 'AUTO_SALES' ? '/automobile' : '/construction'} className="sidebar-brand-link">
-            {isCoachAgent ? <img
-              src={`${import.meta.env.BASE_URL}assets/logos/vanguard-admin-logo.svg`}
-              alt="Vanguard Services"
-              className="sidebar-logo vanguard-sidebar-logo-svg"
-              onError={(e) => {
-                e.target.onerror = null
-                e.target.src = `${import.meta.env.BASE_URL}assets/logos/vanguard-services.png`
-              }}
-            /> : <img
+            {isCoachAgent ? <span className="vanguard-agent-brand-name">VANGUARD COACH</span> : <img
               src={`${import.meta.env.BASE_URL}assets/logos/vanguard-admin-logo.svg`}
               alt={`Vanguard Services · ${t('authUi.administration')}`}
               className="sidebar-logo vanguard-sidebar-logo-svg"

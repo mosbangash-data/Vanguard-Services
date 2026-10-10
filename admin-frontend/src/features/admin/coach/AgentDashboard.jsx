@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Activity, ArrowUpRight, Armchair, Bus, CalendarDays, CheckCircle2, Clock3, CreditCard, Package, QrCode, Search, Ticket, UserRoundPlus } from 'lucide-react'
 import { useAuth } from '../../auth/authContext'
@@ -7,7 +7,6 @@ import { useLanguage } from '../../../i18n/useLanguage'
 import { hasPermission } from '../../auth/permissions'
 import { api } from '../../../services/api'
 import { Button, EmptyState, ErrorState, LoadingState, StatCard, StatusBadge } from '../../../components/ui'
-import { TicketScanner } from './TicketScanner'
 import { printTicket as printTicketDocument } from './ticketPrint'
 
 const queryKey = (id, date) => ['agent-dashboard', id, date]
@@ -103,8 +102,6 @@ export function AgentParcels({ parcels }) {
 export function AgentDashboard() {
   const { user } = useAuth()
   const { lang, t } = useLanguage()
-  const client = useQueryClient()
-  const [showScanner, setShowScanner] = useState(false)
   const [selectedDate, setSelectedDate] = useState(() => localDate())
   const query = useQuery({ queryKey: queryKey(user?.id, selectedDate), queryFn: async () => { const response = await api.get('/api/agent/dashboard', { params: { date: selectedDate } }); if (!response.data?.success) throw new Error(t('agent.dashboardInvalid')); return response.data.data }, enabled: Boolean(user), staleTime: 15000 })
   if (!user) return null
@@ -122,9 +119,7 @@ export function AgentDashboard() {
   const selectedIsToday = selectedDate === localDate()
   const actions = [
     reservationAllowed && { label: t('agent.newReservation'), icon: UserRoundPlus, to: '/transport/reservations', primary: true },
-    hasPermission(user, 'VIEW_RESERVATION') && { label: t('agent.tickets'), icon: Ticket, to: '/transport/tickets' },
     hasPermission(user, 'VIEW_PAYMENT') && { label: t('agent.cashPayments'), icon: CreditCard, to: '/transport/operations' },
-    hasPermission(user, 'VIEW_TRIP') && { label: t('agent.nextDepartures'), icon: Bus, to: '/transport/trips' },
     hasPermission(user, 'CREATE_PARCEL') && { label: t('agent.registerParcel'), icon: Package, to: '/transport/parcels' },
   ].filter(Boolean)
   const occupancyLabel = (trip) => `${Math.min(Number(trip.occupancyRate || 0), 100)}%`
@@ -133,6 +128,11 @@ export function AgentDashboard() {
       <div className="agent-command__identity"><span>{t('agent.todayDesk')}</span><h1>{t('agent.greetingShort')} <strong>{user.firstName} {user.lastName}</strong></h1><p>{user.agency?.name || user.agency?.code || t('agent.agencyUnavailable')}</p></div>
       <div className="agent-command__hero-side"><time>{new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${selectedDate}T12:00:00`))}</time>{reservationAllowed && <Link to="/transport/reservations" className="agent-command__primary">{t('agent.newReservation')} <ArrowUpRight size={17} /></Link>}</div>
     </header>
+    <section className="agent-command__panel agent-command__overview"><div className="agent-command__heading"><div><span>{t('agent.overview')}</span><h2>{t('agent.agencyActivity')}</h2></div></div><div className="agent-command__action-list">
+      {hasPermission(user, 'VIEW_RESERVATION') && <Link to="/transport/tickets" className="agent-command__action"><Ticket size={17} />{t('agent.shortcutSoldTicket')}<ArrowUpRight size={15} /></Link>}
+      {hasPermission(user, 'SCAN_TICKET') && <Link to="/transport/scanner" className="agent-command__action"><QrCode size={17} />{t('agent.shortcutQrScanner')}<ArrowUpRight size={15} /></Link>}
+      {hasPermission(user, 'VIEW_TRIP') && <Link to="/transport/trips" className="agent-command__action"><Bus size={17} />{t('agent.shortcutScheduledTrip')}<ArrowUpRight size={15} /></Link>}
+    </div></section>
     <div className="agent-command__metrics">
       <article className="agent-command__metric agent-command__metric--accent"><span><Ticket size={17} />{t(selectedIsToday ? 'agent.soldToday' : 'agent.soldOnDate')}</span><strong>{hasPermission(user, 'VIEW_RESERVATION') ? daily.ticketsSold : '—'}</strong><small>{t('agent.validTicketsIssued')}</small></article>
       <article className="agent-command__metric"><span><CreditCard size={17} />{t(selectedIsToday ? 'agent.collectedToday' : 'agent.collectedOnDate')}</span>{!hasPermission(user, 'VIEW_PAYMENT') ? <strong>—</strong> : dailyRevenue.length ? dailyRevenue.map(([currency, amount]) => <strong className="agent-command__money" key={currency}>{money(amount, currency, lang)}</strong>) : <strong>{money(0, primaryCurrency, lang)}</strong>}<small>{t('agent.personalConfirmedPayments')}</small></article>
@@ -154,7 +154,5 @@ export function AgentDashboard() {
     <section className="agent-command__panel agent-command__activity"><div className="agent-command__heading"><div><span>{t('agent.myOperations')}</span><h2>{t('agent.dailyActivity')}</h2></div><div className="agent-command__activity-filter"><CalendarDays size={15} /><span>{selectedDate}</span></div></div>
       {!hasPermission(user, 'VIEW_RESERVATION') && !hasPermission(user, 'VIEW_PAYMENT') && !hasPermission(user, 'VIEW_TICKET_SCAN') && !hasPermission(user, 'CREATE_PARCEL') ? <p className="agent-command__empty">{t('agent.activityPermissionMissing')}</p> : !activity.length ? <p className="agent-command__empty">{t('agent.noActivity')}</p> : <div className="agent-command__activity-list">{activity.map((item) => <article className="agent-command__activity-row" key={item.id}><span className={`agent-command__activity-icon is-${item.type}`}>{item.type === 'payment' ? <CreditCard size={16} /> : item.type === 'ticket' ? <Ticket size={16} /> : item.type === 'scan' ? <QrCode size={16} /> : item.type === 'parcel' ? <Package size={16} /> : <Activity size={16} />}</span><div><strong>{item.type === 'payment' ? t('agent.activityPayment') : item.type === 'ticket' ? t('agent.activityTicket') : item.type === 'cancellation' ? t('agent.activityCancellation') : item.type === 'scan' ? t('agent.activityScan') : item.type === 'parcel' ? t('agent.activityParcel') : t('agent.activityReservation')}</strong><small>{item.reference}{item.customer ? ` · ${item.customer}` : ''}</small></div><StatusBadge status={item.status} className="agent-command__activity-status" dot={false} />{item.amount != null && <strong className="agent-command__activity-amount">{money(item.amount, item.currency, lang)}</strong>}<time>{dateTime(item.at, lang)}</time></article>)}</div>}
     </section>
-    {hasPermission(user, 'SCAN_TICKET') && <button type="button" className="agent-command__scan" onClick={() => setShowScanner(true)}><QrCode size={17} />{t('agent.scanTicket')}</button>}
-    {showScanner && hasPermission(user, 'SCAN_TICKET') && <TicketScanner onClose={() => setShowScanner(false)} onSuccess={() => client.invalidateQueries({ queryKey: queryKey(user.id) })} />}
   </section>
 }
