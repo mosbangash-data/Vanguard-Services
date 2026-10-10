@@ -197,7 +197,7 @@ const listPendingReservationPayments = async ({ status = 'PENDING', page = 1, li
   const skip = Math.max((Number(page) || 1) - 1, 0) * take;
   const validStatuses = ['PENDING', 'PROCESSING', 'VERIFIED', 'COMPLETED', 'FAILED', 'CANCELLED', 'REFUNDED', 'REJECTED'];
   if (!validStatuses.includes(status)) throw new AppError('Invalid payment status', 400);
-  const { items, total } = await reservationPaymentRepository.listCoachReservationPayments({ departmentId: department.id, agencyId: currentUser.role === 'AGENT' ? getUserAgencyId(currentUser) : null, status, skip, take });
+  const { items, total } = await reservationPaymentRepository.listCoachReservationPayments({ departmentId: department.id, agencyId: ['AGENT', 'MANAGER'].includes(currentUser.role) ? getUserAgencyId(currentUser) : null, status, skip, take });
   return { payments: items.map(formatPayment), total, page: Number(page) || 1, currency: department.settings?.currency || 'USD' };
 };
 
@@ -297,7 +297,7 @@ const validateReservationPayment = async (paymentId, currentUser, options = {}) 
 
   const userAgencyId = getUserAgencyId(currentUser);
   const reservationAgencyId = reservation.agencyId || reservation.trip?.schedule?.agencyId;
-  const resolvedAgencyId = currentUser.role === 'AGENT' ? userAgencyId : (payment.agencyId || reservationAgencyId);
+  const resolvedAgencyId = ['AGENT', 'MANAGER'].includes(currentUser.role) ? userAgencyId : (payment.agencyId || reservationAgencyId);
   if (!resolvedAgencyId) {
     throw new AppError('Payment is not associated with a valid agency.', 400);
   }

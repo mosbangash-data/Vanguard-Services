@@ -50,7 +50,7 @@ const listTrips = async (query = {}, currentUser) => {
   if (currentUser.role !== 'SUPER_ADMIN' && coachDept) {
     scheduleWhere.departmentId = coachDept.id;
   }
-  if (currentUser.role === 'AGENT') {
+  if (['AGENT', 'MANAGER'].includes(currentUser.role)) {
     scheduleWhere.agencyId = getUserAgencyId(currentUser);
   }
   if (Object.keys(scheduleWhere).length > 0) {
@@ -74,7 +74,7 @@ const listTrips = async (query = {}, currentUser) => {
           },
         },
         reservations: {
-          where: { status: { in: ['CONFIRMED', 'PENDING'] } },
+          where: { status: { in: ['CONFIRMED', 'PENDING'] }, ...(['AGENT', 'MANAGER'].includes(currentUser.role) ? { OR: [{ agencyId: getUserAgencyId(currentUser) }, { agencyId: null }] } : {}) },
           select: { id: true, seatNumber: true },
         },
       },
@@ -109,14 +109,14 @@ const getTripById = async (id, currentUser) => {
         },
       },
       reservations: {
-        where: { status: { in: ['CONFIRMED', 'PENDING'] } },
+        where: { status: { in: ['CONFIRMED', 'PENDING'] }, ...(['AGENT', 'MANAGER'].includes(currentUser.role) ? { OR: [{ agencyId: getUserAgencyId(currentUser) }, { agencyId: null }] } : {}) },
         select: { id: true, seatNumber: true, status: true, customerName: true, customerPhone: true },
       },
     },
   });
   if (!trip) throw new AppError('Trip not found', 404);
   await assertDepartmentIdForUser(currentUser, trip.schedule.departmentId, 'VANGUARD_COACH');
-  if (currentUser.role === 'AGENT') assertAgencyAccess(currentUser, trip.schedule.agencyId);
+  if (['AGENT', 'MANAGER'].includes(currentUser.role)) assertAgencyAccess(currentUser, trip.schedule.agencyId);
   const totalSeats = trip.schedule?.bus?.seats || 0;
   const seatsReserved = trip.reservations?.length || 0;
   const seatsRemaining = Math.max(totalSeats - seatsReserved, 0);

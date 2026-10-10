@@ -17,10 +17,9 @@ const buildReservationScope = (departmentId, currentUser) => {
   if (currentUser.role === 'AGENT') {
     const agentAgencyId = getUserAgencyId(currentUser);
     return {
-      trip: { schedule: { departmentId } },
       OR: [
-        { agencyId: agentAgencyId },
-        { AND: [{ agencyId: null }, { trip: { schedule: { agencyId: agentAgencyId } } }] },
+        { AND: [{ agencyId: agentAgencyId }, { trip: { schedule: { departmentId, agencyId: null } } }] },
+        { AND: [{ trip: { schedule: { departmentId, agencyId: agentAgencyId } } }, { OR: [{ agencyId: agentAgencyId }, { agencyId: null }] }] },
       ],
     };
   }

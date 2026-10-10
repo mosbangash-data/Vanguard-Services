@@ -3,10 +3,19 @@ const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const { requireDepartmentType, getUserAgencyId, assertAgencyAccess, assertDepartmentIdForUser } = require('./departmentAccessService');
 
+const assertReservationAgencyAccess = (currentUser, reservation) => {
+  const scheduleAgencyId = reservation.trip?.schedule?.agencyId;
+  if (currentUser.role === 'MANAGER') {
+    if (reservation.agencyId) assertAgencyAccess(currentUser, reservation.agencyId);
+    if (scheduleAgencyId) assertAgencyAccess(currentUser, scheduleAgencyId);
+  }
+  assertAgencyAccess(currentUser, reservation.agencyId || scheduleAgencyId);
+};
+
 const assertCoachPermission = (currentUser, permission) => {
   requireDepartmentType(currentUser, 'VANGUARD_COACH');
   if (!currentUser.permissions.includes(permission)) throw new AppError('Insufficient permissions', 403);
-  if (currentUser.role === 'AGENT' && !getUserAgencyId(currentUser)) throw new AppError('Agent agency assignment is required', 403);
+  if (['AGENT', 'MANAGER'].includes(currentUser.role) && !getUserAgencyId(currentUser)) throw new AppError(`${currentUser.role === 'MANAGER' ? 'Manager' : 'Agent'} agency assignment is required`, 403);
 };
 
 const listReservations = async (query = {}, currentUser) => {
@@ -22,10 +31,10 @@ const listReservations = async (query = {}, currentUser) => {
     andClauses.push({ trip: { schedule: { departmentId: coachDept.id } } });
   }
 
-  if (currentUser.role === 'AGENT') {
+  if (['AGENT', 'MANAGER'].includes(currentUser.role)) {
     const agentAgencyId = getUserAgencyId(currentUser);
     andClauses.push({ OR: [
-      { agencyId: agentAgencyId },
+      { AND: [{ agencyId: agentAgencyId }, { trip: { schedule: { OR: [{ agencyId: agentAgencyId }, { agencyId: null }] } } }] },
       { AND: [{ agencyId: null }, { trip: { schedule: { agencyId: agentAgencyId } } }] },
     ] });
   }
@@ -55,7 +64,7 @@ const listReservations = async (query = {}, currentUser) => {
       orderBy: { createdAt: 'desc' },
       include: {
         trip: { include: { schedule: { include: { route: true, bus: true } } } },
-        payments: { select: { id: true, amount: true, channel: true, status: true, validatedAt: true } },
+        payments: { ...(currentUser.role === 'MANAGER' ? { where: { OR: [{ agencyId: getUserAgencyId(currentUser) }, { agencyId: null }] } } : {}), select: { id: true, amount: true, channel: true, status: true, validatedAt: true } },
         tickets: { select: { id: true, ticketCode: true, status: true, qrCode: true } },
       },
     }),
@@ -78,7 +87,7 @@ const getReservationById = async (id, currentUser) => {
   if (!reservation) throw new AppError('Reservation not found', 404);
   await assertDepartmentIdForUser(currentUser, reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
   const effectiveAgencyId = reservation.agencyId || reservation.trip?.schedule?.agencyId;
-  assertAgencyAccess(currentUser, effectiveAgencyId);
+  assertReservationAgencyAccess(currentUser, reservation);
   return { reservation };
 };
 
@@ -165,7 +174,7 @@ const updateReservation = async (id, data, currentUser) => {
   if (!reservation) throw new AppError('Reservation not found', 404);
   await assertDepartmentIdForUser(currentUser, reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
   const effectiveAgencyId = reservation.agencyId || reservation.trip?.schedule?.agencyId;
-  assertAgencyAccess(currentUser, effectiveAgencyId);
+  assertReservationAgencyAccess(currentUser, reservation);
   if (!['PENDING', 'CONFIRMED'].includes(reservation.status)) throw new AppError('Only pending or confirmed reservations can be edited', 409);
   const editableFields = ['customerName', 'customerPhone', 'customerEmail'];
   const forbiddenFields = Object.keys(data || {}).filter((field) => !editableFields.includes(field));

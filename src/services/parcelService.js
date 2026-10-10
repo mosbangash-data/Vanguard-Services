@@ -37,8 +37,8 @@ const assertCoachAccess = (currentUser) => {
 
 const resolveOriginAgencyId = (requestedAgencyId, currentUser) => {
   const assignedAgencyId = currentUser?.agencyId || currentUser?.agency?.id || null;
-  if (currentUser?.role === 'AGENT' && !assignedAgencyId) {
-    throw new AppError('Agent agency assignment is required', 403);
+  if (['AGENT', 'MANAGER'].includes(currentUser?.role) && !assignedAgencyId) {
+    throw new AppError(`${currentUser.role === 'MANAGER' ? 'Manager' : 'Agent'} agency assignment is required`, 403);
   }
   if (assignedAgencyId && currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SERVICE_ADMIN') {
     if (requestedAgencyId && requestedAgencyId !== assignedAgencyId) {
@@ -85,8 +85,8 @@ const assertParcelAgencyAccess = (currentUser, parcel, action = 'view') => {
 
   const userAgencyId = currentUser.agencyId || currentUser.agency?.id;
   if (!userAgencyId) {
-    if (currentUser.role === 'AGENT') {
-      throw new AppError('Agent agency assignment is required', 403);
+    if (['AGENT', 'MANAGER'].includes(currentUser.role)) {
+      throw new AppError(`${currentUser.role === 'MANAGER' ? 'Manager' : 'Agent'} agency assignment is required`, 403);
     }
     return;
   }
@@ -148,8 +148,8 @@ const listParcels = async (query = {}, currentUser) => {
 
   // Agency isolation for local agents
   const userAgencyId = currentUser.agencyId || currentUser.agency?.id;
-  if (currentUser.role === 'AGENT' && !userAgencyId) {
-    throw new AppError('Agent agency assignment is required', 403);
+  if (['AGENT', 'MANAGER'].includes(currentUser.role) && !userAgencyId) {
+    throw new AppError(`${currentUser.role === 'MANAGER' ? 'Manager' : 'Agent'} agency assignment is required`, 403);
   }
   if (userAgencyId && currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SERVICE_ADMIN') {
     filters.push({ OR: [

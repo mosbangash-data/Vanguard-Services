@@ -1,7 +1,7 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
-const { requireCoachAdmin, requireDepartmentType, getScopedDepartmentId, assertDepartmentIdForUser } = require('./departmentAccessService');
+const { requireCoachAdmin, requireDepartmentType, getScopedDepartmentId, assertDepartmentIdForUser, getUserAgencyId, assertAgencyAccess } = require('./departmentAccessService');
 
 const normalizePage = (value) => {
   const parsed = Number(value);
@@ -57,6 +57,11 @@ const listAgencies = async (query = {}, currentUser) => {
   const where = {};
   const departmentId = await getScopedDepartmentId(currentUser, query.departmentId, 'VANGUARD_COACH');
   if (departmentId) where.departmentId = departmentId;
+  if (currentUser.role === 'MANAGER') {
+    const agencyId = getUserAgencyId(currentUser);
+    if (!agencyId) throw new AppError('Manager agency assignment is required', 403);
+    where.id = agencyId;
+  }
   if (query.isActive !== undefined) {
     where.isActive = query.isActive === 'true' || query.isActive === true;
   }
@@ -87,6 +92,7 @@ const getAgencyById = async (agencyId, currentUser) => {
   const agency = await prisma.agency.findUnique({ where: { id: agencyId } });
   if (!agency) throw new AppError('Agency not found', 404);
   await assertDepartmentIdForUser(currentUser, agency.departmentId, 'VANGUARD_COACH');
+  if (currentUser.role === 'MANAGER') assertAgencyAccess(currentUser, agency.id);
 
   return { agency };
 };

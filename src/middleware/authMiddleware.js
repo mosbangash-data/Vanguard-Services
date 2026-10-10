@@ -45,6 +45,17 @@ const buildUserFromToken = async (token) => {
   if (user.status !== 'ACTIVE') {
     throw new AppError('User account is inactive', 403);
   }
+  if (user.role?.name === 'MANAGER') {
+    const agencyId = user.agency?.id || user.agencyId;
+    if (user.department?.type !== 'VANGUARD_COACH' || !user.department?.id || !agencyId) {
+      throw new AppError('Manager must be assigned to an active Vanguard Coach agency', 403);
+    }
+    const agency = await prisma.agency.findFirst({
+      where: { id: agencyId, departmentId: user.department.id, isActive: true },
+      select: { id: true },
+    });
+    if (!agency) throw new AppError('Manager agency is invalid, inactive, or outside Vanguard Coach', 403);
+  }
 
   const permissions = await hydratePermissionsFromRole(user);
   const payload = {

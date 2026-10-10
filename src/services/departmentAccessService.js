@@ -26,14 +26,14 @@ const requireCoachOperational = (user, permission = null) => {
   if (permission && !user.permissions?.includes(permission)) {
     throw new AppError('Insufficient permissions', 403);
   }
-  if (user.role === 'AGENT' && !getUserAgencyId(user)) {
-    throw new AppError('Agent agency assignment is required', 403);
+  if (['AGENT', 'MANAGER'].includes(user.role) && !getUserAgencyId(user)) {
+    throw new AppError(`${user.role === 'MANAGER' ? 'Manager' : 'Agent'} agency assignment is required`, 403);
   }
 };
 
 const assertAgencyAccess = (user, agencyId) => {
   requireDepartmentType(user, 'VANGUARD_COACH');
-  if (user.role !== 'SUPER_ADMIN' && user.role !== 'SERVICE_ADMIN' && user.role !== 'MANAGER') {
+  if (user.role !== 'SUPER_ADMIN' && user.role !== 'SERVICE_ADMIN') {
     const userAgencyId = getUserAgencyId(user);
     if (!userAgencyId || !agencyId || userAgencyId !== agencyId) {
       throw new AppError('Access denied: resource belongs to another agency', 403);

@@ -55,8 +55,10 @@ test('Manager dashboard derives department and agency filters from the authentic
   const todayTrips = calls.find((call) => call.model === 'trip' && call.method === 'findMany');
   assert.equal(todayTrips.args.where.schedule.departmentId, 'dept-coach');
   assert.equal(todayTrips.args.where.schedule.agencyId, 'agency-a');
+  assert.equal(calls.find((call) => call.model === 'agency' && call.method === 'findFirst').args.where.isActive, true);
   const reservationQuery = calls.find((call) => call.model === 'reservation' && call.method === 'findMany');
-  assert.equal(reservationQuery.args.where.trip.schedule.departmentId, 'dept-coach');
+  assert.equal(JSON.stringify(reservationQuery.args.where).includes('dept-coach'), true);
+  assert.equal(JSON.stringify(reservationQuery.args.where).includes('agency-a'), true);
   assert.deepEqual(result.kpis.revenue, { USD: 80 });
   assert.equal(result.kpis.pendingPayments, 3);
   assert.deepEqual(result.kpis.pendingPaymentAmount, { USD: 50 });
@@ -93,4 +95,10 @@ test('A Coach dashboard request from another department is refused', async () =>
 test('A Manager without dashboard read permissions is refused', async () => {
   const service = require('../src/services/managerDashboardService');
   await assert.rejects(service.getManagerDashboard({ role: 'MANAGER', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, agencyId: 'agency-a', permissions: [] }), { statusCode: 403 });
+});
+
+test('Manager without an agency is denied before any dashboard query can become global', async () => {
+  const service = require('../src/services/managerDashboardService');
+  await assert.rejects(service.getManagerDashboard({ role: 'MANAGER', departmentId: 'dept-coach', department: { id: 'dept-coach', type: 'VANGUARD_COACH' }, permissions: ['VIEW_TRIP'] }), { statusCode: 403 });
+  assert.equal(calls.length, 0);
 });

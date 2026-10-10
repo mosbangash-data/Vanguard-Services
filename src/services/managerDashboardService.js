@@ -19,26 +19,36 @@ const getManagerDashboard = async (user) => {
   if (!departmentId || user.department?.type !== 'VANGUARD_COACH') throw new AppError('Access denied', 403);
   // Service Admin supervises the whole Coach department; Manager stays in its assigned agency.
   const agencyId = user.role === 'MANAGER' ? getUserAgencyId(user) : null;
+  if (user.role === 'MANAGER' && !agencyId) throw new AppError('Manager agency assignment is required', 403);
   const permissions = new Set(user.permissions || []);
   const now = new Date();
   const today = startOfDay(now);
   const tomorrow = endOfDay(now);
   const can = (permission) => permissions.has(permission);
   if (agencyId) {
-    const assignedAgency = await prisma.agency.findFirst({ where: { id: agencyId, departmentId }, select: { id: true } });
+    const assignedAgency = await prisma.agency.findFirst({ where: { id: agencyId, departmentId, isActive: true }, select: { id: true } });
     if (!assignedAgency) throw new AppError('Manager agency is outside the department', 403);
   }
   const tripScope = { schedule: { departmentId, ...(agencyId ? { agencyId } : {}) } };
   const operationalTripScope = { schedule: { ...tripScope.schedule, status: 'ACTIVE', route: { status: 'ACTIVE' }, bus: { status: 'ACTIVE' } } };
-  const reservationScope = { trip: { schedule: { departmentId, ...(agencyId ? { agencyId } : {}) } }, ...(agencyId ? { OR: [{ agencyId }, { trip: { schedule: { agencyId } } }] } : {}) };
+  const reservationScope = agencyId
+    ? { OR: [
+      { AND: [{ agencyId }, { trip: { schedule: { departmentId, agencyId: null } } }] },
+      { AND: [{ trip: { schedule: { departmentId, agencyId } } }, { OR: [{ agencyId }, { agencyId: null }] }] },
+    ] }
+    : { trip: { schedule: { departmentId } } };
   const parcelScope = agencyId ? { OR: [{ originAgencyId: agencyId }, { destinationAgencyId: agencyId }] } : { OR: [{ originAgency: { departmentId } }, { destinationAgency: { departmentId } }] };
   const paymentAgency = agencyId ? { OR: [{ agencyId }, { reservation: { agencyId } }, { reservation: { trip: { schedule: { agencyId } } } }, { parcel: { OR: [{ originAgencyId: agencyId }, { destinationAgencyId: agencyId }] } }] } : {};
   const revenuePaymentScope = { AND: [paymentAgency, { OR: [{ reservation: { is: reservationScope } }, ...(can('VIEW_PARCEL') ? [{ parcel: { is: parcelScope } }] : [])] }] };
   const agencySelect = { id: true, name: true, code: true, city: true, isActive: true };
   if (can('VIEW_TRIP')) agencySelect.schedules = { select: { _count: { select: { trips: true } } } };
   const agencyCountSelect = {};
-  if (can('VIEW_RESERVATION')) agencyCountSelect.reservations = true;
-  if (can('VIEW_PAYMENT')) agencyCountSelect.payments = true;
+  if (can('VIEW_RESERVATION')) agencyCountSelect.reservations = agencyId
+    ? { where: { trip: { schedule: { OR: [{ agencyId }, { agencyId: null }] } } } }
+    : true;
+  if (can('VIEW_PAYMENT')) agencyCountSelect.payments = agencyId
+    ? { where: { OR: [{ reservation: { is: reservationScope } }, { parcel: { is: parcelScope } }] } }
+    : true;
   if (can('VIEW_PARCEL')) { agencyCountSelect.originParcels = true; agencyCountSelect.destinationParcels = true; }
   if (can('VIEW_USER')) agencyCountSelect.users = { where: { role: { name: 'AGENT' } } };
   if (Object.keys(agencyCountSelect).length) agencySelect._count = { select: agencyCountSelect };
@@ -74,7 +84,7 @@ const getManagerDashboard = async (user) => {
   if (!department) throw new AppError('Department not found', 404);
   const agencyIds = agencies.map((agency) => agency.id);
   const [agencyRevenueGroups, agencyAgentGroups] = await Promise.all([
-    can('VIEW_PAYMENT') && agencyIds.length ? prisma.payment.groupBy({ by: ['agencyId', 'currency'], where: { agencyId: { in: agencyIds }, status: { in: PAID } }, _sum: { amount: true } }) : [],
+    can('VIEW_PAYMENT') && agencyIds.length ? prisma.payment.groupBy({ by: ['agencyId', 'currency'], where: { agencyId: { in: agencyIds }, status: { in: PAID }, ...(agencyId ? { AND: [{ OR: [{ reservation: { is: reservationScope } }, { parcel: { is: parcelScope } }] }] } : {}) }, _sum: { amount: true } }) : [],
     can('VIEW_USER') && agencyIds.length ? prisma.user.groupBy({ by: ['agencyId', 'status'], where: { departmentId, agencyId: { in: agencyIds }, role: { name: 'AGENT' } }, _count: { _all: true } }) : [],
   ]);
   const tripIds = [...new Set([...todayTrips, ...upcomingTrips].map(({ id }) => id))];

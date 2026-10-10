@@ -116,6 +116,10 @@ const getTicketByCode = async (ticketCode, currentUser = null) => {
   });
   if (!ticket) throw new AppError('Ticket not found', 404);
   ensureReservationReadyForTicket(ticket.reservation);
+  if (currentUser?.role === 'MANAGER') {
+    if (ticket.reservation?.agencyId) assertAgencyAccess(currentUser, ticket.reservation.agencyId);
+    if (ticket.reservation?.trip?.schedule?.agencyId) assertAgencyAccess(currentUser, ticket.reservation.trip.schedule.agencyId);
+  }
   if (currentUser) assertAgencyAccess(currentUser, ticket.reservation?.agencyId || ticket.reservation?.trip?.schedule?.agencyId);
   return ticket;
 };
@@ -162,9 +166,14 @@ const listTickets = async ({ search = '', status, page = 1, limit = 50 } = {}, c
   const take = Math.min(Math.max(Number(limit) || 50, 1), 100);
   const skip = Math.max((Number(page) || 1) - 1, 0) * take;
   const term = String(search).trim().replace(/\s+/g, ' ');
-  const reservationScope = currentUser.role === 'AGENT'
-    ? { agencyId: getUserAgencyId(currentUser), trip: { schedule: { departmentId } } }
-    : { trip: { schedule: { departmentId } } };
+  const reservationScope = currentUser.role === 'MANAGER'
+    ? { OR: [
+      { AND: [{ agencyId: getUserAgencyId(currentUser) }, { trip: { schedule: { departmentId, agencyId: null } } }] },
+      { AND: [{ trip: { schedule: { departmentId, agencyId: getUserAgencyId(currentUser) } } }, { OR: [{ agencyId: getUserAgencyId(currentUser) }, { agencyId: null }] }] },
+    ] }
+    : currentUser.role === 'AGENT'
+      ? { agencyId: getUserAgencyId(currentUser), trip: { schedule: { departmentId } } }
+      : { trip: { schedule: { departmentId } } };
   const where = {
     reservation: reservationScope,
     ...(status ? { status } : {}),
@@ -189,9 +198,14 @@ const listTicketScans = async ({ ticketCode, page = 1, limit = 50 } = {}, curren
   const skip = Math.max((Number(page) || 1) - 1, 0) * take;
   const where = {
     ticket: {
-      reservation: currentUser.role === 'AGENT'
-        ? { agencyId: getUserAgencyId(currentUser), trip: { schedule: { departmentId } } }
-        : { trip: { schedule: { departmentId } } },
+      reservation: currentUser.role === 'MANAGER'
+        ? { OR: [
+          { AND: [{ agencyId: getUserAgencyId(currentUser) }, { trip: { schedule: { departmentId, agencyId: null } } }] },
+          { AND: [{ trip: { schedule: { departmentId, agencyId: getUserAgencyId(currentUser) } } }, { OR: [{ agencyId: getUserAgencyId(currentUser) }, { agencyId: null }] }] },
+        ] }
+        : currentUser.role === 'AGENT'
+          ? { agencyId: getUserAgencyId(currentUser), trip: { schedule: { departmentId } } }
+          : { trip: { schedule: { departmentId } } },
       ...(ticketCode ? { ticketCode } : {}),
     },
   };
@@ -363,6 +377,10 @@ const scanTicketByQrCode = async (rawQrCode, currentUser) => {
     };
   }
   await assertDepartmentIdForUser(currentUser, ticket.reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
+  if (currentUser.role === 'MANAGER') {
+    if (ticket.reservation.agencyId) assertAgencyAccess(currentUser, ticket.reservation.agencyId);
+    if (ticket.reservation.trip?.schedule?.agencyId) assertAgencyAccess(currentUser, ticket.reservation.trip.schedule.agencyId);
+  }
   assertAgencyAccess(currentUser, ticket.reservation.agencyId || ticket.reservation.trip?.schedule?.agencyId);
 
   const qrMatches = verifyTicketQrSignature(rawQrCode, ticketCode, env.ticketQrSecret)
