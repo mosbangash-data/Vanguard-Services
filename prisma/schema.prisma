@@ -768,7 +768,6 @@ model Parcel {
   originCity          String
   destinationCity     String
   category            String?               @default("STANDARD")
-  description         String?
   weightKg            Decimal               @db.Decimal(8, 2)
   volumeM3            Decimal               @db.Decimal(8, 2)
   declaredValue       Decimal?              @db.Decimal(10, 2)

@@ -2298,3 +2298,116 @@ table.data-table tbody tr:hover { background-color: var(--color-primary-light); 
 .agent-command__trip > .badge { font-size: .62rem; white-space: nowrap; }
 @media (max-width: 620px) { .agent-command { padding: 14px; } .agent-command__hero { display: grid; padding: 23px 19px; } .agent-command__hero-side { justify-items: start; gap: 13px; } .agent-command__metrics { gap: 9px; } .agent-command__metric { min-height: 138px; padding: 15px; gap: 10px; } .agent-command__metric > strong { font-size: 1.65rem; } .agent-command__metric > span { font-size: .68rem; } .agent-command__actions, .agent-command__panel { padding: 17px; } .agent-command__trip { grid-template-columns: 62px minmax(80px, 1fr) 34px 34px auto 18px; gap: 6px; min-height: 82px; } .agent-command__trip-time { gap: 5px; font-size: .8rem; } .agent-command__trip-time svg { width: 14px; } .agent-command__trip-seats strong { font-size: .95rem; } .agent-command__trip-seats small { font-size: .53rem; } .agent-command__trip > .badge { padding: 3px 4px; font-size: .5rem; } .agent-command__activity-row { grid-template-columns: 30px minmax(80px, 1fr) auto; gap: 8px; padding: 9px 0; } .agent-command__activity-row time { grid-column: 2; grid-row: 2; } .agent-command__activity-amount { grid-column: 3; grid-row: 2; justify-self: end; } .agent-command__chart { gap: 5px; } .agent-command__bar-column > strong { font-size: .48rem; } }
 @media (prefers-reduced-motion: reduce) { .agent-command *, .agent-command *::before, .agent-command *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+
+.vanguard-agent-shell,
+.vanguard-agent-shell .vanguard-app-area,
+.vanguard-agent-shell .vanguard-app-main,
+.vanguard-agent-shell .vanguard-page-container,
+.vanguard-agent-shell .page { min-width: 0; }
+.vanguard-agent-shell .vanguard-page-container,
+.vanguard-agent-shell .page { max-width: 100%; }
+.vanguard-agent-shell .resource-toolbar,
+.vanguard-agent-shell .vanguard-filter-bar,
+.vanguard-agent-shell .section-heading,
+.vanguard-agent-shell .ticket-detail-toolbar { min-width: 0; }
+.vanguard-agent-shell .resource-toolbar > *,
+.vanguard-agent-shell .vanguard-filter-bar > *,
+.vanguard-agent-shell .section-heading > * { min-width: 0; }
+.vanguard-agent-shell .table-responsive { max-width: 100%; overscroll-behavior-inline: contain; }
+.vanguard-agent-shell .data-table { min-width: 620px; }
+.vanguard-agent-shell input,
+.vanguard-agent-shell select,
+.vanguard-agent-shell textarea { max-width: 100%; }
+.vanguard-agent-shell .agent-inline-actions,
+.vanguard-agent-shell .resource-mobile-card-actions,
+.vanguard-agent-shell .resource-toolbar-actions,
+.vanguard-agent-shell .agent-validation-actions { flex-wrap: wrap; }
+.vanguard-agent-shell .agent-command { width: 100%; min-width: 0; }
+.vanguard-agent-shell .agent-command__columns,
+.vanguard-agent-shell .agent-command__metrics,
+.vanguard-agent-shell .agent-command__trip-list,
+.vanguard-agent-shell .agent-command__activity-list { min-width: 0; }
+.vanguard-agent-shell .agent-command__metric,
+.vanguard-agent-shell .agent-command__panel,
+.vanguard-agent-shell .dashboard-panel { min-width: 0; }
+.vanguard-agent-shell .ticket-detail-card { min-width: 0; }
+.vanguard-agent-shell .ticket-detail-data > *,
+.vanguard-agent-shell .agent-validation-success > * { min-width: 0; overflow-wrap: anywhere; }
+.vanguard-agent-shell .vanguard-modal-overlay { padding: 12px; }
+.vanguard-agent-shell .vanguard-modal-dialog { min-height: 0; max-height: min(92dvh, 900px); }
+.vanguard-agent-shell .vanguard-modal-body { min-height: 0; overscroll-behavior: contain; }
+.vanguard-agent-shell .resource-form-grid,
+.vanguard-agent-shell .agent-parcel-form [style*="grid-template-columns"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+.vanguard-agent-shell .agent-parcel-form .form-group,
+.vanguard-agent-shell .agent-parcel-form .form-section-card { min-width: 0; }
+.vanguard-agent-shell .agent-parcel-form .form-control { width: 100%; min-width: 0; }
+.vanguard-agent-shell .agent-parcel-form > div:last-child { flex-wrap: wrap; }
+.vanguard-agent-shell .resource-form-footer { flex-wrap: wrap; }
+.vanguard-agent-shell .resource-form-footer > button { min-height: 44px; }
+
+@media (max-width: 1024px) {
+  .vanguard-agent-shell .vanguard-sidebar { width: min(var(--sidebar-width), 86vw); }
+  .vanguard-agent-shell .vanguard-app-main { padding: 20px; }
+}
+
+@media (max-width: 768px) {
+  .vanguard-agent-shell .vanguard-app-main { padding: 16px; }
+  .vanguard-agent-shell .vanguard-page-header-actions,
+  .vanguard-agent-shell .resource-toolbar-actions { width: 100%; }
+  .vanguard-agent-shell .resource-toolbar-actions > *,
+  .vanguard-agent-shell .vanguard-page-header-actions > * { flex: 1 1 auto; }
+  .vanguard-agent-shell .resource-form-footer { justify-content: stretch; }
+  .vanguard-agent-shell .resource-form-footer > button { flex: 1 1 140px; }
+  .vanguard-agent-shell .ticket-detail-card { padding: 20px; }
+  .vanguard-agent-shell .coach-operations-section { min-width: 0; }
+  .vanguard-agent-shell .coach-operations-section .table-responsive { width: 100%; }
+  .vanguard-agent-shell .coach-operations-section table { min-width: 680px; }
+}
+
+@media (max-width: 640px) {
+  .vanguard-agent-shell .vanguard-app-main { padding: 12px; }
+  .vanguard-agent-shell .agent-command { padding: 10px; }
+  .vanguard-agent-shell .agent-command__hero { min-width: 0; padding: 20px 16px; }
+  .vanguard-agent-shell .agent-command__identity h1 { overflow-wrap: anywhere; }
+  .vanguard-agent-shell .agent-command__primary,
+  .vanguard-agent-shell .agent-command__scan { min-height: 44px; }
+  .vanguard-agent-shell .agent-command__trip { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px 0; }
+  .vanguard-agent-shell .agent-command__trip-time { grid-column: 1; grid-row: 1; }
+  .vanguard-agent-shell .agent-command__trip > .badge { grid-column: 2; grid-row: 1; justify-self: end; font-size: .65rem; }
+  .vanguard-agent-shell .agent-command__trip-main { grid-column: 1 / -1; grid-row: 2; }
+  .vanguard-agent-shell .agent-command__trip-seats { grid-row: 3; text-align: left; }
+  .vanguard-agent-shell .agent-command__trip-seats:nth-of-type(3) { grid-column: 1; }
+  .vanguard-agent-shell .agent-command__trip-seats:nth-of-type(4) { grid-column: 2; }
+  .vanguard-agent-shell .agent-command__trip-link { grid-column: 2; grid-row: 4; justify-self: end; min-width: 44px; min-height: 44px; }
+  .vanguard-agent-shell .agent-command__trip-seats small { font-size: .68rem; }
+  .vanguard-agent-shell .agent-command__activity-row { grid-template-columns: 30px minmax(0, 1fr) auto; }
+  .vanguard-agent-shell .agent-command__activity-status { justify-self: end; }
+  .vanguard-agent-shell .agent-command__activity-row time,
+  .vanguard-agent-shell .agent-command__activity-amount { grid-row: 2; }
+  .vanguard-agent-shell .agent-command__activity-row time { grid-column: 2; }
+  .vanguard-agent-shell .agent-command__activity-amount { grid-column: 3; }
+  .vanguard-agent-shell .agent-parcel-form [style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+  .vanguard-agent-shell .agent-parcel-form .form-section-card { padding: 12px !important; }
+  .vanguard-agent-shell .agent-parcel-form > div:last-child > button { flex: 1 1 130px; min-height: 44px; }
+  .vanguard-agent-shell .section-heading { flex-wrap: wrap; }
+  .vanguard-agent-shell .agent-header { overflow-wrap: anywhere; }
+  .vanguard-agent-shell .ticket-detail-toolbar > * { min-width: 0; }
+  .vanguard-agent-shell .ticket-detail-brand { flex-wrap: wrap; }
+  .vanguard-agent-shell .ticket-detail-brand > .badge { margin-left: auto; }
+  .vanguard-agent-shell .ticket-detail-route { min-width: 0; overflow-wrap: anywhere; }
+  .vanguard-agent-shell .vanguard-modal-overlay { align-items: flex-end; padding: 0; }
+  .vanguard-agent-shell .vanguard-modal-dialog { width: 100% !important; max-width: none; max-height: 94dvh; margin: 0; border-radius: 16px 16px 0 0; }
+  .vanguard-agent-shell .vanguard-modal-header { padding: 16px; }
+  .vanguard-agent-shell .vanguard-modal-body { padding: 14px !important; }
+  .vanguard-agent-shell .agent-mobile-nav { overflow-x: auto; justify-content: space-around; }
+  .vanguard-agent-shell .agent-mobile-nav a { flex: 1 1 0; min-width: 0; min-height: 44px; }
+}
+
+@media (max-width: 360px) {
+  .vanguard-agent-shell .agent-command__metrics { grid-template-columns: minmax(0, 1fr); }
+  .vanguard-agent-shell .agent-command__metric { min-height: 116px; }
+  .vanguard-agent-shell .ticket-detail-toolbar { align-items: stretch; }
+  .vanguard-agent-shell .ticket-detail-toolbar > * { flex: 1 1 100%; }
+  .vanguard-agent-shell .ticket-detail-card { padding: 16px; }
+  .vanguard-agent-shell .agent-mobile-nav a { font-size: .59rem; }
+}

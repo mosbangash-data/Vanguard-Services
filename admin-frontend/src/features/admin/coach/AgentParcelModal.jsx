@@ -27,7 +27,6 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
   const [recipientName, setRecipientName] = useState('')
   const [recipientPhone, setRecipientPhone] = useState('')
   const [category, setCategory] = useState('STANDARD')
-  const [description, setDescription] = useState('')
   const [pricingBasis, setPricingBasis] = useState('WEIGHT') // 'WEIGHT' | 'VOLUME'
   const [weightKg, setWeightKg] = useState('')
   const [volumeM3, setVolumeM3] = useState('')
@@ -96,7 +95,6 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
       setRecipientName('')
       setRecipientPhone('')
       setCategory('STANDARD')
-      setDescription('')
       setPricingBasis('WEIGHT')
       setWeightKg('')
       setVolumeM3('')
@@ -159,7 +157,6 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
         recipientName: recipientName.trim(),
         recipientPhone: recipientPhone.trim(),
         category,
-        description: description.trim() || undefined,
         pricingBasis,
         weightKg: numericWeight,
         volumeM3: numericVolume,
@@ -201,7 +198,7 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
     const windowRef = window.open('', '_blank')
     if (!windowRef) return
     windowRef.opener = null
-    windowRef.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(receiptData.trackingCode)}</title><style>@page{size:80mm auto;margin:4mm}*{box-sizing:border-box}body{font:14px Arial,sans-serif;color:#111;margin:0}.receipt{max-width:720px;margin:auto;padding:14px}.brand{text-align:center;border-bottom:1px dashed #777;padding-bottom:10px}.brand img{width:42px;height:42px}.row{display:flex;justify-content:space-between;gap:12px;margin:9px 0}.code{text-align:center;font-size:18px;font-weight:bold;margin:14px 0}.total{font-size:18px;font-weight:bold;border-top:1px solid #333;padding-top:12px}.muted{color:#555;font-size:12px}.no-print{display:none}@media print{body{width:100%}}</style></head><body><article class="receipt"><header class="brand"><img src="${escape(`${window.location.origin}/assets/logos/vanguard-admin-logo.svg`)}"><h2>VANGUARD SERVICES</h2><p>${escape(receiptData.origin || '')} → ${escape(receiptData.destination || '')}</p></header><p class="code">${escape(receiptData.trackingCode)}</p><div class="row"><span>Enregistré</span><strong>${escape(new Date(receiptData.receivedAt).toLocaleString())}</strong></div><div class="row"><span>Expéditeur</span><strong>${escape(receiptData.senderName)}</strong></div><div class="row"><span>Destinataire</span><strong>${escape(receiptData.recipientName)}</strong></div>${receiptData.description ? `<p>${escape(receiptData.description)}</p>` : ''}<div class="row total"><span>Total</span><strong>${escape(receiptData.amount)} ${escape(receiptData.currency)}</strong></div><div class="row"><span>Espèces</span><strong>${paid ? escape(t('agentParcel.paymentPaid')) : escape(t('agentParcel.paymentDueAtPickup'))}</strong></div><p class="muted">${escape(receiptData.senderPhone)} · ${escape(receiptData.recipientPhone)}</p></article><script>window.onload=()=>window.print()</script></body></html>`)
+    windowRef.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(receiptData.trackingCode)}</title><style>@page{size:80mm auto;margin:4mm}*{box-sizing:border-box}body{font:14px Arial,sans-serif;color:#111;margin:0}.receipt{max-width:720px;margin:auto;padding:14px}.brand{text-align:center;border-bottom:1px dashed #777;padding-bottom:10px}.brand img{width:42px;height:42px}.row{display:flex;justify-content:space-between;gap:12px;margin:9px 0}.code{text-align:center;font-size:18px;font-weight:bold;margin:14px 0}.total{font-size:18px;font-weight:bold;border-top:1px solid #333;padding-top:12px}.muted{color:#555;font-size:12px}.no-print{display:none}@media print{body{width:100%}}</style></head><body><article class="receipt"><header class="brand"><img src="${escape(`${window.location.origin}/assets/logos/vanguard-admin-logo.svg`)}"><h2>VANGUARD SERVICES</h2><p>${escape(receiptData.origin || '')} → ${escape(receiptData.destination || '')}</p></header><p class="code">${escape(receiptData.trackingCode)}</p><div class="row"><span>Enregistré</span><strong>${escape(new Date(receiptData.receivedAt).toLocaleString())}</strong></div><div class="row"><span>Expéditeur</span><strong>${escape(receiptData.senderName)}</strong></div><div class="row"><span>Destinataire</span><strong>${escape(receiptData.recipientName)}</strong></div><div class="row total"><span>Total</span><strong>${escape(receiptData.amount)} ${escape(receiptData.currency)}</strong></div><div class="row"><span>Espèces</span><strong>${paid ? escape(t('agentParcel.paymentPaid')) : escape(t('agentParcel.paymentDueAtPickup'))}</strong></div><p class="muted">${escape(receiptData.senderPhone)} · ${escape(receiptData.recipientPhone)}</p></article><script>window.onload=()=>window.print()</script></body></html>`)
     windowRef.document.close()
   }
 
@@ -351,14 +348,6 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.description')}</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Ex: Vêtements, pièces électroniques…"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
               </div>
             </div>
 

@@ -277,7 +277,6 @@ const createParcel = async (data, currentUser) => {
         originAgencyId: data.originAgencyId || null,
         destinationAgencyId: data.destinationAgencyId || null,
         category: data.category ? String(data.category).trim().toUpperCase() : 'STANDARD',
-        description: data.description ? String(data.description).trim() : null,
         ...pricingDimensions,
         declaredValue: data.declaredValue ? Number(data.declaredValue) : null,
         amount: manualPrice.amount,
@@ -591,7 +590,6 @@ const getParcelReceiptContext = async (id, currentUser) => {
     origin: parcel.originAgency?.name ? `${parcel.originCity} (${parcel.originAgency.name})` : parcel.originCity,
     destination: parcel.destinationAgency?.name ? `${parcel.destinationCity} (${parcel.destinationAgency.name})` : parcel.destinationCity,
     category: parcel.category,
-    description: parcel.description,
     weightKg: Number(parcel.weightKg),
     volumeM3: Number(parcel.volumeM3),
     amount: Number(parcel.amount).toFixed(2),
@@ -641,7 +639,7 @@ const updateParcel = async (id, data, currentUser) => {
     throw new AppError(`Cannot modify details of a parcel in status '${parcel.status}'. Only REGISTERED parcels can be edited.`, 400);
   }
 
-  const allowedFields = ['description', 'senderEmail', 'recipientEmail', 'originAgencyId', 'destinationAgencyId'];
+  const allowedFields = ['senderEmail', 'recipientEmail', 'originAgencyId', 'destinationAgencyId'];
   const updateData = {};
   for (const field of allowedFields) {
     if (data[field] !== undefined) updateData[field] = data[field];

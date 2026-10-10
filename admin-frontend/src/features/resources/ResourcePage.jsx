@@ -208,7 +208,7 @@ export function ResourcePage({ resource }) {
     if (!printWindow) return
     printWindow.opener = null
     const paid = parcelReceipt.paymentStatus === 'PAID'
-    printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(parcelReceipt.trackingCode)}</title><style>@page{size:80mm auto;margin:4mm}body{font:14px Arial,sans-serif;color:#111;margin:0}.receipt{padding:14px}.brand{text-align:center;border-bottom:1px dashed #777;padding-bottom:10px}.code{text-align:center;font-size:18px;font-weight:bold;margin:14px}.row{display:flex;justify-content:space-between;gap:10px;margin:9px 0}.total{font-size:18px;font-weight:bold;border-top:1px solid #333;padding-top:10px}</style></head><body><article class="receipt"><header class="brand"><strong>VANGUARD SERVICES</strong><p>${escape(parcelReceipt.origin)} → ${escape(parcelReceipt.destination)}</p></header><p class="code">${escape(parcelReceipt.trackingCode)}</p><div class="row"><span>Enregistré</span><strong>${escape(new Date(parcelReceipt.receivedAt).toLocaleString())}</strong></div><div class="row"><span>Expéditeur</span><strong>${escape(parcelReceipt.senderName)}</strong></div><div class="row"><span>Destinataire</span><strong>${escape(parcelReceipt.recipientName)}</strong></div>${parcelReceipt.description ? `<p>${escape(parcelReceipt.description)}</p>` : ''}<div class="row total"><span>Total</span><strong>${escape(parcelReceipt.amount)} ${escape(parcelReceipt.currency)}</strong></div><div class="row"><span>Espèces</span><strong>${paid ? 'Payé' : 'À payer au retrait'}</strong></div></article><script>window.onload=()=>window.print()</script></body></html>`)
+    printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(parcelReceipt.trackingCode)}</title><style>@page{size:80mm auto;margin:4mm}body{font:14px Arial,sans-serif;color:#111;margin:0}.receipt{padding:14px}.brand{text-align:center;border-bottom:1px dashed #777;padding-bottom:10px}.code{text-align:center;font-size:18px;font-weight:bold;margin:14px}.row{display:flex;justify-content:space-between;gap:10px;margin:9px 0}.total{font-size:18px;font-weight:bold;border-top:1px solid #333;padding-top:10px}</style></head><body><article class="receipt"><header class="brand"><strong>VANGUARD SERVICES</strong><p>${escape(parcelReceipt.origin)} → ${escape(parcelReceipt.destination)}</p></header><p class="code">${escape(parcelReceipt.trackingCode)}</p><div class="row"><span>Enregistré</span><strong>${escape(new Date(parcelReceipt.receivedAt).toLocaleString())}</strong></div><div class="row"><span>Expéditeur</span><strong>${escape(parcelReceipt.senderName)}</strong></div><div class="row"><span>Destinataire</span><strong>${escape(parcelReceipt.recipientName)}</strong></div><div class="row total"><span>Total</span><strong>${escape(parcelReceipt.amount)} ${escape(parcelReceipt.currency)}</strong></div><div class="row"><span>Espèces</span><strong>${paid ? 'Payé' : 'À payer au retrait'}</strong></div></article><script>window.onload=()=>window.print()</script></body></html>`)
     printWindow.document.close()
   }
 
@@ -516,20 +516,28 @@ export function ResourcePage({ resource }) {
         </div>
       </div>
 
-      {isParcelResource && <div className="resource-toolbar parcel-filters" aria-label={t('resourceUi.parcelFilters')}>
-        <select className="form-control" value={parcelStatusFilter} onChange={(event) => setParcelStatusFilter(event.target.value)} aria-label={t('resourceUi.parcelStatus')}>
-          <option value="">{t('resourceUi.allParcelStatuses')}</option>
-          {['REGISTERED', 'PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'IN_TRANSIT', 'ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP', 'COLLECTED', 'RETURNED', 'CANCELLED'].map((status) => <option key={status} value={status}>{t(`status.${status.toLowerCase()}`)}</option>)}
+      {isParcelResource && <div className="resource-toolbar parcel-filters" aria-label={t('agentParcel.parcelFilters')}>
+        <select className="form-control" value={parcelStatusFilter} onChange={(event) => setParcelStatusFilter(event.target.value)} aria-label={t('agentParcel.parcelStatus')}>
+          <option value="">{t('agentParcel.allParcelStatuses')}</option>
+          {['REGISTERED', 'PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'IN_TRANSIT', 'ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP', 'COLLECTED', 'RETURNED', 'CANCELLED'].map((status) => {
+            const key = `status.${status.toLowerCase()}`
+            const translated = t(key)
+            const fallback = status.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+            return <option key={status} value={status}>{translated === key ? fallback : translated}</option>
+          })}
         </select>
-        <select className="form-control" value={parcelPaymentFilter} onChange={(event) => setParcelPaymentFilter(event.target.value)} aria-label={t('resourceUi.parcelPayment')}>
-          <option value="">{t('resourceUi.allPaymentStatuses')}</option><option value="PENDING">{t('status.pending')}</option><option value="VERIFIED">{t('status.verified')}</option><option value="COMPLETED">{t('status.completed')}</option>
+        <select className="form-control" value={parcelPaymentFilter} onChange={(event) => setParcelPaymentFilter(event.target.value)} aria-label={t('agentParcel.parcelPayment')}>
+          <option value="">{t('agentParcel.allPaymentStatuses')}</option><option value="PENDING">{t('status.pending')}</option><option value="VERIFIED">{t('status.verified')}</option><option value="COMPLETED">{t('status.completed') === 'status.completed' ? (lang === 'en' ? 'Completed' : 'Terminé') : t('status.completed')}</option>
         </select>
-        <select className="form-control" value={parcelDestinationFilter} onChange={(event) => setParcelDestinationFilter(event.target.value)} aria-label={t('resourceUi.destinationAgency')}>
-          <option value="">{t('resourceUi.allDestinationAgencies')}</option>
+        <select className="form-control" value={parcelDestinationFilter} onChange={(event) => setParcelDestinationFilter(event.target.value)} aria-label={t('agentParcel.destinationAgency')}>
+          <option value="">{t('agentParcel.allDestinationAgencies')}</option>
           {(parcelAgenciesQuery.data || []).map((agency) => <option key={agency.id} value={agency.id}>{agency.name} {agency.city ? `· ${agency.city}` : ''}</option>)}
         </select>
-        <label>{t('resourceUi.from')} <input className="form-control" type="date" value={parcelFromFilter} onChange={(event) => setParcelFromFilter(event.target.value)} /></label>
-        <label>{t('resourceUi.to')} <input className="form-control" type="date" value={parcelToFilter} onChange={(event) => setParcelToFilter(event.target.value)} /></label>
+        {parcelAgenciesQuery.isPending && <small role="status">{t('agentParcel.loadingAgencies')}</small>}
+        {parcelAgenciesQuery.isError && <small role="alert">{t('agentParcel.agenciesUnavailable')}</small>}
+        {!parcelAgenciesQuery.isPending && !parcelAgenciesQuery.isError && parcelAgenciesQuery.data?.length === 0 && <small>{t('agentParcel.noAgencies')}</small>}
+        <label>{t('agentParcel.from')} <input className="form-control" type="date" value={parcelFromFilter} onChange={(event) => setParcelFromFilter(event.target.value)} /></label>
+        <label>{t('agentParcel.to')} <input className="form-control" type="date" value={parcelToFilter} onChange={(event) => setParcelToFilter(event.target.value)} /></label>
       </div>}
 
       {/* Feedback Alerts */}
@@ -810,7 +818,6 @@ export function ResourcePage({ resource }) {
           <p>{parcelReceipt.origin} → {parcelReceipt.destination}</p>
           <p>{parcelReceipt.senderName} ({parcelReceipt.senderPhone})</p>
           <p>{parcelReceipt.recipientName} ({parcelReceipt.recipientPhone})</p>
-          {parcelReceipt.description && <p>{parcelReceipt.description}</p>}
           <strong>{parcelReceipt.amount} {parcelReceipt.currency}</strong>
           <p>{parcelReceipt.paymentStatus === 'PAID' ? t('agentParcel.paymentPaid') : t('agentParcel.paymentDueAtPickup')}</p>
           <Button type="button" variant="primary" onClick={printParcelReceipt}><Printer size={14} />{t('operations.printReceipt')}</Button>

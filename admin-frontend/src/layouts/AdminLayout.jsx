@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -84,6 +84,15 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   const { lang, setLang, t } = useLanguage()
   const { theme, resolvedTheme, setTheme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    if (!mobileOpen) return undefined
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setMobileOpen(false)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [mobileOpen])
 
   // Expandable section states in sidebar
   const [expandedSections, setExpandedSections] = useState({
@@ -301,7 +310,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   }
 
   return (
-    <div className="app-shell vanguard-app-shell">
+    <div className={`app-shell vanguard-app-shell${user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' ? ' vanguard-agent-shell' : ''}`}>
       {/* Mobile Backdrop Overlay */}
       {mobileOpen && (
         <div
@@ -312,7 +321,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
       )}
 
       {/* Sidebar */}
-      <aside className={`sidebar vanguard-sidebar ${mobileOpen ? 'open' : ''}`}>
+      <aside id="app-navigation" className={`sidebar vanguard-sidebar ${mobileOpen ? 'open' : ''}`} aria-label={t('navigation.title')}>
         <div className={`sidebar-brand vanguard-sidebar-brand ${user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' ? 'vanguard-agent-brand' : ''}`}>
           <Link to={isSuperAdmin ? '/admin' : userDept === 'VANGUARD_COACH' ? '/transport' : userDept === 'AUTO_SALES' ? '/automobile' : '/construction'} className="sidebar-brand-link">
             {user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' ? <span className="vanguard-agent-brand-name">VANGUARD COACH</span> : <img
@@ -404,6 +413,8 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
               className="mobile-toggle vanguard-mobile-toggle"
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label={t(mobileOpen ? 'layout.closeMenu' : 'layout.openMenu')}
+              aria-expanded={mobileOpen}
+              aria-controls="app-navigation"
             >
               {mobileOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
