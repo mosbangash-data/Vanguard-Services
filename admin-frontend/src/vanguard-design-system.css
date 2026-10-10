@@ -186,6 +186,21 @@ body {
   cursor: pointer;
   border-radius: 6px;
 }
+.vanguard-nav-section-header.is-collapsible:focus-visible {
+  outline: 2px solid var(--color-primary, #3b82f6);
+  outline-offset: 2px;
+}
+.vanguard-nav-section-header.is-collapsible[type='button'] {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.vanguard-nav-section-items[hidden] {
+  display: none;
+}
 .vanguard-nav-section-header.is-collapsible:hover {
   background-color: rgba(255, 255, 255, 0.04);
 }

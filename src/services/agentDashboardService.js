@@ -296,10 +296,13 @@ const getAgentDashboard = async (currentUser, dateValue) => {
         select: { id: true, result: true, scannedAt: true, ticket: { select: { ticketCode: true, reservation: { select: { customerName: true } } } } },
       }) : [],
       hasPermission(currentUser, 'CREATE_PARCEL') ? prisma.parcel.findMany({
-        where: { ...buildParcelScope(departmentId, currentUser), receivedByUserId: currentUser.id, receivedAt: { gte: todayStart, lt: tomorrowStart } },
-        orderBy: { receivedAt: 'desc' },
+        where: {
+          ...buildParcelScope(departmentId, currentUser),
+          statusHistory: { some: { changedByUserId: currentUser.id, newStatus: 'REGISTERED', changedAt: { gte: todayStart, lt: tomorrowStart } } },
+        },
+        orderBy: { createdAt: 'desc' },
         take: 50,
-        select: { id: true, trackingCode: true, amount: true, currency: true, status: true, receivedAt: true },
+        select: { id: true, trackingCode: true, amount: true, currency: true, status: true, createdAt: true },
       }) : [],
     ])
     : [[], [], [], [], [], [], [], []];
@@ -319,7 +322,7 @@ const getAgentDashboard = async (currentUser, dateValue) => {
     ...recentAgentPayments.map((item) => ({ id: `payment-${item.id}`, type: 'payment', reference: item.reference || item.reservation?.reservationCode || item.id, customer: item.reservation?.customerName || null, amount: item.amount, currency: item.currency, status: item.status, at: item.validatedAt })),
     ...recentAgentCancellations.map((item) => ({ id: `cancellation-${item.id}`, type: 'cancellation', reference: item.reservation?.reservationCode || item.id, customer: item.reservation?.customerName || null, amount: null, currency: null, status: item.status, at: item.createdAt })),
     ...recentAgentScans.map((item) => ({ id: `scan-${item.id}`, type: 'scan', reference: item.ticket?.ticketCode || item.id, customer: item.ticket?.reservation?.customerName || null, amount: null, currency: null, status: item.result, at: item.scannedAt })),
-    ...recentAgentParcels.map((item) => ({ id: `parcel-${item.id}`, type: 'parcel', reference: item.trackingCode, customer: null, amount: item.amount, currency: item.currency, status: item.status, at: item.receivedAt })),
+    ...recentAgentParcels.map((item) => ({ id: `parcel-${item.id}`, type: 'parcel', reference: item.trackingCode, customer: null, amount: item.amount, currency: item.currency, status: item.status, at: item.createdAt })),
   ].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 50);
 
   return {

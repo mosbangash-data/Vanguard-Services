@@ -18,6 +18,7 @@ router.put('/:id', requirePermission('UPDATE_PARCEL'), parcelController.updatePa
 router.delete('/:id', requireRole('SUPER_ADMIN', 'SERVICE_ADMIN'), parcelController.deleteParcel);
 
 router.post('/:id/pay', requirePermission('VERIFY_PARCEL_PAYMENT'), parcelController.payParcel);
+router.post('/:id/receive', requirePermission('RECEIVE_PARCEL'), parcelController.receiveParcel);
 router.patch('/:id/status', requirePermission('CHANGE_PARCEL_STATUS'), validateStatusChange, parcelController.changeStatus);
 router.post('/:id/collect', requirePermission('COLLECT_PARCEL'), validatePickup, parcelController.collectParcel);
 router.get('/:id/receipt', requirePermission('PRINT_PARCEL_RECEIPT'), parcelController.getReceipt);

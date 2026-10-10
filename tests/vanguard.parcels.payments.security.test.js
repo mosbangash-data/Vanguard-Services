@@ -1,10 +1,17 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
+// These tests are isolated from every real database, including Render.
+process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = 'test-jwt-secret-that-is-at-least-thirty-two-characters';
+process.env.SESSION_SECRET = 'test-session-secret-that-is-at-least-thirty-two-characters';
+process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:5432/test';
+process.env.TICKET_QR_SECRET = 'test-ticket-qr-secret-that-is-at-least-thirty-two-characters';
 const { encryptSensitiveData, decryptSensitiveData, maskIdNumber, generateSecureTrackingCode } = require('../src/utils/cryptoUtils');
 const { buildSignedQrPayload, verifySignedQrPayload } = require('../src/utils/qrUtils');
 const { calculateOfficialPrice, CATEGORY_COEFFICIENTS } = require('../src/services/parcelPricingService');
 const { AgencyPaymentProvider, getProvider } = require('../src/services/payment');
+const { ALLOWED_PARCEL_TRANSITIONS } = require('../src/services/parcelService');
 
 // 1. Encryption & Sensitive PII Security
 test('Sensitive ID number encryption at rest with AES-256-GCM, decryption, and masking', () => {
@@ -111,32 +118,18 @@ test('Agency payment provider does not expose a webhook or online checkout contr
 
 // 7. Parcel Workflow State Machine
 test('Parcel status transition state machine enforces strict progression and prevents illegal jumps', () => {
-  const transitions = {
-    REGISTERED: ['PAYMENT_PENDING', 'PAID', 'CANCELLED'],
-    PAYMENT_PENDING: ['PAID', 'CANCELLED'],
-    PAID: ['ACCEPTED', 'CANCELLED', 'RETURNED'],
-    ACCEPTED: ['IN_TRANSIT', 'CANCELLED', 'RETURNED'],
-    IN_TRANSIT: ['ARRIVED_AT_AGENCY', 'RETURNED'],
-    ARRIVED_AT_AGENCY: ['READY_FOR_PICKUP', 'COLLECTED', 'RETURNED'],
-    READY_FOR_PICKUP: ['COLLECTED', 'RETURNED'],
-    COLLECTED: [],
-    RETURNED: [],
-    CANCELLED: [],
-  };
-
   const validateTransition = (current, next) => {
-    const allowed = transitions[current] || [];
+    const allowed = ALLOWED_PARCEL_TRANSITIONS[current] || [];
     if (!allowed.includes(next)) throw new Error(`Invalid transition from ${current} to ${next}`);
     return true;
   };
 
   // Valid flow
-  assert.doesNotThrow(() => validateTransition('REGISTERED', 'PAID'));
-  assert.doesNotThrow(() => validateTransition('PAID', 'ACCEPTED'));
+  assert.doesNotThrow(() => validateTransition('REGISTERED', 'ACCEPTED'));
   assert.doesNotThrow(() => validateTransition('ACCEPTED', 'IN_TRANSIT'));
   assert.doesNotThrow(() => validateTransition('IN_TRANSIT', 'ARRIVED_AT_AGENCY'));
   assert.doesNotThrow(() => validateTransition('ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP'));
-  assert.doesNotThrow(() => validateTransition('READY_FOR_PICKUP', 'COLLECTED'));
+  assert.ok(!ALLOWED_PARCEL_TRANSITIONS.READY_FOR_PICKUP.includes('COLLECTED'));
 
   // Illegal jumps
   assert.throws(() => validateTransition('REGISTERED', 'COLLECTED'), /Invalid transition/);
@@ -150,7 +143,7 @@ test('Parcel pickup is atomic and rejects multiple concurrent collections', () =
   let parcelState = { status: 'READY_FOR_PICKUP', pickupCount: 0 };
 
   const attemptPickup = (collector) => {
-    if (parcelState.status !== 'READY_FOR_PICKUP' && parcelState.status !== 'ARRIVED_AT_AGENCY') {
+    if (parcelState.status !== 'READY_FOR_PICKUP') {
       throw new Error('409: Parcel not ready or already collected');
     }
     // Atomic state lock

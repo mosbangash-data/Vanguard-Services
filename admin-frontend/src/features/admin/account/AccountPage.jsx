@@ -3,6 +3,7 @@ import { KeyRound, UserCheck, Shield, Building2, CheckCircle2, AlertTriangle, Ey
 import { useAuth } from '../../auth/authContext'
 import { api } from '../../../services/api'
 import { useLanguage } from '../../../i18n/useLanguage'
+import { useTheme } from '../../../theme/useTheme'
 import {
   PageHeader,
   Card,
@@ -16,7 +17,8 @@ import {
 
 export function AccountPage() {
   const { user } = useAuth()
-  const { t } = useLanguage()
+  const { t, lang, setLang } = useLanguage()
+  const { theme, setTheme } = useTheme()
 
   // Form states
   const [currentPassword, setCurrentPassword] = useState('')
@@ -140,6 +142,23 @@ export function AccountPage() {
                   </div>
                 )}
               </div>
+
+              <section className="vanguard-account-preferences" aria-labelledby="account-preferences-title">
+                <h3 id="account-preferences-title">{t('accountUi.preferences')}</h3>
+                <FormField label={t('layout.language')}>
+                  <select className="form-control" value={lang} onChange={(event) => setLang(event.target.value)} aria-label={t('layout.language')}>
+                    <option value="fr">Français</option>
+                    <option value="en">English</option>
+                  </select>
+                </FormField>
+                <FormField label={t('layout.theme')}>
+                  <select className="form-control" value={theme} onChange={(event) => setTheme(event.target.value)} aria-label={t('layout.theme')}>
+                    <option value="light">{t('layout.themeLight')}</option>
+                    <option value="dark">{t('layout.themeDark')}</option>
+                    <option value="system">{t('layout.themeSystem')}</option>
+                  </select>
+                </FormField>
+              </section>
             </div>
           </CardContent>
         </Card>

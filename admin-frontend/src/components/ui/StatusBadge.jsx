@@ -45,6 +45,7 @@ const STATUS_CONFIGS = {
   ARRIVED_AT_AGENCY: { label: 'Arrivé à l’agence', variant: 'warning' },
   READY_FOR_PICKUP: { label: 'Prêt à retirer', variant: 'success' },
   COLLECTED: { label: 'Retiré', variant: 'neutral' },
+  DELIVERED: { label: 'Remis au destinataire', variant: 'neutral' },
   RETURNED: { label: 'Retourné', variant: 'danger' },
   PAYMENT_PENDING: { label: 'Paiement en attente', variant: 'warning' },
   PROCESSING: { label: 'Traitement', variant: 'warning' },

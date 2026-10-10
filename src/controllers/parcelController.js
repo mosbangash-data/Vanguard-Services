@@ -55,6 +55,15 @@ const changeStatus = async (req, res, next) => {
   }
 };
 
+const receiveParcel = async (req, res, next) => {
+  try {
+    const result = await parcelService.receiveParcel(req.params.id, req.user);
+    res.json({ success: true, message: 'Parcel receipt confirmed at destination', data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const collectParcel = async (req, res, next) => {
   try {
     const result = await parcelService.collectParcel(req.params.id, req.body, req.user);
@@ -75,7 +84,8 @@ const getIdentityData = async (req, res, next) => {
 
 const getReceipt = async (req, res, next) => {
   try {
-    const result = await parcelService.getParcelReceiptContext(req.params.id, req.user);
+    const format = req.query.format === undefined ? 'a4' : req.query.format;
+    const result = await parcelService.getParcelReceiptContext(req.params.id, req.user, format);
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -116,6 +126,7 @@ module.exports = {
   createParcel,
   payParcel,
   changeStatus,
+  receiveParcel,
   collectParcel,
   getIdentityData,
   getReceipt,

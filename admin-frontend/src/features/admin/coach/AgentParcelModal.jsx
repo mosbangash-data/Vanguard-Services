@@ -3,6 +3,7 @@ import { Modal, Button } from '../../../components/ui'
 import { useAuth } from '../../auth/authContext'
 import { useLanguage } from '../../../i18n/useLanguage'
 import { api } from '../../../services/api'
+import { openParcelReceiptPrintWindow, renderParcelReceiptPrintWindow, PARCEL_RECEIPT_FORMATS } from './parcelReceiptPrint'
 import { useNavigate } from 'react-router-dom'
 import {
   User,
@@ -18,7 +19,7 @@ import {
 
 export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
   const { user } = useAuth()
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const navigate = useNavigate()
 
   // Form states
@@ -47,6 +48,8 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
   const [receiptData, setReceiptData] = useState(null)
   const [receiptError, setReceiptError] = useState(false)
   const [receiptVisible, setReceiptVisible] = useState(true)
+  const [receiptFormat, setReceiptFormat] = useState('80mm')
+  const [receiptPrintError, setReceiptPrintError] = useState(false)
 
   // Agent origin agency info
   const agentAgency = user?.agency || agencies.find((agency) => agency.id === user?.agencyId) || null
@@ -108,6 +111,8 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
       setReceiptData(null)
       setReceiptError(false)
       setReceiptVisible(true)
+      setReceiptFormat('80mm')
+      setReceiptPrintError(false)
     }
   }, [isOpen])
 
@@ -176,7 +181,7 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
       if (!parcel?.id || !parcel?.trackingCode) throw new Error(t('resourceUi.operationFailed'))
       setSuccessResult(parcel)
       try {
-        const receipt = await api.get(`/api/parcels/${encodeURIComponent(parcel.id)}/receipt`)
+        const receipt = await api.get(`/api/parcels/${encodeURIComponent(parcel.id)}/receipt`, { params: { format: receiptFormat } })
         setReceiptData(receipt?.data?.data)
       } catch {
         setReceiptError(true)
@@ -191,15 +196,18 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
     }
   }
 
-  const printReceipt = () => {
+  const printReceipt = async () => {
     if (!receiptData) return
-    const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])
-    const paid = ['PAID', 'VERIFIED', 'COMPLETED'].includes(receiptData.paymentStatus)
-    const windowRef = window.open('', '_blank')
-    if (!windowRef) return
-    windowRef.opener = null
-    windowRef.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(receiptData.trackingCode)}</title><style>@page{size:80mm auto;margin:4mm}*{box-sizing:border-box}body{font:14px Arial,sans-serif;color:#111;margin:0}.receipt{max-width:720px;margin:auto;padding:14px}.brand{text-align:center;border-bottom:1px dashed #777;padding-bottom:10px}.brand img{width:42px;height:42px}.row{display:flex;justify-content:space-between;gap:12px;margin:9px 0}.code{text-align:center;font-size:18px;font-weight:bold;margin:14px 0}.total{font-size:18px;font-weight:bold;border-top:1px solid #333;padding-top:12px}.muted{color:#555;font-size:12px}.no-print{display:none}@media print{body{width:100%}}</style></head><body><article class="receipt"><header class="brand"><img src="${escape(`${window.location.origin}/assets/logos/vanguard-admin-logo.svg`)}"><h2>VANGUARD SERVICES</h2><p>${escape(receiptData.origin || '')} → ${escape(receiptData.destination || '')}</p></header><p class="code">${escape(receiptData.trackingCode)}</p><div class="row"><span>Enregistré</span><strong>${escape(new Date(receiptData.receivedAt).toLocaleString())}</strong></div><div class="row"><span>Expéditeur</span><strong>${escape(receiptData.senderName)}</strong></div><div class="row"><span>Destinataire</span><strong>${escape(receiptData.recipientName)}</strong></div><div class="row total"><span>Total</span><strong>${escape(receiptData.amount)} ${escape(receiptData.currency)}</strong></div><div class="row"><span>Espèces</span><strong>${paid ? escape(t('agentParcel.paymentPaid')) : escape(t('agentParcel.paymentDueAtPickup'))}</strong></div><p class="muted">${escape(receiptData.senderPhone)} · ${escape(receiptData.recipientPhone)}</p></article><script>window.onload=()=>window.print()</script></body></html>`)
-    windowRef.document.close()
+    let printWindow
+    try {
+      printWindow = openParcelReceiptPrintWindow()
+      const response = await api.get(`/api/parcels/${encodeURIComponent(receiptData.id)}/receipt`, { params: { format: receiptFormat } })
+      renderParcelReceiptPrintWindow(printWindow, response.data?.data, receiptFormat, lang, t)
+      setReceiptPrintError(false)
+    } catch {
+      printWindow?.close()
+      setReceiptPrintError(true)
+    }
   }
 
   return (
@@ -222,6 +230,7 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
             {t('agentParcel.trackingCodeLabel')} : <strong style={{ color: 'var(--primary)', fontSize: '1.1rem', letterSpacing: '0.05em' }}>{successResult.trackingCode}</strong>
           </p>
           {receiptError && <p className="alert alert-danger" role="alert">{t('agentParcel.receiptLoadFailed')}</p>}
+          {receiptPrintError && <p className="alert alert-danger" role="alert">{t('agentParcel.receiptPrintFailed')}</p>}
           {receiptData && <>
             {receiptVisible && <div className="receipt-printable" style={{ background: '#fff', color: '#111827', border: '1px solid #d1d5db', borderRadius: 8, padding: '1rem', textAlign: 'left', marginBottom: '1rem' }}>
               <strong>VANGUARD SERVICES</strong>
@@ -231,6 +240,7 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
               <strong>{receiptData.amount} {receiptData.currency}</strong>
               <p>{receiptData.paymentStatus === 'PAID' ? t('agentParcel.paymentPaid') : t('agentParcel.paymentDueAtPickup')}</p>
             </div>}
+            <label className="form-field"><span>{t('agentParcel.receiptFormat')}</span><select className="form-control" value={receiptFormat} onChange={(event) => setReceiptFormat(event.target.value)}>{PARCEL_RECEIPT_FORMATS.map((format) => <option key={format} value={format}>{format === 'a4' ? 'A4' : format}</option>)}</select></label>
             <div style={{ display: 'flex', gap: '.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <Button type="button" variant="secondary" onClick={() => setReceiptVisible((visible) => !visible)}>{t('agentParcel.receiptView')}</Button>
               <Button type="button" variant="primary" onClick={printReceipt}>{t('agentParcel.receiptPrint')}</Button>

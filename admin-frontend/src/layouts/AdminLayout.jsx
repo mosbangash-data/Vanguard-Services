@@ -26,7 +26,6 @@ import {
   Ticket,
   CreditCard,
   Package,
-  MapPin,
   UserRoundPlus,
   Wrench,
   Settings,
@@ -84,6 +83,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   const { lang, setLang, t } = useLanguage()
   const { theme, resolvedTheme, setTheme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [logoutPending, setLogoutPending] = useState(false)
 
   useEffect(() => {
     if (!mobileOpen) return undefined
@@ -100,6 +100,8 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     coach: true,
     auto: true,
     construction: true,
+    'agent-tickets': false,
+    'agent-transport': false,
   })
 
   const toggleSection = (sectionKey) => {
@@ -109,45 +111,46 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     }))
   }
 
-  const handleLogout = () => {
-    signOut()
-    navigate('/admin/login', { replace: true })
+  const handleLogout = async () => {
+    if (logoutPending) return
+    setLogoutPending(true)
+    try {
+      await signOut()
+    } finally {
+      navigate('/admin/login', { replace: true })
+      setLogoutPending(false)
+    }
   }
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   const userDept = user?.department?.type || user?.departmentType
+  const isCoachAgent = user?.role === 'AGENT' && userDept === 'VANGUARD_COACH'
 
   // Navigation Items Definitions
   const navSections = useMemo(() => {
     // The coach agent works from operational queues, not the department's
     // administrative CRUD catalog. Keep each destination on its real route.
-    if (user?.role === 'AGENT' && userDept === 'VANGUARD_COACH') {
+    if (isCoachAgent) {
       const agentSections = [
         { id: 'agent-dashboard', titleKey: 'navigation.sections.agentDashboard', items: [
           { path: '/transport/agent', labelKey: 'navigation.items.dashboard', icon: LayoutDashboard },
+          { path: '/transport/reservations', labelKey: 'navigation.items.sellTicket', icon: UserRoundPlus, permission: 'CREATE_RESERVATION' },
+          { path: '/transport/parcels', labelKey: 'navigation.items.parcels', icon: Package, permission: 'VIEW_PARCEL' },
+          { path: '/transport/operations', labelKey: 'navigation.items.payments', icon: CreditCard, permission: 'VIEW_PAYMENT' },
+          { path: '/admin/account', labelKey: 'navigation.items.account', icon: Settings },
         ] },
-        { id: 'agent-sales', titleKey: 'navigation.sections.agentSales', items: [
-          { path: '/transport/reservations', labelKey: 'navigation.items.newReservation', icon: UserRoundPlus, permission: 'CREATE_RESERVATION' },
-          { path: '/transport/reservations', labelKey: 'navigation.items.reservations', icon: Ticket, permission: 'VIEW_RESERVATION' },
-          { path: '/transport/operations', labelKey: 'navigation.items.cashPayments', icon: CreditCard, permission: 'VIEW_PAYMENT' },
+        { id: 'agent-tickets', titleKey: 'navigation.sections.agentTicketTools', collapsible: true, items: [
           { path: '/transport/tickets', labelKey: 'navigation.items.tickets', icon: Ticket, permission: 'VIEW_RESERVATION' },
         ] },
-        { id: 'agent-boarding', titleKey: 'navigation.sections.agentBoarding', items: [
+        { id: 'agent-transport', titleKey: 'navigation.sections.agentTransportTools', collapsible: true, items: [
           { path: '/transport/scanner', labelKey: 'navigation.items.scanner', icon: QrCode, permission: 'SCAN_TICKET' },
           { path: '/transport/trips', labelKey: 'navigation.items.departures', icon: Bus, permission: 'VIEW_TRIP' },
-        ] },
-        { id: 'agent-parcels', titleKey: 'navigation.sections.agentParcels', items: [
-          { path: '/transport/parcels', labelKey: 'navigation.items.registerParcel', icon: Package, permission: 'CREATE_PARCEL' },
-          { path: '/transport/parcels', labelKey: 'navigation.items.parcelOperations', icon: Package, permission: 'VIEW_PARCEL' },
-          { path: '/transport/parcels', labelKey: 'navigation.items.parcelTracking', icon: MapPin, permission: 'VIEW_PARCEL' },
-        ] },
-        { id: 'agent-account', titleKey: 'navigation.sections.agentAccount', items: [
-          { path: '/admin/account', labelKey: 'navigation.items.account', icon: Settings },
         ] },
       ]
       return agentSections.map((section) => ({
         id: section.id,
         title: t(section.titleKey),
+        collapsible: section.collapsible,
         items: section.items.filter((item) => !item.permission || hasPermission(user, item.permission)).map((item) => ({ ...item, label: t(item.labelKey) })),
       })).filter((section) => section.items.length)
     }
@@ -296,11 +299,17 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         label: item.labelKey ? t(item.labelKey) : PATH_KEYS[item.path] ? (t(`navigation.items.${PATH_KEYS[item.path]}`) || item.label) : item.label,
       })),
     }))
-  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t, location.pathname])
+  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t, location.pathname, isCoachAgent])
+
+  useEffect(() => {
+    const activeCollapsible = navSections.find((section) => section.collapsible && section.items.some((item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)))
+    if (activeCollapsible) setExpandedSections((current) => ({ ...current, [activeCollapsible.id]: true }))
+  }, [navSections, location.pathname])
 
   // Get active page context title
   const currentPath = location.pathname
   const getContextTitle = () => {
+    if (isCoachAgent) return t('agent.workspaceTitle')
     if (currentPath.startsWith('/transport')) return t('navigation.sections.coach')
     if (currentPath.startsWith('/automobile')) return t('navigation.sections.automobile')
     if (currentPath.startsWith('/construction')) return t('navigation.sections.construction')
@@ -310,7 +319,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   }
 
   return (
-    <div className={`app-shell vanguard-app-shell${user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' ? ' vanguard-agent-shell' : ''}`}>
+      <div className={`app-shell vanguard-app-shell${isCoachAgent ? ' vanguard-agent-shell' : ''}`}>
       {/* Mobile Backdrop Overlay */}
       {mobileOpen && (
         <div
@@ -322,9 +331,17 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
 
       {/* Sidebar */}
       <aside id="app-navigation" className={`sidebar vanguard-sidebar ${mobileOpen ? 'open' : ''}`} aria-label={t('navigation.title')}>
-        <div className={`sidebar-brand vanguard-sidebar-brand ${user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' ? 'vanguard-agent-brand' : ''}`}>
+        <div className={`sidebar-brand vanguard-sidebar-brand ${isCoachAgent ? 'vanguard-agent-brand' : ''}`}>
           <Link to={isSuperAdmin ? '/admin' : userDept === 'VANGUARD_COACH' ? '/transport' : userDept === 'AUTO_SALES' ? '/automobile' : '/construction'} className="sidebar-brand-link">
-            {user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' ? <span className="vanguard-agent-brand-name">VANGUARD COACH</span> : <img
+            {isCoachAgent ? <img
+              src={`${import.meta.env.BASE_URL}assets/logos/vanguard-admin-logo.svg`}
+              alt="Vanguard Services"
+              className="sidebar-logo vanguard-sidebar-logo-svg"
+              onError={(e) => {
+                e.target.onerror = null
+                e.target.src = `${import.meta.env.BASE_URL}assets/logos/vanguard-services.png`
+              }}
+            /> : <img
               src={`${import.meta.env.BASE_URL}assets/logos/vanguard-admin-logo.svg`}
               alt={`Vanguard Services · ${t('authUi.administration')}`}
               className="sidebar-logo vanguard-sidebar-logo-svg"
@@ -343,9 +360,12 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
 
             return (
               <div key={section.id} className={`vanguard-nav-section ${section.id.startsWith('agent-') ? 'vanguard-nav-section--agent' : ''}`}>
-                <div
-                  className={`vanguard-nav-section-header ${isCollapsible ? 'is-collapsible' : ''}`}
-                  onClick={() => isCollapsible && toggleSection(section.id)}
+                {isCollapsible ? <button
+                  type="button"
+                  className="vanguard-nav-section-header is-collapsible"
+                  aria-expanded={isExpanded}
+                  aria-controls={`nav-section-${section.id}`}
+                  onClick={() => toggleSection(section.id)}
                 >
                   <div className="vanguard-nav-section-title-wrap">
                     <span className="vanguard-nav-section-title">{section.title}</span>
@@ -360,10 +380,14 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
                       {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </span>
                   )}
-                </div>
+                </button> : <div className="vanguard-nav-section-header">
+                  <div className="vanguard-nav-section-title-wrap">
+                    <span className="vanguard-nav-section-title">{section.title}</span>
+                    {section.badge && <span className={`vanguard-nav-badge vanguard-nav-badge--${section.badgeColor || 'default'}`}>{section.badge}</span>}
+                  </div>
+                </div>}
 
-                {isExpanded && (
-                  <div className="vanguard-nav-section-items">
+                <div id={`nav-section-${section.id}`} className="vanguard-nav-section-items" hidden={!isExpanded}>
                     {section.items.map((item) => {
                       const Icon = item.icon || ChevronRight
                       return (
@@ -381,15 +405,14 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
                         </NavLink>
                       )
                     })}
-                  </div>
-                )}
+                </div>
               </div>
             )
           })}
         </nav>
 
         {/* Sidebar Footer User Card */}
-        <div className="vanguard-sidebar-footer">
+        {!isCoachAgent && <div className="vanguard-sidebar-footer">
           <Link to="/admin/account" className="vanguard-sidebar-user" onClick={() => setMobileOpen(false)}>
             <div className="vanguard-sidebar-avatar">
               {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
@@ -401,7 +424,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
               <span className="vanguard-sidebar-user-role">{user?.role || 'SUPER_ADMIN'}</span>
             </div>
           </Link>
-        </div>
+        </div>}
       </aside>
 
       {/* Main App Content Area */}
@@ -424,6 +447,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           </div>
 
           <div className="header-right vanguard-header-right">
+            {!isCoachAgent && <>
             <label className="theme-selector">
               <span className="theme-selector-icon" aria-hidden="true">{resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}</span>
               <span className="sr-only">{t('layout.theme')}</span>
@@ -466,12 +490,15 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
                 </div>
               </Link>
             </div>
+            </>}
 
             {/* Logout Action */}
             <button
               type="button"
               className="vanguard-btn vanguard-btn--secondary vanguard-btn--sm vanguard-logout-btn"
               onClick={handleLogout}
+              disabled={logoutPending}
+              aria-label={t('layout.logout')}
               title={t('layout.logout')}
             >
               <LogOut size={15} />
@@ -483,13 +510,13 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         <main className="app-main vanguard-app-main">
           <Outlet />
         </main>
-        {user?.role === 'AGENT' && userDept === 'VANGUARD_COACH' && (
+        {isCoachAgent && (
           <nav className="agent-mobile-nav" aria-label={t('navigation.sections.coach')}>
-            <NavLink to="/transport" end className={({ isActive }) => isActive ? 'active' : ''}><Bus size={19} /><span>{t('layout.home')}</span></NavLink>
-            {hasPermission(user, 'VIEW_RESERVATION') && <NavLink to="/transport/reservations" className={({ isActive }) => isActive ? 'active' : ''}><Ticket size={19} /><span>{t('layout.reservations')}</span></NavLink>}
+            <NavLink to="/transport/agent" className={({ isActive }) => isActive ? 'active' : ''}><Bus size={19} /><span>{t('layout.home')}</span></NavLink>
+            {hasPermission(user, 'CREATE_RESERVATION') && <NavLink to="/transport/reservations" className={({ isActive }) => isActive ? 'active' : ''}><Ticket size={19} /><span>{t('navigation.items.sellTicket')}</span></NavLink>}
+            {hasPermission(user, 'VIEW_PARCEL') && <NavLink to="/transport/parcels" className={({ isActive }) => isActive ? 'active' : ''}><Package size={19} /><span>{t('layout.parcels')}</span></NavLink>}
             {hasPermission(user, 'VIEW_PAYMENT') && <NavLink to="/transport/operations" className={({ isActive }) => isActive ? 'active' : ''}><CreditCard size={19} /><span>{t('layout.payments')}</span></NavLink>}
-            {hasPermission(user, 'SCAN_TICKET') && <NavLink to="/transport/scanner" className={({ isActive }) => isActive ? 'active' : ''}><QrCode size={19} /><span>{t('layout.scanner')}</span></NavLink>}
-            {hasPermission(user, 'CREATE_PARCEL') && <NavLink to="/transport/parcels" className={({ isActive }) => isActive ? 'active' : ''}><Package size={19} /><span>{t('layout.parcels')}</span></NavLink>}
+            <NavLink to="/admin/account" className={({ isActive }) => isActive ? 'active' : ''}><Settings size={19} /><span>{t('navigation.items.account')}</span></NavLink>
           </nav>
         )}
       </div>

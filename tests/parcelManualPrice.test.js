@@ -4,10 +4,10 @@ const assert = require('node:assert/strict');
 // The service module builds a lazy Prisma client. These test-only credentials
 // satisfy env validation; the tested price normalizer makes no database calls.
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET ||= 'test-jwt-secret-that-is-at-least-thirty-two-characters';
-process.env.SESSION_SECRET ||= 'test-session-secret-that-is-at-least-thirty-two-characters';
-process.env.DATABASE_URL ||= 'postgresql://test:test@127.0.0.1:5432/test';
-process.env.TICKET_QR_SECRET ||= 'test-ticket-qr-secret-that-is-at-least-thirty-two-characters';
+process.env.JWT_SECRET = 'test-jwt-secret-that-is-at-least-thirty-two-characters';
+process.env.SESSION_SECRET = 'test-session-secret-that-is-at-least-thirty-two-characters';
+process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:5432/test';
+process.env.TICKET_QR_SECRET = 'test-ticket-qr-secret-that-is-at-least-thirty-two-characters';
 
 const { resolveManualParcelPrice } = require('../src/services/parcelService');
 

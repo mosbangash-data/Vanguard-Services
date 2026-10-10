@@ -10,6 +10,7 @@ import { createResource, deleteResource, listResource, patchResource, updateReso
 import { DynamicResourceForm } from './DynamicResourceForm'
 import { AgentParcelModal } from '../admin/coach/AgentParcelModal'
 import { printTicket as printTicketDocument } from '../admin/coach/ticketPrint'
+import { openParcelReceiptPrintWindow, renderParcelReceiptPrintWindow, PARCEL_RECEIPT_FORMATS } from '../admin/coach/parcelReceiptPrint'
 import { api, uploadMedia } from '../../services/api'
 import { syncMediaRelations } from '../../utils/mediaSync'
 import { normalizeListResponse, getRelationValue } from '../../utils/apiResponse'
@@ -34,6 +35,13 @@ const errorMessage = (error, t) =>
 const toList = (data) => normalizeListResponse(data)
 
 const getId = (item) => item.id || item._id || item.code || item.ticketCode
+const PARCEL_NEXT_ACTION = {
+  REGISTERED: { status: 'ACCEPTED', permission: 'CHANGE_PARCEL_STATUS', label: 'transitionAccept' },
+  PAID: { status: 'ACCEPTED', permission: 'CHANGE_PARCEL_STATUS', label: 'transitionAccept' },
+  ACCEPTED: { status: 'IN_TRANSIT', permission: 'CHANGE_PARCEL_STATUS', label: 'transitionDepart' },
+  IN_TRANSIT: { status: 'ARRIVED_AT_AGENCY', permission: 'RECEIVE_PARCEL', label: 'transitionArrive' },
+  ARRIVED_AT_AGENCY: { status: 'READY_FOR_PICKUP', permission: 'CHANGE_PARCEL_STATUS', label: 'transitionReady' },
+}
 const SENSITIVE_RESOURCE_KEYS = new Set([
   'password', 'passwordhash', 'token', 'resettoken', 'accesstoken',
   'refreshtoken', 'secret', 'apikey', 'databaseurl', 'database_url',
@@ -101,6 +109,7 @@ export function ResourcePage({ resource }) {
   const [printingTicketId, setPrintingTicketId] = useState(null)
   const [ticketPrintFormat] = useState('80mm')
   const [parcelReceipt, setParcelReceipt] = useState(null)
+  const [parcelReceiptFormat, setParcelReceiptFormat] = useState('80mm')
   const [parcelActionId, setParcelActionId] = useState(null)
   const [mediaProgress, setMediaProgress] = useState('')
 
@@ -158,7 +167,7 @@ export function ResourcePage({ resource }) {
     setParcelActionId(parcelId)
     setTicketActionError('')
     try {
-      const response = await api.get(`/api/parcels/${encodeURIComponent(parcelId)}/receipt`)
+      const response = await api.get(`/api/parcels/${encodeURIComponent(parcelId)}/receipt`, { params: { format: parcelReceiptFormat } })
       setParcelReceipt(response.data?.data)
     } catch (error) {
       setTicketActionError(errorMessage(error, t))
@@ -168,10 +177,25 @@ export function ResourcePage({ resource }) {
   }
 
   const payParcel = async (parcelId) => {
+    if (!window.confirm(t('agentParcel.confirmCashPayment'))) return
     setParcelActionId(parcelId)
     setTicketActionError('')
     try {
       await api.post(`/api/parcels/${encodeURIComponent(parcelId)}/pay`, { method: 'CASH' })
+      await query.refetch()
+    } catch (error) {
+      setTicketActionError(errorMessage(error, t))
+    } finally {
+      setParcelActionId(null)
+    }
+  }
+
+  const transitionParcel = async (parcelId, newStatus) => {
+    setParcelActionId(parcelId)
+    setTicketActionError('')
+    try {
+      if (newStatus === 'ARRIVED_AT_AGENCY') await api.post(`/api/parcels/${encodeURIComponent(parcelId)}/receive`)
+      else await api.patch(`/api/parcels/${encodeURIComponent(parcelId)}/status`, { newStatus })
       await query.refetch()
     } catch (error) {
       setTicketActionError(errorMessage(error, t))
@@ -201,15 +225,25 @@ export function ResourcePage({ resource }) {
     }
   }
 
-  const printParcelReceipt = () => {
+  const printParcelReceipt = async () => {
     if (!parcelReceipt) return
-    const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
-    printWindow.opener = null
-    const paid = parcelReceipt.paymentStatus === 'PAID'
-    printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(parcelReceipt.trackingCode)}</title><style>@page{size:80mm auto;margin:4mm}body{font:14px Arial,sans-serif;color:#111;margin:0}.receipt{padding:14px}.brand{text-align:center;border-bottom:1px dashed #777;padding-bottom:10px}.code{text-align:center;font-size:18px;font-weight:bold;margin:14px}.row{display:flex;justify-content:space-between;gap:10px;margin:9px 0}.total{font-size:18px;font-weight:bold;border-top:1px solid #333;padding-top:10px}</style></head><body><article class="receipt"><header class="brand"><strong>VANGUARD SERVICES</strong><p>${escape(parcelReceipt.origin)} → ${escape(parcelReceipt.destination)}</p></header><p class="code">${escape(parcelReceipt.trackingCode)}</p><div class="row"><span>Enregistré</span><strong>${escape(new Date(parcelReceipt.receivedAt).toLocaleString())}</strong></div><div class="row"><span>Expéditeur</span><strong>${escape(parcelReceipt.senderName)}</strong></div><div class="row"><span>Destinataire</span><strong>${escape(parcelReceipt.recipientName)}</strong></div><div class="row total"><span>Total</span><strong>${escape(parcelReceipt.amount)} ${escape(parcelReceipt.currency)}</strong></div><div class="row"><span>Espèces</span><strong>${paid ? 'Payé' : 'À payer au retrait'}</strong></div></article><script>window.onload=()=>window.print()</script></body></html>`)
-    printWindow.document.close()
+    let printWindow
+    try {
+      printWindow = openParcelReceiptPrintWindow()
+    } catch (error) {
+      setTicketActionError(errorMessage(error, t))
+      return
+    }
+    setParcelActionId('receipt-print')
+    try {
+      const response = await api.get(`/api/parcels/${encodeURIComponent(parcelReceipt.id)}/receipt`, { params: { format: parcelReceiptFormat } })
+      renderParcelReceiptPrintWindow(printWindow, response.data?.data, parcelReceiptFormat, lang, t)
+    } catch (error) {
+      printWindow.close()
+      setTicketActionError(errorMessage(error, t))
+    } finally {
+      setParcelActionId(null)
+    }
   }
 
   const refresh = () => {
@@ -519,7 +553,7 @@ export function ResourcePage({ resource }) {
       {isParcelResource && <div className="resource-toolbar parcel-filters" aria-label={t('agentParcel.parcelFilters')}>
         <select className="form-control" value={parcelStatusFilter} onChange={(event) => setParcelStatusFilter(event.target.value)} aria-label={t('agentParcel.parcelStatus')}>
           <option value="">{t('agentParcel.allParcelStatuses')}</option>
-          {['REGISTERED', 'PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'IN_TRANSIT', 'ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP', 'COLLECTED', 'RETURNED', 'CANCELLED'].map((status) => {
+          {['REGISTERED', 'PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'IN_TRANSIT', 'ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP', 'COLLECTED', 'DELIVERED', 'RETURNED', 'CANCELLED'].map((status) => {
             const key = `status.${status.toLowerCase()}`
             const translated = t(key)
             const fallback = status.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -635,8 +669,9 @@ export function ResourcePage({ resource }) {
                             ) : isParcelResource ? (
                               <>
                                 {hasPermission(user, 'PRINT_PARCEL_RECEIPT') && <button type="button" className="table-action-btn view-btn" disabled={Boolean(parcelActionId)} onClick={() => viewParcelReceipt(item.id)}>{t('operations.receipt')}</button>}
-                                {hasPermission(user, 'VERIFY_PARCEL_PAYMENT') && !item.payments?.some((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status)) && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId)} onClick={() => payParcel(item.id)}>{parcelActionId === item.id ? t('operations.validating') : t('operations.validate')}</button>}
-                                {hasPermission(user, 'COLLECT_PARCEL') && ['READY_FOR_PICKUP', 'ARRIVED_AT_AGENCY'].includes(item.status) && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId)} onClick={() => collectParcel(item.id)}>{t('parcel.confirmPickup')}</button>}
+                                {PARCEL_NEXT_ACTION[item.status] && hasPermission(user, PARCEL_NEXT_ACTION[item.status].permission) && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId)} onClick={() => transitionParcel(item.id, PARCEL_NEXT_ACTION[item.status].status)}>{t(`agentParcel.${PARCEL_NEXT_ACTION[item.status].label}`)}</button>}
+                                {hasPermission(user, 'VERIFY_PARCEL_PAYMENT') && item.paymentTiming === 'AT_PICKUP' && item.status === 'READY_FOR_PICKUP' && !item.payments?.some((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status)) && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId)} onClick={() => payParcel(item.id)}>{parcelActionId === item.id ? t('operations.validating') : t('agentParcel.confirmCashCollected')}</button>}
+                                {hasPermission(user, 'COLLECT_PARCEL') && item.status === 'READY_FOR_PICKUP' && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId) || (item.paymentTiming === 'AT_PICKUP' && !item.payments?.some((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status)))} onClick={() => collectParcel(item.id)}>{t('parcel.confirmPickup')}</button>}
                               </>
                             ) : (
                               <>
@@ -820,7 +855,9 @@ export function ResourcePage({ resource }) {
           <p>{parcelReceipt.recipientName} ({parcelReceipt.recipientPhone})</p>
           <strong>{parcelReceipt.amount} {parcelReceipt.currency}</strong>
           <p>{parcelReceipt.paymentStatus === 'PAID' ? t('agentParcel.paymentPaid') : t('agentParcel.paymentDueAtPickup')}</p>
-          <Button type="button" variant="primary" onClick={printParcelReceipt}><Printer size={14} />{t('operations.printReceipt')}</Button>
+          <p>{t('agentParcel.receiptLogistics')}: {t(`status.${String(parcelReceipt.status || '').toLowerCase()}`)}</p>
+          <label className="form-field"><span>{t('agentParcel.receiptFormat')}</span><select className="form-control" value={parcelReceiptFormat} onChange={(event) => setParcelReceiptFormat(event.target.value)}>{PARCEL_RECEIPT_FORMATS.map((format) => <option key={format} value={format}>{format === 'a4' ? 'A4' : format}</option>)}</select></label>
+          <Button type="button" variant="primary" disabled={parcelActionId === 'receipt-print'} onClick={printParcelReceipt}><Printer size={14} />{t('operations.printReceipt')}</Button>
         </div>}
       </Modal>
 

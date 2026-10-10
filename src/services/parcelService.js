@@ -1,19 +1,28 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
-const { requireDepartmentType } = require('./departmentAccessService');
 const { applyPricingBasis } = require('./parcelPricingService');
 const { encryptSensitiveData, decryptSensitiveData, maskIdNumber, generateSecureTrackingCode } = require('../utils/cryptoUtils');
 const { buildSignedQrPayload } = require('../utils/qrUtils');
+const QRCode = require('qrcode');
+
+const PARCEL_RECEIPT_FORMATS = ['a4', '58mm', '80mm', '110mm'];
+const normalizeParcelReceiptFormat = (format = 'a4') => {
+  const normalized = String(format).toLowerCase();
+  if (!PARCEL_RECEIPT_FORMATS.includes(normalized)) {
+    throw new AppError('Receipt format must be one of: a4, 58mm, 80mm, 110mm', 400);
+  }
+  return normalized;
+};
 
 const ALLOWED_PARCEL_TRANSITIONS = {
-  REGISTERED: ['PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'IN_TRANSIT', 'CANCELLED'],
-  PAYMENT_PENDING: ['PAID', 'CANCELLED'],
+  REGISTERED: ['ACCEPTED', 'CANCELLED'],
+  PAYMENT_PENDING: ['CANCELLED'],
   PAID: ['ACCEPTED', 'CANCELLED', 'RETURNED'],
   ACCEPTED: ['IN_TRANSIT', 'CANCELLED', 'RETURNED'],
   IN_TRANSIT: ['ARRIVED_AT_AGENCY', 'RETURNED'],
-  ARRIVED_AT_AGENCY: ['READY_FOR_PICKUP', 'COLLECTED', 'RETURNED'],
-  READY_FOR_PICKUP: ['COLLECTED', 'RETURNED'],
+  ARRIVED_AT_AGENCY: ['READY_FOR_PICKUP', 'RETURNED'],
+  READY_FOR_PICKUP: ['RETURNED'],
   COLLECTED: [],
   RETURNED: [],
   CANCELLED: [],
@@ -83,17 +92,17 @@ const assertParcelAgencyAccess = (currentUser, parcel, action = 'view') => {
   }
 
   if (action === 'collect' || action === 'arrival' || action === 'destination') {
-    if (parcel.destinationAgencyId && parcel.destinationAgencyId !== userAgencyId) {
+    if (!parcel.destinationAgencyId || parcel.destinationAgencyId !== userAgencyId) {
       throw new AppError('Access denied: You can only perform this action for parcels assigned to your destination agency', 403);
     }
   } else if (action === 'origin' || action === 'create' || action === 'depart') {
-    if (parcel.originAgencyId && parcel.originAgencyId !== userAgencyId) {
+    if (!parcel.originAgencyId || parcel.originAgencyId !== userAgencyId) {
       throw new AppError('Access denied: You can only perform this action for parcels originating from your agency', 403);
     }
   } else {
     const isOrigin = parcel.originAgencyId && parcel.originAgencyId === userAgencyId;
     const isDestination = parcel.destinationAgencyId && parcel.destinationAgencyId === userAgencyId;
-    if ((parcel.originAgencyId || parcel.destinationAgencyId) && !isOrigin && !isDestination) {
+    if ((!parcel.originAgencyId && !parcel.destinationAgencyId) || (!isOrigin && !isDestination)) {
       throw new AppError('Access denied: Parcel does not belong to your agency', 403);
     }
   }
@@ -116,7 +125,7 @@ const listParcels = async (query = {}, currentUser) => {
   if (query.destinationAgencyId) where.destinationAgencyId = String(query.destinationAgencyId).trim();
   if (query.paymentStatus) {
     if (!['PENDING', 'VERIFIED', 'COMPLETED'].includes(String(query.paymentStatus).toUpperCase())) throw new AppError('Invalid parcel payment status filter', 400);
-    where.payments = { some: { status: String(query.paymentStatus).toUpperCase() } };
+    where.payments = { some: { status: String(query.paymentStatus).toUpperCase(), method: 'CASH' } };
   }
   if (query.createdFrom || query.createdTo) {
     const from = query.createdFrom ? new Date(query.createdFrom) : null;
@@ -171,7 +180,7 @@ const listParcels = async (query = {}, currentUser) => {
             pickedUpBy: { select: { id: true, firstName: true, lastName: true } },
           },
         },
-        payments: true,
+        payments: { where: { method: 'CASH' } },
       },
     }),
     prisma.parcel.count({ where }),
@@ -206,12 +215,12 @@ const getParcelById = async (id, currentUser) => {
           changedBy: { select: { id: true, firstName: true, lastName: true } },
         },
       },
-      payments: true,
+      payments: { where: { method: 'CASH' } },
     },
   });
 
   if (!parcel) throw new AppError('Parcel not found', 404);
-  assertParcelAgencyAccess(currentUser, parcel, 'origin');
+  assertParcelAgencyAccess(currentUser, parcel, 'view');
   return { parcel };
 };
 
@@ -283,8 +292,8 @@ const createParcel = async (data, currentUser) => {
         currency: manualPrice.currency,
         paymentTiming,
         status: initialStatus,
-        receivedByUserId: currentUser?.id || null,
-        receivedAt: new Date(),
+        receivedByUserId: null,
+        receivedAt: null,
       },
       include: {
         originAgency: true,
@@ -316,7 +325,7 @@ const createParcel = async (data, currentUser) => {
         newStatus: initialStatus,
         changedByUserId: currentUser?.id || null,
         reason: 'Initial parcel registration and physical reception',
-        details: { pricingBasis: pricingBasis || null, paymentMethod: 'CASH', paymentTiming, paymentId: payment.id },
+        details: { action: 'REGISTERED', pricingBasis: pricingBasis || null, paymentMethod: 'CASH', paymentTiming, financialStatus: payment.status, paymentId: payment.id, agencyId: created.originAgencyId || null },
       },
     });
 
@@ -335,20 +344,24 @@ const createParcel = async (data, currentUser) => {
 
 const payParcel = async (id, paymentData = {}, currentUser) => {
   assertCoachAccess(currentUser);
-  const parcel = await prisma.parcel.findUnique({ where: { id }, include: { payments: true } });
+  const parcel = await prisma.parcel.findUnique({ where: { id } });
   if (!parcel) throw new AppError('Parcel not found', 404);
-  assertParcelAgencyAccess(currentUser, parcel, 'view');
-  if (parcel.status === 'COLLECTED' || parcel.status === 'CANCELLED' || parcel.status === 'RETURNED') {
-    throw new AppError(`Parcel is not in a payable state (current status: ${parcel.status})`, 409);
+  assertParcelAgencyAccess(currentUser, parcel, 'destination');
+  if (parcel.paymentTiming !== 'AT_PICKUP' || parcel.status !== 'READY_FOR_PICKUP') {
+    throw new AppError('CASH payment is only due at the destination when the parcel is ready for pickup', 409);
   }
   const method = String(paymentData.method || 'CASH').toUpperCase();
   if (method !== 'CASH') throw new AppError('Only CASH payments are supported for parcels', 400);
   const channel = 'AGENCY';
   const result = await prisma.$transaction(async (tx) => {
-    const pending = await tx.payment.findMany({ where: { parcelId: id, status: 'PENDING', method: 'CASH' } });
-    if (pending.length !== 1) throw new AppError(pending.length ? 'Multiple pending parcel payments require review' : 'Parcel has no unpaid CASH payment', 409);
+    const cashPayments = await tx.payment.findMany({ where: { parcelId: id } });
+    const pending = cashPayments.filter((payment) => payment.status === 'PENDING');
+    if (cashPayments.length !== 1 || cashPayments[0].method !== 'CASH' || pending.length !== 1) throw new AppError(pending.length ? 'Parcel payment state is inconsistent and requires review' : 'Parcel has no unpaid CASH payment', 409);
+    if (Number(pending[0].amount).toFixed(2) !== Number(parcel.amount).toFixed(2) || pending[0].currency !== parcel.currency) {
+      throw new AppError('Pending CASH payment does not match the parcel amount', 409);
+    }
     const updated = await tx.payment.updateMany({
-      where: { id: pending[0].id, status: 'PENDING', method: 'CASH' },
+      where: { id: pending[0].id, status: 'PENDING', method: 'CASH', amount: pending[0].amount, currency: parcel.currency },
       data: { status: 'VERIFIED', validatedById: currentUser.id, validatedAt: new Date(), comment: paymentData.comment ? String(paymentData.comment).trim() : 'Cash collected at agency' },
     });
     if (updated.count !== 1) throw new AppError('Parcel payment was already collected', 409);
@@ -359,7 +372,7 @@ const payParcel = async (id, paymentData = {}, currentUser) => {
       newStatus: parcel.status,
       changedByUserId: currentUser.id,
       reason: 'Parcel CASH payment collected',
-      details: { paymentId: payment.id, financialStatus: 'VERIFIED', amount: payment.amount },
+      details: { action: 'CASH_PAYMENT_COLLECTED', paymentId: payment.id, previousPaymentStatus: 'PENDING', newPaymentStatus: 'VERIFIED', amount: payment.amount, agencyId: parcel.destinationAgencyId },
     } });
     return { payment, newStatus: parcel.status };
   });
@@ -376,15 +389,21 @@ const payParcel = async (id, paymentData = {}, currentUser) => {
   return { payment: result.payment, parcelStatus: result.newStatus };
 };
 
-const changeParcelStatus = async (id, { newStatus, reason, details } = {}, currentUser) => {
+const changeParcelStatus = async (id, { newStatus, reason } = {}, currentUser, dedicatedReceipt = false) => {
   assertCoachAccess(currentUser);
   if (!newStatus) throw new AppError('newStatus is required', 400);
+  if (['PAYMENT_PENDING', 'PAID'].includes(newStatus)) {
+    throw new AppError('Parcel financial state is managed only by the CASH payment action', 400);
+  }
+  if (['COLLECTED', 'DELIVERED'].includes(newStatus) || (newStatus === 'ARRIVED_AT_AGENCY' && !dedicatedReceipt)) {
+    throw new AppError('Parcel receipt and handover must use their dedicated confirmation actions', 400);
+  }
 
   const parcel = await prisma.parcel.findUnique({ where: { id } });
   if (!parcel) throw new AppError('Parcel not found', 404);
 
   const isOriginAction = ['ACCEPTED', 'IN_TRANSIT'].includes(newStatus);
-  const isDestinationAction = ['ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP', 'COLLECTED'].includes(newStatus);
+  const isDestinationAction = ['ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP'].includes(newStatus);
   if (isOriginAction) {
     assertParcelAgencyAccess(currentUser, parcel, 'origin');
   } else if (isDestinationAction) {
@@ -397,11 +416,18 @@ const changeParcelStatus = async (id, { newStatus, reason, details } = {}, curre
   if (!allowed.includes(newStatus)) {
     throw new AppError(`Invalid status transition from ${parcel.status} to ${newStatus}. Allowed: ${allowed.join(', ') || 'none'}`, 400);
   }
-
+  const eventAgencyId = ['ACCEPTED', 'IN_TRANSIT'].includes(newStatus)
+    ? parcel.originAgencyId
+    : ['ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP'].includes(newStatus)
+      ? parcel.destinationAgencyId
+      : currentUser.agencyId || currentUser.agency?.id || null;
   const updated = await prisma.$transaction(async (tx) => {
     const count = await tx.parcel.updateMany({
       where: { id, status: parcel.status },
-      data: { status: newStatus },
+      data: {
+        status: newStatus,
+        ...(newStatus === 'ARRIVED_AT_AGENCY' ? { receivedAt: new Date(), receivedByUserId: currentUser.id } : {}),
+      },
     });
     if (count.count !== 1) {
       throw new AppError('Concurrent status modification detected, please refresh', 409);
@@ -414,7 +440,7 @@ const changeParcelStatus = async (id, { newStatus, reason, details } = {}, curre
         newStatus,
         changedByUserId: currentUser?.id || null,
         reason: reason ? String(reason).trim() : `Status updated to ${newStatus}`,
-        details: details || null,
+        details: { action: newStatus === 'ARRIVED_AT_AGENCY' ? 'DESTINATION_RECEIPT_CONFIRMED' : 'STATUS_TRANSITION', agencyId: eventAgencyId },
       },
     });
 
@@ -431,6 +457,14 @@ const changeParcelStatus = async (id, { newStatus, reason, details } = {}, curre
   return { parcel: updated };
 };
 
+const receiveParcel = async (id, currentUser) => {
+  assertCoachAccess(currentUser);
+  if (!currentUser.permissions?.includes('RECEIVE_PARCEL')) {
+    throw new AppError('Insufficient permissions to confirm destination receipt', 403);
+  }
+  return changeParcelStatus(id, { newStatus: 'ARRIVED_AT_AGENCY', reason: 'Physical receipt confirmed at destination agency' }, currentUser, true);
+};
+
 const collectParcel = async (id, pickupData = {}, currentUser) => {
   assertCoachAccess(currentUser);
   const { collectorName, collectorPhone, idType, idNumber, notes } = pickupData;
@@ -439,23 +473,34 @@ const collectParcel = async (id, pickupData = {}, currentUser) => {
     throw new AppError('Collector name, phone, ID type and ID number are strictly required for parcel pickup', 400);
   }
 
-  const parcel = await prisma.parcel.findUnique({ where: { id }, include: { payments: true } });
+  const parcel = await prisma.parcel.findUnique({ where: { id } });
   if (!parcel) throw new AppError('Parcel not found', 404);
   assertParcelAgencyAccess(currentUser, parcel, 'collect');
 
-  if (parcel.status !== 'READY_FOR_PICKUP' && parcel.status !== 'ARRIVED_AT_AGENCY') {
-    throw new AppError(`Parcel cannot be collected in status '${parcel.status}'. Must be ARRIVED_AT_AGENCY or READY_FOR_PICKUP`, 409);
+  if (parcel.status !== 'READY_FOR_PICKUP') {
+    throw new AppError(`Parcel cannot be collected in status '${parcel.status}'. It must be READY_FOR_PICKUP`, 409);
   }
 
   const idNumberEncrypted = encryptSensitiveData(String(idNumber).trim());
   const idNumberMasked = maskIdNumber(String(idNumber).trim());
 
   const result = await prisma.$transaction(async (tx) => {
-    // Atomic update to ensure single pickup
+    const parcelPayments = await tx.payment.findMany({ where: { parcelId: id } });
+    const pendingPayments = parcelPayments.filter((payment) => payment.status === 'PENDING');
+    const validatedPayments = parcelPayments.filter((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status));
+    if (parcelPayments.length !== 1 || parcelPayments[0].method !== 'CASH' || pendingPayments.length || validatedPayments.length !== 1) {
+      throw new AppError('Parcel must have exactly one confirmed CASH payment before pickup', 409);
+    }
+    const collectedPayment = validatedPayments[0];
+    if (Number(collectedPayment.amount).toFixed(2) !== Number(parcel.amount).toFixed(2) || collectedPayment.currency !== parcel.currency) {
+      throw new AppError('Confirmed CASH payment does not match the parcel amount', 409);
+    }
+
+    // Atomic update to ensure single pickup after payment confirmation.
     const updateResult = await tx.parcel.updateMany({
       where: {
         id,
-        status: { in: ['READY_FOR_PICKUP', 'ARRIVED_AT_AGENCY'] },
+        status: 'READY_FOR_PICKUP',
       },
       data: { status: 'COLLECTED' },
     });
@@ -463,21 +508,6 @@ const collectParcel = async (id, pickupData = {}, currentUser) => {
     if (updateResult.count !== 1) {
       throw new AppError('Parcel has already been collected or status changed concurrently', 409);
     }
-
-    const parcelPayments = await tx.payment.findMany({ where: { parcelId: id, method: 'CASH' } });
-    const pendingPayments = parcelPayments.filter((payment) => payment.status === 'PENDING');
-    const validatedPayments = parcelPayments.filter((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status));
-    let collectedPayment = validatedPayments[0] || null;
-    if (pendingPayments.length) {
-      if (pendingPayments.length !== 1 || collectedPayment) throw new AppError('Parcel payment state is inconsistent', 409);
-      const paid = await tx.payment.updateMany({
-        where: { id: pendingPayments[0].id, status: 'PENDING', method: 'CASH', amount: parcel.amount },
-        data: { status: 'VERIFIED', validatedById: currentUser.id, validatedAt: new Date(), comment: 'Cash collected at parcel pickup' },
-      });
-      if (paid.count !== 1) throw new AppError('Parcel payment was already collected or does not match its price', 409);
-      collectedPayment = await tx.payment.findUnique({ where: { id: pendingPayments[0].id } });
-    }
-    if (!collectedPayment) throw new AppError('Parcel must be paid in CASH before pickup', 409);
 
     const pickup = await tx.parcelPickup.create({
       data: {
@@ -499,8 +529,8 @@ const collectParcel = async (id, pickupData = {}, currentUser) => {
         previousStatus: parcel.status,
         newStatus: 'COLLECTED',
         changedByUserId: currentUser.id,
-        reason: `Parcel successfully delivered to collector ${collectorName}`,
-        details: { pickupId: pickup.id, collectorPhone, idType, paymentId: collectedPayment.id, financialStatus: 'VERIFIED' },
+        reason: 'Parcel handed over to the named collector',
+        details: { action: 'PARCEL_HANDED_OVER', pickupId: pickup.id, idType, paymentId: collectedPayment.id, financialStatus: 'VERIFIED', agencyId: parcel.destinationAgencyId },
       },
     });
 
@@ -511,7 +541,6 @@ const collectParcel = async (id, pickupData = {}, currentUser) => {
     targetParcelId: id,
     pickupId: result.pickup.id,
     paymentId: result.payment.id,
-    collectorName: result.pickup.collectorName,
     idType: result.pickup.idType,
     idNumberMasked: result.pickup.idNumberMasked,
   });
@@ -561,15 +590,21 @@ const getParcelIdentityData = async (id, currentUser) => {
   };
 };
 
-const getParcelReceiptContext = async (id, currentUser) => {
+const getParcelReceiptContext = async (id, currentUser, requestedFormat = 'a4') => {
   assertCoachAccess(currentUser);
+  const format = normalizeParcelReceiptFormat(requestedFormat);
   const parcel = await prisma.parcel.findUnique({
     where: { id },
     include: {
       originAgency: true,
       destinationAgency: true,
-      payments: { where: { status: { in: ['VERIFIED', 'COMPLETED', 'PENDING'] } }, take: 1, orderBy: { createdAt: 'desc' } },
-      receivedBy: { select: { id: true, firstName: true, lastName: true } },
+      payments: { where: { method: 'CASH', status: { in: ['VERIFIED', 'COMPLETED', 'PENDING'] } }, take: 1, orderBy: { createdAt: 'desc' } },
+      statusHistory: {
+        where: { newStatus: 'ARRIVED_AT_AGENCY' },
+        orderBy: { changedAt: 'desc' },
+        take: 1,
+        include: { changedBy: { select: { firstName: true, lastName: true } } },
+      },
     },
   });
 
@@ -577,12 +612,17 @@ const getParcelReceiptContext = async (id, currentUser) => {
   assertParcelAgencyAccess(currentUser, parcel, 'view');
 
   const signedQr = buildSignedQrPayload('parcel', parcel.trackingCode);
+  const qrDataUrl = await QRCode.toDataURL(signedQr, { errorCorrectionLevel: 'M', margin: 1, width: format === '58mm' ? 120 : 180 });
   const payment = parcel.payments[0] || null;
+  const arrivalEvent = parcel.statusHistory[0] || null;
 
   return {
+    id: parcel.id,
     companyName: 'Vanguard Services',
     trackingCode: parcel.trackingCode,
     qrPayload: signedQr,
+    qrDataUrl,
+    printFormat: format,
     senderName: parcel.senderName,
     senderPhone: parcel.senderPhone,
     recipientName: parcel.recipientName,
@@ -599,8 +639,10 @@ const getParcelReceiptContext = async (id, currentUser) => {
     paymentDueAtPickup: parcel.paymentTiming === 'AT_PICKUP',
     paymentReference: payment?.reference || payment?.providerTransactionId || 'N/A',
     paidAt: payment?.validatedAt || null,
-    receivedAt: parcel.receivedAt || parcel.createdAt,
-    receivedBy: parcel.receivedBy ? `${parcel.receivedBy.firstName} ${parcel.receivedBy.lastName}` : 'Agent Vanguard',
+    status: parcel.status,
+    createdAt: parcel.createdAt,
+    receivedAt: arrivalEvent?.changedAt || null,
+    receivedBy: arrivalEvent?.changedBy ? `${arrivalEvent.changedBy.firstName} ${arrivalEvent.changedBy.lastName}` : null,
   };
 };
 
@@ -675,6 +717,7 @@ module.exports = {
   createParcel,
   payParcel,
   changeParcelStatus,
+  receiveParcel,
   collectParcel,
   getParcelIdentityData,
   getParcelReceiptContext,
@@ -684,5 +727,9 @@ module.exports = {
   resolveOriginAgencyId,
   resolvePricingDimensions,
   resolveManualParcelPrice,
+  normalizeParcelReceiptFormat,
+  PARCEL_RECEIPT_FORMATS,
+  assertParcelAgencyAccess,
+  ALLOWED_PARCEL_TRANSITIONS,
 };
 
