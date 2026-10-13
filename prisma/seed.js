@@ -111,6 +111,7 @@ async function main() {
     'COLLECT_PARCEL',
     'VIEW_IDENTITY_DATA',
     'PRINT_PARCEL_RECEIPT',
+    'APPROVE_DAILY_CASH_CLOSURE',
   ];
 
   for (const permissionName of permissions) {

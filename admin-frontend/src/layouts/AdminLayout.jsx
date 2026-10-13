@@ -49,6 +49,7 @@ const PATH_KEYS = {
 
   '/transport': 'operations',
   '/transport/agencies': 'agencies',
+  '/transport/personnel': 'staff',
   '/transport/buses': 'buses',
   '/transport/drivers': 'drivers',
   '/transport/destinations': 'destinations',
@@ -218,6 +219,8 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         items: [
           { path: '/transport', label: 'Opérations', icon: Bus, end: true },
           { path: '/transport/agencies', label: 'Agences', icon: Building2, roles: ['SUPER_ADMIN', 'SERVICE_ADMIN'] },
+          { path: '/transport/personnel', labelKey: 'navigation.items.staff', icon: Users, roles: ['MANAGER'] },
+          { path: '/transport/cash-closure', labelKey: 'managerWorkspace.cashClosureTitle', icon: Wallet, permission: 'APPROVE_DAILY_CASH_CLOSURE' },
           { path: '/transport/buses', label: 'Flotte de Bus', icon: Bus, roles: ['SUPER_ADMIN', 'SERVICE_ADMIN'] },
           { path: '/transport/drivers', label: 'Chauffeurs', icon: User, roles: ['SUPER_ADMIN', 'SERVICE_ADMIN'] },
           { path: '/transport/destinations', label: 'Destinations', icon: Compass, roles: ['SUPER_ADMIN', 'SERVICE_ADMIN'] },

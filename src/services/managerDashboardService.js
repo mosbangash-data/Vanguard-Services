@@ -1,12 +1,11 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const { requireCoachOperational, getUserAgencyId } = require('./departmentAccessService');
+const { dateKeyAt, businessDayRange } = require('../utils/businessTime');
 
 const PAID = ['VERIFIED', 'COMPLETED'];
-const PARCEL_STATUSES = ['REGISTERED', 'PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'IN_TRANSIT', 'ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP', 'COLLECTED', 'RETURNED'];
+const PARCEL_STATUSES = ['REGISTERED', 'PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'IN_TRANSIT', 'ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP', 'COLLECTED', 'RETURNED', 'CANCELLED', 'DELIVERED'];
 const ACTIVE_PARCEL_STATUSES = ['REGISTERED', 'PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'IN_TRANSIT', 'ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP'];
-const startOfDay = (date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-const endOfDay = (date) => new Date(startOfDay(date).getTime() + 86400000);
 const asNumber = (value) => Number(value || 0);
 
 const getManagerDashboard = async (user) => {
@@ -22,8 +21,7 @@ const getManagerDashboard = async (user) => {
   if (user.role === 'MANAGER' && !agencyId) throw new AppError('Manager agency assignment is required', 403);
   const permissions = new Set(user.permissions || []);
   const now = new Date();
-  const today = startOfDay(now);
-  const tomorrow = endOfDay(now);
+  const { start: today, end: tomorrow } = businessDayRange(dateKeyAt(now));
   const can = (permission) => permissions.has(permission);
   if (agencyId) {
     const assignedAgency = await prisma.agency.findFirst({ where: { id: agencyId, departmentId, isActive: true }, select: { id: true } });
@@ -38,6 +36,7 @@ const getManagerDashboard = async (user) => {
     ] }
     : { trip: { schedule: { departmentId } } };
   const parcelScope = agencyId ? { OR: [{ originAgencyId: agencyId }, { destinationAgencyId: agencyId }] } : { OR: [{ originAgency: { departmentId } }, { destinationAgency: { departmentId } }] };
+  const destinationParcelScope = agencyId ? { destinationAgencyId: agencyId } : { destinationAgency: { departmentId } };
   const paymentAgency = agencyId ? { OR: [{ agencyId }, { reservation: { agencyId } }, { reservation: { trip: { schedule: { agencyId } } } }, { parcel: { OR: [{ originAgencyId: agencyId }, { destinationAgencyId: agencyId }] } }] } : {};
   const revenuePaymentScope = { AND: [paymentAgency, { OR: [{ reservation: { is: reservationScope } }, ...(can('VIEW_PARCEL') ? [{ parcel: { is: parcelScope } }] : [])] }] };
   const agencySelect = { id: true, name: true, code: true, city: true, isActive: true };
@@ -52,14 +51,18 @@ const getManagerDashboard = async (user) => {
   if (can('VIEW_PARCEL')) { agencyCountSelect.originParcels = true; agencyCountSelect.destinationParcels = true; }
   if (can('VIEW_USER')) agencyCountSelect.users = { where: { role: { name: 'AGENT' } } };
   if (Object.keys(agencyCountSelect).length) agencySelect._count = { select: agencyCountSelect };
-  const [department, agencies, todayTrips, upcomingTrips, cancelledTrips, completedTrips, todayReservations, pendingReservations, confirmedReservations, cancelledReservations, passengers, todayPassengers, pendingReservationRows, pendingPayments, pendingAmountRows, paidPayments, paidToday, paymentBreakdown, parcelCounts, pendingParcelPayments, pendingParcelAmountRows, agentGroups, ticketGroups, recentScans, reservations, payments, parcelAlerts] = await Promise.all([
+  const [department, agencies, todayTrips, upcomingTrips, cancelledTrips, completedTrips, todayReservations, todayPendingReservations, todayConfirmedReservations, todayCancelledReservations, todayCompletedReservations, pendingReservations, confirmedReservations, cancelledReservations, passengers, todayPassengers, pendingReservationRows, pendingPayments, pendingAmountRows, paidPayments, paidTodayReservations, paidTodayParcels, paymentBreakdown, parcelCounts, parcelsAwaitingPickup, pendingParcelPayments, pendingParcelCashToValidate, pendingParcelAmountRows, agentGroups, ticketGroups, recentScans, reservations, payments, parcelAlerts] = await Promise.all([
     prisma.department.findUnique({ where: { id: departmentId }, select: { id: true, name: true, type: true, settings: { select: { currency: true } } } }),
     prisma.agency.findMany({ where: { departmentId, ...(agencyId ? { id: agencyId } : {}) }, select: agencySelect }),
     can('VIEW_TRIP') ? prisma.trip.findMany({ where: { ...operationalTripScope, departureAt: { gte: now, lt: tomorrow }, status: 'SCHEDULED' }, orderBy: { departureAt: 'asc' }, take: 30, select: { id: true, departureAt: true, status: true, createdAt: true, updatedAt: true, schedule: { select: { route: { select: { departureCity: true, arrivalCity: true } }, bus: { select: { plateNumber: true, seats: true } }, agency: { select: { id: true, name: true } } } } } }) : [],
     can('VIEW_TRIP') ? prisma.trip.findMany({ where: { ...operationalTripScope, departureAt: { gte: tomorrow }, status: 'SCHEDULED' }, orderBy: { departureAt: 'asc' }, take: 10, select: { id: true, departureAt: true, status: true, createdAt: true, updatedAt: true, schedule: { select: { route: { select: { departureCity: true, arrivalCity: true } }, bus: { select: { plateNumber: true, seats: true } }, agency: { select: { id: true, name: true } } } } } }) : [],
     can('VIEW_TRIP') ? prisma.trip.count({ where: { ...tripScope, status: 'CANCELLED', departureAt: { gte: today, lt: tomorrow } } }) : 0,
     can('VIEW_TRIP') ? prisma.trip.count({ where: { ...tripScope, status: 'COMPLETED', departureAt: { gte: today, lt: tomorrow } } }) : 0,
-    can('VIEW_RESERVATION') ? prisma.reservation.count({ where: { ...reservationScope, createdAt: { gte: today, lt: tomorrow }, status: { not: 'CANCELLED' } } }) : 0,
+    can('VIEW_RESERVATION') ? prisma.reservation.count({ where: { ...reservationScope, createdAt: { gte: today, lt: tomorrow } } }) : 0,
+    can('VIEW_RESERVATION') ? prisma.reservation.count({ where: { ...reservationScope, createdAt: { gte: today, lt: tomorrow }, status: 'PENDING' } }) : 0,
+    can('VIEW_RESERVATION') ? prisma.reservation.count({ where: { ...reservationScope, createdAt: { gte: today, lt: tomorrow }, status: 'CONFIRMED' } }) : 0,
+    can('VIEW_RESERVATION') ? prisma.reservation.count({ where: { ...reservationScope, createdAt: { gte: today, lt: tomorrow }, status: 'CANCELLED' } }) : 0,
+    can('VIEW_RESERVATION') ? prisma.reservation.count({ where: { ...reservationScope, createdAt: { gte: today, lt: tomorrow }, status: 'COMPLETED' } }) : 0,
     can('VIEW_RESERVATION') ? prisma.reservation.count({ where: { ...reservationScope, status: 'PENDING' } }) : 0,
     can('VIEW_RESERVATION') ? prisma.reservation.count({ where: { ...reservationScope, status: 'CONFIRMED' } }) : 0,
     can('VIEW_RESERVATION') ? prisma.reservation.count({ where: { ...reservationScope, status: 'CANCELLED' } }) : 0,
@@ -69,10 +72,13 @@ const getManagerDashboard = async (user) => {
     can('VIEW_PAYMENT') ? prisma.payment.count({ where: { reservation: { is: reservationScope }, ...paymentAgency, status: 'PENDING' } }) : 0,
     can('VIEW_PAYMENT') ? prisma.payment.groupBy({ by: ['currency'], where: { reservation: { is: reservationScope }, ...paymentAgency, status: 'PENDING' }, _sum: { amount: true } }) : [],
     can('VIEW_PAYMENT') ? prisma.payment.groupBy({ by: ['currency'], where: { ...revenuePaymentScope, status: { in: PAID } }, _sum: { amount: true } }) : [],
-    can('VIEW_PAYMENT') ? prisma.payment.groupBy({ by: ['currency'], where: { ...revenuePaymentScope, status: { in: PAID }, updatedAt: { gte: today, lt: tomorrow } }, _sum: { amount: true } }) : [],
+    can('VIEW_PAYMENT') ? prisma.payment.groupBy({ by: ['currency'], where: { ...paymentAgency, reservation: { is: reservationScope }, parcelId: null, status: { in: PAID }, validatedAt: { gte: today, lt: tomorrow } }, _sum: { amount: true } }) : [],
+    can('VIEW_PAYMENT') && can('VIEW_PARCEL') ? prisma.payment.groupBy({ by: ['currency'], where: { ...paymentAgency, parcel: { is: parcelScope }, reservationId: null, status: { in: PAID }, validatedAt: { gte: today, lt: tomorrow } }, _sum: { amount: true } }) : [],
     can('VIEW_PAYMENT') ? prisma.payment.groupBy({ by: ['channel', 'method', 'status'], where: revenuePaymentScope, _count: { _all: true } }) : [],
     can('VIEW_PARCEL') ? Promise.all(PARCEL_STATUSES.map((status) => prisma.parcel.count({ where: { ...parcelScope, status } }))) : Array(PARCEL_STATUSES.length).fill(0),
+    can('VIEW_PARCEL') ? prisma.parcel.count({ where: { ...destinationParcelScope, status: { in: ['ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP'] } } }) : 0,
     can('VIEW_PARCEL_PAYMENT') ? prisma.payment.count({ where: { parcel: { is: parcelScope }, status: 'PENDING' } }) : 0,
+    can('VERIFY_PARCEL_PAYMENT') ? prisma.payment.count({ where: { parcel: { is: parcelScope }, status: 'PENDING', channel: 'AGENCY', method: 'CASH' } }) : 0,
     can('VIEW_PARCEL_PAYMENT') ? prisma.payment.groupBy({ by: ['currency'], where: { parcel: { is: parcelScope }, status: 'PENDING' }, _sum: { amount: true } }) : [],
     can('VIEW_USER') ? prisma.user.groupBy({ by: ['status'], where: { departmentId, ...(agencyId ? { agencyId } : {}), role: { name: 'AGENT' } }, _count: { _all: true } }) : [],
     can('VIEW_TICKET_SCAN') ? prisma.ticket.groupBy({ by: ['status'], where: { reservation: { is: reservationScope } }, _count: { _all: true } }) : [],
@@ -88,7 +94,7 @@ const getManagerDashboard = async (user) => {
     can('VIEW_USER') && agencyIds.length ? prisma.user.groupBy({ by: ['agencyId', 'status'], where: { departmentId, agencyId: { in: agencyIds }, role: { name: 'AGENT' } }, _count: { _all: true } }) : [],
   ]);
   const tripIds = [...new Set([...todayTrips, ...upcomingTrips].map(({ id }) => id))];
-  const reservedGroups = tripIds.length && can('VIEW_RESERVATION') ? await prisma.reservation.groupBy({ by: ['tripId'], where: { ...reservationScope, tripId: { in: tripIds }, status: { in: ['PENDING', 'CONFIRMED', 'COMPLETED'] } }, _count: { _all: true } }) : [];
+  const reservedGroups = tripIds.length && can('VIEW_RESERVATION') ? await prisma.reservation.groupBy({ by: ['tripId'], where: { ...reservationScope, tripId: { in: tripIds }, status: { in: ['PENDING', 'CONFIRMED'] } }, _count: { _all: true } }) : [];
   const reservedByTrip = Object.fromEntries(reservedGroups.map(({ tripId, _count }) => [tripId, _count._all]));
   const enrichTrip = (trip) => {
     const capacity = trip.schedule.bus.seats;
@@ -97,7 +103,12 @@ const getManagerDashboard = async (user) => {
   };
   const toCurrencyTotals = (groups) => groups.reduce((totals, row) => { const currency = row.currency || 'USD'; totals[currency] = (totals[currency] || 0) + asNumber(row._sum?.amount); return totals; }, {});
   const revenue = toCurrencyTotals(paidPayments);
-  const todayRevenue = toCurrencyTotals(paidToday);
+  const todayReservationRevenue = toCurrencyTotals(paidTodayReservations);
+  const todayParcelRevenue = toCurrencyTotals(paidTodayParcels);
+  const todayRevenue = [todayReservationRevenue, todayParcelRevenue].reduce((totals, group) => {
+    for (const [currency, amount] of Object.entries(group)) totals[currency] = (totals[currency] || 0) + amount;
+    return totals;
+  }, {});
   const pendingPaymentAmount = [...pendingAmountRows, ...pendingParcelAmountRows].reduce((totals, row) => { const currency = row.currency || 'USD'; totals[currency] = (totals[currency] || 0) + asNumber(row._sum?.amount); return totals; }, {});
   const paymentSummary = paymentBreakdown.reduce((summary, row) => {
     const count = row._count?._all || 0;
@@ -106,7 +117,9 @@ const getManagerDashboard = async (user) => {
     summary.byMethod[row.method] = (summary.byMethod[row.method] || 0) + count;
     return summary;
   }, { byChannel: {}, byStatus: {}, byMethod: {} });
-  const pendingCashToValidate = paymentBreakdown.filter((row) => row.channel === 'AGENCY' && row.status === 'PENDING' && String(row.method || '').toUpperCase() === 'CASH').reduce((sum, row) => sum + (row._count?._all || 0), 0);
+  const pendingCashToValidate = user.role === 'MANAGER'
+    ? pendingParcelCashToValidate
+    : paymentBreakdown.filter((row) => row.channel === 'AGENCY' && row.status === 'PENDING' && String(row.method || '').toUpperCase() === 'CASH').reduce((sum, row) => sum + (row._count?._all || 0), 0);
   const pendingOnline = paymentBreakdown.filter((row) => row.channel === 'ONLINE' && ['PENDING', 'PROCESSING'].includes(row.status)).reduce((sum, row) => sum + (row._count?._all || 0), 0);
   const parcelStatus = Object.fromEntries(PARCEL_STATUSES.map((status, i) => [status, parcelCounts[i]]));
   const activeParcels = ACTIVE_PARCEL_STATUSES.reduce((sum, status) => sum + parcelStatus[status], 0);
@@ -118,16 +131,16 @@ const getManagerDashboard = async (user) => {
   const occupancy = todayTrips.map(enrichTrip);
   const capacity = occupancy.reduce((sum, trip) => sum + trip.capacity, 0);
   const booked = occupancy.reduce((sum, trip) => sum + trip.reservedSeats, 0);
-  const activity = [...reservations.map((item) => ({ id: `r-${item.id}`, type: 'reservation', label: `Réservation ${item.reservationCode} · ${item.status}`, at: item.createdAt })), ...payments.map((item) => ({ id: `p-${item.id}`, type: 'payment', label: `Paiement ${item.reference || item.id} · ${item.status}`, at: item.validatedAt || item.updatedAt || item.createdAt })), ...parcelAlerts.map((item) => ({ id: `c-${item.id}`, type: 'parcel', label: `Colis ${item.trackingCode} · ${item.status}`, at: item.updatedAt })), ...[...todayTrips, ...upcomingTrips].map((item) => ({ id: `t-${item.id}`, type: 'trip', label: `Voyage ${item.schedule.route.departureCity} – ${item.schedule.route.arrivalCity} · ${item.status}`, at: item.updatedAt || item.createdAt })), ...recentScans.map((item) => ({ id: `s-${item.id}`, type: 'scan', label: `Scan ${item.ticket.ticketCode} · ${item.result}`, at: item.scannedAt }))].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 12);
-  const pendingParcelPickup = parcelStatus.ARRIVED_AT_AGENCY + parcelStatus.READY_FOR_PICKUP;
+  const activity = [...reservations.map((item) => ({ id: `r-${item.id}`, type: 'reservation', eventKey: 'activityReservation', params: { reference: item.reservationCode, status: item.status }, label: `Réservation ${item.reservationCode} · ${item.status}`, at: item.createdAt })), ...payments.map((item) => ({ id: `p-${item.id}`, type: 'payment', eventKey: 'activityPayment', params: { reference: item.reference || item.id, status: item.status }, label: `Paiement ${item.reference || item.id} · ${item.status}`, at: item.validatedAt || item.updatedAt || item.createdAt })), ...parcelAlerts.map((item) => ({ id: `c-${item.id}`, type: 'parcel', eventKey: 'activityParcel', params: { reference: item.trackingCode, status: item.status }, label: `Colis ${item.trackingCode} · ${item.status}`, at: item.updatedAt })), ...[...todayTrips, ...upcomingTrips].map((item) => ({ id: `t-${item.id}`, type: 'trip', eventKey: 'activityTrip', params: { departure: item.schedule.route.departureCity, arrival: item.schedule.route.arrivalCity, status: item.status }, label: `Voyage ${item.schedule.route.departureCity} – ${item.schedule.route.arrivalCity} · ${item.status}`, at: item.updatedAt || item.createdAt })), ...recentScans.map((item) => ({ id: `s-${item.id}`, type: 'scan', eventKey: 'activityScan', params: { reference: item.ticket.ticketCode, result: item.result }, label: `Scan ${item.ticket.ticketCode} · ${item.result}`, at: item.scannedAt }))].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 12);
+  const pendingParcelPickup = parcelsAwaitingPickup;
   const lowOccupancyTrips = occupancy.filter((trip) => trip.occupancyRate < 25);
   const nearDepartureTrips = todayTrips.filter((trip) => trip.departureAt.getTime() - now.getTime() <= 60 * 60 * 1000);
   return {
     scope: { departmentId, departmentName: department.name, currency: department.settings?.currency || 'USD', agencyId, agencyName: agencyId ? agencies[0]?.name || null : null },
-    kpis: { todayTrips: todayTrips.length, upcomingTrips: upcomingTrips.length, cancelledTrips, completedTrips, todayReservations, pendingReservations, confirmedReservations, cancelledReservations, todayPassengers, totalPassengers: passengers, todayRevenue, revenue, pendingPayments: pendingPayments + pendingParcelPayments, pendingPaymentAmount, pendingParcelPayments, pendingCashToValidate, pendingOnline, activeParcels, occupancyRate: capacity ? Math.round(100 * booked / capacity) : 0, agentsActive: agentCounts.ACTIVE || 0, agentsInactive: (agentCounts.INACTIVE || 0) + (agentCounts.SUSPENDED || 0) },
+    kpis: { todayTrips: todayTrips.length, upcomingTrips: upcomingTrips.length, cancelledTrips, completedTrips, todayReservations, todayPendingReservations, todayConfirmedReservations, todayCancelledReservations, todayCompletedReservations, pendingReservations, confirmedReservations, cancelledReservations, todayPassengers, totalPassengers: passengers, todayRevenue, todayReservationRevenue, todayParcelRevenue, revenue, pendingPayments: pendingPayments + pendingParcelPayments, pendingReservationPayments: pendingPayments, pendingParcelPayments, pendingPaymentAmount, pendingReservationPaymentAmount: toCurrencyTotals(pendingAmountRows), pendingParcelPaymentAmount: toCurrencyTotals(pendingParcelAmountRows), pendingCashToValidate, pendingOnline, activeParcels, parcelsAwaitingPickup, occupancyRate: capacity ? Math.round(100 * booked / capacity) : 0, agentsActive: agentCounts.ACTIVE || 0, agentsInactive: (agentCounts.INACTIVE || 0) + (agentCounts.SUSPENDED || 0) },
     operations: { todayTrips: todayTrips.map(enrichTrip), upcomingTrips: upcomingTrips.map(enrichTrip), pendingReservations: pendingReservationRows, pendingPayments: payments.filter((item) => item.status === 'PENDING'), parcelAlerts },
     agencies: agencyMetrics, occupancy, reservations, payments, paymentSummary, tickets: { statuses: ticketStatuses, recentScans }, parcels: { statuses: parcelStatus, recentAlerts: parcelAlerts }, agents: { active: agentCounts.ACTIVE || 0, inactive: (agentCounts.INACTIVE || 0) + (agentCounts.SUSPENDED || 0) },
-    alerts: [(pendingPayments + pendingParcelPayments) > 0 && { id: 'payments', type: 'warning', count: pendingPayments + pendingParcelPayments, message: `${pendingPayments + pendingParcelPayments} paiements nécessitent un suivi` }, pendingReservations > 0 && { id: 'reservations', type: 'info', count: pendingReservations, message: `${pendingReservations} réservations en attente` }, pendingParcelPickup > 0 && { id: 'parcels', type: 'warning', count: pendingParcelPickup, message: `${pendingParcelPickup} colis arrivés attendent leur retrait` }, lowOccupancyTrips.length > 0 && { id: 'low-occupancy', type: 'info', count: lowOccupancyTrips.length, message: `${lowOccupancyTrips.length} départ(s) ont une occupation inférieure à 25 %` }, nearDepartureTrips.length > 0 && { id: 'near-departure', type: 'warning', count: nearDepartureTrips.length, message: `${nearDepartureTrips.length} départ(s) sont prévus dans moins d’une heure` }].filter(Boolean), recentActivity: activity,
+    alerts: [(pendingPayments + pendingParcelPayments) > 0 && { id: 'payments', type: 'warning', messageKey: 'alertPayments', count: pendingPayments + pendingParcelPayments, message: `${pendingPayments + pendingParcelPayments} paiements nécessitent un suivi` }, pendingReservations > 0 && { id: 'reservations', type: 'info', messageKey: 'alertReservations', count: pendingReservations, message: `${pendingReservations} réservations en attente` }, pendingParcelPickup > 0 && { id: 'parcels', type: 'warning', messageKey: 'alertParcels', count: pendingParcelPickup, message: `${pendingParcelPickup} colis arrivés attendent leur retrait` }, lowOccupancyTrips.length > 0 && { id: 'low-occupancy', type: 'info', messageKey: 'alertLowOccupancy', count: lowOccupancyTrips.length, message: `${lowOccupancyTrips.length} départ(s) ont une occupation inférieure à 25 %` }, nearDepartureTrips.length > 0 && { id: 'near-departure', type: 'warning', messageKey: 'alertNearDeparture', count: nearDepartureTrips.length, message: `${nearDepartureTrips.length} départ(s) sont prévus dans moins d’une heure` }].filter(Boolean), recentActivity: activity,
   };
 };
 

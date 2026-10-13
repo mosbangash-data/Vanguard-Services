@@ -68,6 +68,14 @@ function ResourceRoute({ path }) {
   return <ResourcePage resource={resource} />
 }
 const ManagerDashboard = lazy(() => import('./features/admin/coach/ManagerDashboard').then((m) => ({ default: m.ManagerDashboard })))
+const ManagerPersonnelPage = lazy(() => import('./features/admin/coach/ManagerPersonnelPage').then((m) => ({ default: m.ManagerPersonnelPage })))
+const CashClosurePage = lazy(() => import('./features/admin/coach/CashClosurePage').then((m) => ({ default: m.CashClosurePage })))
+
+function ManagerPersonnelRoute() {
+  const { user } = useAuth()
+  if (user?.role !== 'MANAGER' || user?.department?.type !== 'VANGUARD_COACH') return <Navigate to="/403" replace />
+  return <ManagerPersonnelPage />
+}
 
 function TransportDashboardRouter() {
   const { user } = useAuth()
@@ -113,6 +121,8 @@ function renderDepartmentRoutes({ base, department, title, resources, DashboardC
         {department === 'VANGUARD_COACH' && <Route path="/transport/agent" element={<CoachAgentRoute />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/agencies" element={<AgenciesManagementPage />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/agencies/:id" element={<AgencyDetailPage />} />}
+        {department === 'VANGUARD_COACH' && <Route path="/transport/personnel" element={<ManagerPersonnelRoute />} />}
+        {department === 'VANGUARD_COACH' && <Route path="/transport/cash-closure" element={<CashClosurePage />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/scanner" element={<TicketScanner />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/operations" element={<CoachOperationsPage />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/tickets/:ticketCode" element={<TicketDetailPage />} />}

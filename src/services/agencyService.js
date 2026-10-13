@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
+const { isValidTimeZone } = require('../utils/businessTime');
 const { requireCoachAdmin, requireDepartmentType, getScopedDepartmentId, assertDepartmentIdForUser, getUserAgencyId, assertAgencyAccess } = require('./departmentAccessService');
 
 const normalizePage = (value) => {
@@ -111,6 +112,8 @@ const createAgency = async (data, currentUser) => {
   const openingHours = typeof data?.openingHours === 'string' ? data.openingHours.trim() : null;
   const email = typeof data?.email === 'string' ? data.email.trim() : null;
   const isActive = data?.isActive !== undefined ? Boolean(data.isActive) : true;
+  const timeZone = typeof data?.timeZone === 'string' && data.timeZone.trim() ? data.timeZone.trim() : 'Africa/Kinshasa';
+  if (!isValidTimeZone(timeZone)) throw new AppError('A valid IANA time zone is required', 400);
 
   if (!name || !code || !departmentId) {
     throw new AppError('name, code and departmentId are required', 400);
@@ -136,6 +139,7 @@ const createAgency = async (data, currentUser) => {
       openingHours,
       email,
       isActive,
+      timeZone,
     },
   });
   await auditService.log('create_agency', currentUser.id, { targetAgencyId: agency.id, name, code });
@@ -159,6 +163,10 @@ const updateAgency = async (agencyId, data, currentUser) => {
   if (data?.openingHours !== undefined) updatePayload.openingHours = typeof data.openingHours === 'string' ? data.openingHours.trim() : null;
   if (data?.email !== undefined) updatePayload.email = typeof data.email === 'string' ? data.email.trim() : null;
   if (data?.isActive !== undefined) updatePayload.isActive = Boolean(data.isActive);
+  if (data?.timeZone !== undefined) {
+    if (!isValidTimeZone(data.timeZone)) throw new AppError('A valid IANA time zone is required', 400);
+    updatePayload.timeZone = data.timeZone.trim();
+  }
 
   const updated = await prisma.agency.update({ where: { id: agencyId }, data: updatePayload });
   await auditService.log('update_agency', currentUser.id, { targetAgencyId: agencyId });

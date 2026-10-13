@@ -15,7 +15,13 @@ test.before(() => {
     findMany: record('agency', 'findMany', [{ id: 'agency-a', name: 'Agence A', code: 'A' }]),
   };
   prismaModule.trip = { findMany: record('trip', 'findMany', []), count: record('trip', 'count', 0) };
-  prismaModule.reservation = { count: record('reservation', 'count', 0), findMany: record('reservation', 'findMany', []), groupBy: record('reservation', 'groupBy', []) };
+  prismaModule.reservation = { count: record('reservation', 'count', ({ where }) => {
+    if (where.createdAt && where.status === 'PENDING') return 2;
+    if (where.createdAt && where.status === 'CONFIRMED') return 3;
+    if (where.createdAt && where.status === 'CANCELLED') return 1;
+    if (where.createdAt) return 6;
+    return where.status === 'PENDING' ? 5 : 0;
+  }), findMany: record('reservation', 'findMany', []), groupBy: record('reservation', 'groupBy', []) };
   prismaModule.payment = {
     count: record('payment', 'count', ({ where }) => where.parcel ? 1 : 2),
     findMany: record('payment', 'findMany', []),
@@ -25,11 +31,16 @@ test.before(() => {
         { channel: 'AGENCY', method: 'CASH', status: 'PENDING', _count: { _all: 2 } },
         { channel: 'ONLINE', method: 'CARD', status: 'PROCESSING', _count: { _all: 3 } },
       ];
+      if (args.where?.validatedAt) {
+        return args.where?.parcel
+          ? [{ currency: 'USD', _sum: { amount: 40 } }, { currency: 'CDF', _sum: { amount: 100 } }]
+          : [{ currency: 'USD', _sum: { amount: 50 } }, { currency: 'CDF', _sum: { amount: 20 } }];
+      }
       if (args.where?.status?.in) return [{ currency: 'USD', _sum: { amount: 80 } }];
       return [{ currency: 'USD', _sum: { amount: 25 } }];
     },
   };
-  prismaModule.parcel = { count: record('parcel', 'count', 0), findMany: record('parcel', 'findMany', []) };
+  prismaModule.parcel = { count: record('parcel', 'count', ({ where }) => (where.status?.in ? 4 : 0)), findMany: record('parcel', 'findMany', []) };
   prismaModule.user = { groupBy: record('user', 'groupBy', []) };
   prismaModule.ticket = { groupBy: record('ticket', 'groupBy', []) };
   prismaModule.ticketScan = { findMany: record('ticketScan', 'findMany', []) };
@@ -49,7 +60,7 @@ test('Manager dashboard rejects operational roles without department supervision
 
 test('Manager dashboard derives department and agency filters from the authenticated user', async () => {
   const service = require('../src/services/managerDashboardService');
-  const result = await service.getManagerDashboard({ role: 'MANAGER', departmentId: 'dept-coach', department: { id: 'dept-coach', type: 'VANGUARD_COACH' }, agencyId: 'agency-a', permissions: ['VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'VIEW_PARCEL', 'VIEW_PARCEL_PAYMENT', 'VIEW_USER'] });
+  const result = await service.getManagerDashboard({ role: 'MANAGER', departmentId: 'dept-coach', department: { id: 'dept-coach', type: 'VANGUARD_COACH' }, agencyId: 'agency-a', permissions: ['VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'VIEW_PARCEL', 'VIEW_PARCEL_PAYMENT', 'VERIFY_PARCEL_PAYMENT', 'VIEW_USER'] });
   assert.equal(result.scope.departmentId, 'dept-coach');
   assert.equal(result.scope.agencyId, 'agency-a');
   const todayTrips = calls.find((call) => call.model === 'trip' && call.method === 'findMany');
@@ -60,12 +71,32 @@ test('Manager dashboard derives department and agency filters from the authentic
   assert.equal(JSON.stringify(reservationQuery.args.where).includes('dept-coach'), true);
   assert.equal(JSON.stringify(reservationQuery.args.where).includes('agency-a'), true);
   assert.deepEqual(result.kpis.revenue, { USD: 80 });
+  assert.deepEqual(result.kpis.todayReservationRevenue, { USD: 50, CDF: 20 });
+  assert.deepEqual(result.kpis.todayParcelRevenue, { USD: 40, CDF: 100 });
+  assert.deepEqual(result.kpis.todayRevenue, { USD: 90, CDF: 120 });
+  assert.equal(result.kpis.todayReservations, 6);
+  assert.equal(result.kpis.todayPendingReservations, 2);
+  assert.equal(result.kpis.todayConfirmedReservations, 3);
+  assert.equal(result.kpis.todayCancelledReservations, 1);
   assert.equal(result.kpis.pendingPayments, 3);
   assert.deepEqual(result.kpis.pendingPaymentAmount, { USD: 50 });
-  assert.equal(result.kpis.pendingCashToValidate, 2);
+  assert.deepEqual(result.kpis.pendingReservationPaymentAmount, { USD: 25 });
+  assert.deepEqual(result.kpis.pendingParcelPaymentAmount, { USD: 25 });
+  assert.equal(result.kpis.pendingCashToValidate, 1);
   assert.equal(result.kpis.pendingOnline, 3);
-  const paidQuery = calls.find((call) => call.model === 'payment' && call.method === 'groupBy' && call.args.where.status?.in);
-  assert.deepEqual(paidQuery.args.where.status.in, ['VERIFIED', 'COMPLETED']);
+  assert.equal(result.kpis.parcelsAwaitingPickup, 4);
+  const pickupQuery = calls.find((call) => call.model === 'parcel' && call.method === 'count' && call.args.where.status?.in);
+  assert.deepEqual(pickupQuery.args.where.destinationAgencyId, 'agency-a');
+  assert.deepEqual(pickupQuery.args.where.status.in, ['ARRIVED_AT_AGENCY', 'READY_FOR_PICKUP']);
+  const dailyQueries = calls.filter((call) => call.model === 'payment' && call.method === 'groupBy' && call.args.where.validatedAt);
+  assert.equal(dailyQueries.length, 2);
+  const { businessDayRange, dateKeyAt } = require('../src/utils/businessTime');
+  const expectedRange = businessDayRange(dateKeyAt(new Date()));
+  for (const query of dailyQueries) {
+    assert.deepEqual(query.args.where.status.in, ['VERIFIED', 'COMPLETED']);
+    assert.equal(query.args.where.validatedAt.gte.getTime(), expectedRange.start.getTime());
+    assert.equal(query.args.where.validatedAt.lt.getTime(), expectedRange.end.getTime());
+  }
   assert.deepEqual(result.operations.todayTrips, []);
 });
 

@@ -158,6 +158,35 @@ enum ParcelPaymentTiming {
   AT_PICKUP
 }
 
+enum AgencyStaffPayFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum AgencyStaffAttendanceStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+}
+
+enum CashClosureStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum CashClosureEntrySource {
+  RESERVATION
+  PARCEL
+}
+
+enum CashClosureCorrectionStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
 enum ProjectStatus {
   DRAFT
   PUBLISHED
@@ -291,6 +320,7 @@ model Agency {
   email        String?
   phone        String?
   isActive     Boolean  @default(true)
+  timeZone     String   @default("Africa/Kinshasa")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -301,6 +331,52 @@ model Agency {
   originParcels      Parcel[]   @relation("OriginAgency")
   destinationParcels Parcel[]   @relation("DestinationAgency")
   payments           Payment[]
+  staffMembers       AgencyStaffMember[]
+  cashClosures       CashClosure[]
+}
+
+model AgencyStaffMember {
+  id                String                  @id @default(cuid())
+  agencyId          String
+  fullName          String
+  jobTitle          String
+  phone             String
+  hireDate          DateTime                @db.Date
+  compensation      Decimal                 @db.Decimal(10, 2)
+  currency          String                  @default("USD") @db.VarChar(3)
+  payFrequency      AgencyStaffPayFrequency
+  isActive          Boolean                 @default(true)
+  createdByUserId   String
+  updatedByUserId   String
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  agency       Agency                        @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  createdBy    User                          @relation("CreatedAgencyStaff", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy    User                          @relation("UpdatedAgencyStaff", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  attendances  AgencyStaffAttendance[]
+
+  @@index([agencyId, isActive])
+  @@index([agencyId, fullName])
+}
+
+model AgencyStaffAttendance {
+  id             String                       @id @default(cuid())
+  staffMemberId  String
+  attendanceDate DateTime                     @db.Date
+  status         AgencyStaffAttendanceStatus
+  note           String?
+  createdByUserId String
+  updatedByUserId String
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+
+  staffMember AgencyStaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Restrict)
+  createdBy   User              @relation("CreatedAgencyStaffAttendance", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy   User              @relation("UpdatedAgencyStaffAttendance", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([staffMemberId, attendanceDate])
+  @@index([attendanceDate, status])
 }
 
 model Driver {
@@ -419,6 +495,10 @@ model User {
   receivedParcels                 Parcel[]                         @relation("ReceivedParcels")
   collectedParcels                ParcelPickup[]                   @relation("CollectedParcels")
   parcelStatusHistories           ParcelStatusHistory[]            @relation("ParcelStatusChanges")
+  createdAgencyStaff              AgencyStaffMember[]               @relation("CreatedAgencyStaff")
+  updatedAgencyStaff              AgencyStaffMember[]               @relation("UpdatedAgencyStaff")
+  createdAgencyStaffAttendances   AgencyStaffAttendance[]            @relation("CreatedAgencyStaffAttendance")
+  updatedAgencyStaffAttendances   AgencyStaffAttendance[]            @relation("UpdatedAgencyStaffAttendance")
 }
 
 model Media {
@@ -699,6 +779,8 @@ model Payment {
   parcel             Parcel?             @relation(fields: [parcelId], references: [id], onDelete: SetNull)
   agency             Agency?             @relation(fields: [agencyId], references: [id], onDelete: SetNull)
   validatedBy        User?               @relation("ValidatedPayments", fields: [validatedById], references: [id], onDelete: SetNull)
+
+  cashClosureEntry   CashClosureEntry?
 
   @@index([reference])
   @@index([status])
@@ -1105,3 +1187,80 @@ model PasswordResetToken {
   @@index([tokenHash])
 }
 
+model CashClosure {
+  id              String            @id @default(cuid())
+  agencyId        String
+  businessDate    DateTime          @db.Date
+  timeZone        String
+  status          CashClosureStatus @default(DRAFT)
+  theoreticalUsd  Decimal           @default(0) @db.Decimal(14, 2)
+  theoreticalCdf  Decimal           @default(0) @db.Decimal(14, 2)
+  declaredUsd     Decimal?          @db.Decimal(14, 2)
+  declaredCdf     Decimal?          @db.Decimal(14, 2)
+  justification   String?
+  createdById     String
+  submittedAt     DateTime?
+  submittedById   String?
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectedAt      DateTime?
+  rejectedById    String?
+  rejectionReason String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  agency      Agency                    @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  entries     CashClosureEntry[]
+  events      CashClosureEvent[]
+  corrections CashClosureCorrection[]
+
+  @@unique([agencyId, businessDate])
+  @@index([agencyId, status, businessDate])
+}
+
+model CashClosureEntry {
+  id          String                 @id @default(cuid())
+  closureId   String
+  paymentId   String                 @unique
+  source      CashClosureEntrySource
+  amount      Decimal                @db.Decimal(14, 2)
+  currency    String                 @db.VarChar(3)
+  collectedAt DateTime
+  createdAt   DateTime               @default(now())
+
+  closure CashClosure @relation(fields: [closureId], references: [id], onDelete: Restrict)
+  payment Payment     @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([closureId, currency])
+}
+
+model CashClosureEvent {
+  id        String   @id @default(cuid())
+  closureId String
+  action    String
+  actorId   String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  closure CashClosure @relation(fields: [closureId], references: [id], onDelete: Restrict)
+
+  @@index([closureId, createdAt])
+}
+
+model CashClosureCorrection {
+  id              String                      @id @default(cuid())
+  closureId       String
+  amountUsd       Decimal                     @default(0) @db.Decimal(14, 2)
+  amountCdf       Decimal                     @default(0) @db.Decimal(14, 2)
+  reason          String
+  status          CashClosureCorrectionStatus @default(SUBMITTED)
+  createdById     String
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime                    @default(now())
+
+  closure CashClosure @relation(fields: [closureId], references: [id], onDelete: Restrict)
+
+  @@index([closureId, status])
+}

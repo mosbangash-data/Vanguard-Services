@@ -305,7 +305,7 @@ const createParcel = async (data, currentUser) => {
     const payment = await tx.payment.create({
         data: {
           parcelId: created.id,
-          agencyId: created.originAgencyId || null,
+          agencyId: paymentTiming === 'AT_PICKUP' ? (created.destinationAgencyId || null) : (created.originAgencyId || null),
           amount: created.amount,
           currency: created.currency,
           channel: 'AGENCY',
@@ -362,7 +362,7 @@ const payParcel = async (id, paymentData = {}, currentUser) => {
     }
     const updated = await tx.payment.updateMany({
       where: { id: pending[0].id, status: 'PENDING', method: 'CASH', amount: pending[0].amount, currency: parcel.currency },
-      data: { status: 'VERIFIED', validatedById: currentUser.id, validatedAt: new Date(), comment: paymentData.comment ? String(paymentData.comment).trim() : 'Cash collected at agency' },
+      data: { status: 'VERIFIED', agencyId: parcel.destinationAgencyId, validatedById: currentUser.id, validatedAt: new Date(), comment: paymentData.comment ? String(paymentData.comment).trim() : 'Cash collected at agency' },
     });
     if (updated.count !== 1) throw new AppError('Parcel payment was already collected', 409);
     const payment = await tx.payment.findUnique({ where: { id: pending[0].id } });
