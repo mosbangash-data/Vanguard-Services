@@ -6,6 +6,7 @@ const prisma = require('../config/prisma');
 
 const { syncRolePermissionsForRole } = require('../services/rbacService');
 const { filterPermissionsForDepartment } = require('../config/rbac');
+const { getAgencyAssignmentPolicy } = require('../config/agencyAssignmentPolicy');
 
 const normalizePermissionNames = (user) => {
   const permissionNames = [];
@@ -45,10 +46,11 @@ const buildUserFromToken = async (token) => {
   if (user.status !== 'ACTIVE') {
     throw new AppError('User account is inactive', 403);
   }
-  if (user.role?.name === 'MANAGER') {
+  const agencyPolicy = getAgencyAssignmentPolicy(user.role?.name, user.department?.type);
+  if (agencyPolicy.required) {
     const agencyId = user.agency?.id || user.agencyId;
     if (user.department?.type !== 'VANGUARD_COACH' || !user.department?.id || !agencyId) {
-      throw new AppError('Manager must be assigned to an active Vanguard Coach agency', 403);
+      throw new AppError(`${user.role.name} must be assigned to an active Vanguard Coach agency`, 403);
     }
     const agency = await prisma.agency.findFirst({
       where: { id: agencyId, departmentId: user.department.id, isActive: true },

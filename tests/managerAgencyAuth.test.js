@@ -20,6 +20,11 @@ test('Manager authentication refuses a missing agency before hydrating an operat
   await assert.rejects(buildUserFromToken(token), { statusCode: 403 });
 });
 
+test('Coach Agent authentication follows the same centralized required-agency rule', async () => {
+  currentUser = { ...coachUser(), role: { name: 'AGENT', permissions: [] }, agencyId: null, agency: null };
+  await assert.rejects(buildUserFromToken(token), { statusCode: 403 });
+});
+
 test('Manager authentication refuses an inactive or out-of-department agency', async () => {
   currentUser = coachUser();
   let query;

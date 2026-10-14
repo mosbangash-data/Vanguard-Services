@@ -126,6 +126,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   const userDept = user?.department?.type || user?.departmentType
   const isCoachAgent = user?.role === 'AGENT' && userDept === 'VANGUARD_COACH'
+  const isCoachManager = user?.role === 'MANAGER' && userDept === 'VANGUARD_COACH'
 
   // Navigation Items Definitions
   const navSections = useMemo(() => {
@@ -147,6 +148,25 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         collapsible: section.collapsible,
         items: section.items.filter((item) => !item.permission || hasPermission(user, item.permission)).map((item) => ({ ...item, label: t(item.labelKey) })),
       })).filter((section) => section.items.length)
+    }
+
+    if (isCoachManager) {
+      const managerLinks = [
+        { path: '/transport', labelKey: 'navigation.items.dashboard', icon: LayoutDashboard, end: true },
+        { path: '/transport/reservations', labelKey: 'navigation.items.reservations', icon: Ticket, permission: 'VIEW_RESERVATION' },
+        { path: '/transport/trips', labelKey: 'navigation.items.trips', icon: Bus, permission: 'VIEW_TRIP' },
+        { path: '/transport/operations', labelKey: 'navigation.items.payments', icon: CreditCard, permission: 'VIEW_PAYMENT' },
+        { path: '/transport/parcels', labelKey: 'navigation.items.parcels', icon: Package, permission: 'VIEW_PARCEL' },
+        { path: '/transport/scanner', labelKey: 'managerWorkspace.openScanner', icon: QrCode, permission: 'SCAN_TICKET' },
+        { path: '/transport/tickets', labelKey: 'navigation.items.tickets', icon: Ticket, permission: 'VIEW_TICKET_SCAN' },
+        { path: '/transport/personnel', labelKey: 'navigation.items.staff', icon: Users, roles: ['MANAGER'] },
+        { path: '/transport/cash-closure', labelKey: 'managerWorkspace.cashClosureTitle', icon: Wallet, permission: 'APPROVE_DAILY_CASH_CLOSURE' },
+      ].filter((item) => (!item.permission || hasPermission(user, item.permission)) && (!item.roles || item.roles.includes(user?.role)))
+      const primaryPaths = new Set(['/transport', '/transport/reservations', '/transport/trips', '/transport/operations', '/transport/parcels'])
+      return [
+        { id: 'coach-manager', title: t('navigation.sections.coach'), items: managerLinks.filter((item) => primaryPaths.has(item.path)).map((item) => ({ ...item, label: t(item.labelKey) })) },
+        { id: 'coach-manager-more', title: t('managerWorkspace.moreOperations'), collapsible: true, items: managerLinks.filter((item) => !primaryPaths.has(item.path)).map((item) => ({ ...item, label: t(item.labelKey) })) },
+      ].filter((section) => section.items.length)
     }
 
     if (customNavigation) {
@@ -295,7 +315,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         label: item.labelKey ? t(item.labelKey) : PATH_KEYS[item.path] ? (t(`navigation.items.${PATH_KEYS[item.path]}`) || item.label) : item.label,
       })),
     }))
-  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t, location.pathname, isCoachAgent])
+  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t, location.pathname, isCoachAgent, isCoachManager])
 
   useEffect(() => {
     const activeCollapsible = navSections.find((section) => section.collapsible && section.items.some((item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)))
@@ -498,6 +518,17 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         <main className="app-main vanguard-app-main">
           <Outlet />
         </main>
+        {isCoachManager && (
+          <nav className="manager-mobile-nav" aria-label={t('navigation.sections.coach')}>
+            {[
+              ['/transport', LayoutDashboard, t('layout.home'), true],
+              ...(hasPermission(user, 'VIEW_RESERVATION') ? [['/transport/reservations', Ticket, t('navigation.items.reservations')]] : []),
+              ...(hasPermission(user, 'VIEW_TRIP') ? [['/transport/trips', Bus, t('navigation.items.trips')]] : []),
+              ...(hasPermission(user, 'VIEW_PAYMENT') ? [['/transport/operations', CreditCard, t('navigation.items.payments')]] : []),
+            ].map(([path, Icon, label, end]) => <NavLink key={path} to={path} end={end} className={({ isActive }) => isActive ? 'active' : ''}><Icon size={18} /><span>{label}</span></NavLink>)}
+            <button type="button" onClick={() => setMobileOpen(true)} aria-controls="app-navigation" aria-label={t('layout.openMenu')}><Menu size={18} /><span>{t('managerWorkspace.moreOperations')}</span></button>
+          </nav>
+        )}
         {isCoachAgent && (
           <nav className="agent-mobile-nav" aria-label={t('navigation.sections.coach')}>
             <NavLink to="/transport/agent" className={({ isActive }) => isActive ? 'active' : ''}><Bus size={19} /><span>{t('layout.home')}</span></NavLink>

@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
+const { getAgencyAssignmentPolicy } = require('../config/agencyAssignmentPolicy');
 
 const requireAuthenticatedUser = (user) => {
   if (!user) throw new AppError('Unauthorized', 401);
@@ -26,7 +27,7 @@ const requireCoachOperational = (user, permission = null) => {
   if (permission && !user.permissions?.includes(permission)) {
     throw new AppError('Insufficient permissions', 403);
   }
-  if (['AGENT', 'MANAGER'].includes(user.role) && !getUserAgencyId(user)) {
+  if (getAgencyAssignmentPolicy(user.role, user.department?.type).required && !getUserAgencyId(user)) {
     throw new AppError(`${user.role === 'MANAGER' ? 'Manager' : 'Agent'} agency assignment is required`, 403);
   }
 };

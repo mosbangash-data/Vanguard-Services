@@ -4,8 +4,34 @@ const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const userRepository = require('./userRepository');
 const { isRoleDepartmentCompatible } = require('../config/rbac');
+const { getAgencyAssignmentPolicy } = require('../config/agencyAssignmentPolicy');
 
 const normalizeSearch = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const resolveAgencyAssignment = async (roleName, department, agencyId) => {
+  const policy = getAgencyAssignmentPolicy(roleName, department?.type);
+  const normalizedAgencyId = typeof agencyId === 'string' ? agencyId.trim() : '';
+  if (!policy.allowed) {
+    if (normalizedAgencyId) throw new AppError('This role and department do not support an agency assignment', 400);
+    return null;
+  }
+  if (policy.required && !normalizedAgencyId) {
+    throw new AppError('An active Vanguard Coach agency is required for this role', 400);
+  }
+  if (!normalizedAgencyId) return null;
+
+  const agency = await prisma.agency.findFirst({
+    where: {
+      id: normalizedAgencyId,
+      department: { is: { type: policy.departmentType } },
+      ...(policy.requireActive ? { isActive: true } : {}),
+    },
+  });
+  if (!agency || agency.departmentId !== department.id || (policy.requireActive && !agency.isActive)) {
+    throw new AppError('Agency must be active and belong to the selected department', 400);
+  }
+  return agency;
+};
 
 const getAccessibleDepartmentIds = async (user) => {
   if (user.role === 'SUPER_ADMIN') return null;
@@ -103,6 +129,8 @@ const listUsers = async (query = {}, currentUser) => {
         updatedAt: true,
         role: { select: { id: true, name: true } },
         department: { select: { id: true, type: true, name: true } },
+        agencyId: true,
+        agency: { select: { id: true, code: true, name: true, departmentId: true, isActive: true } },
       },
     }),
     userRepository.count(where),
@@ -136,7 +164,11 @@ const getUserById = async (userId, currentUser) => {
       status: user.status,
       firstLogin: user.firstLogin,
       role: user.role.name,
+      roleId: user.role.id,
       department: user.department ? { id: user.department.id, type: user.department.type, name: user.department.name } : null,
+      departmentId: user.departmentId,
+      agencyId: user.agency?.id || null,
+      agency: user.agency ? { id: user.agency.id, code: user.agency.code, name: user.agency.name, departmentId: user.agency.departmentId, isActive: user.agency.isActive } : null,
       permissions: user.role.permissions.map(({ permission }) => permission.name),
     },
   };
@@ -158,17 +190,8 @@ const createUser = async (data, currentUser) => {
     throw new AppError('Department not found', 404);
   }
   if (!isRoleDepartmentCompatible(role.name, department.type)) throw new AppError('Role is not valid for this department', 400);
-  let agency = null;
-  if (agencyId) {
-    agency = await prisma.agency.findUnique({ where: { id: agencyId } });
-    if (!agency || agency.departmentId !== department.id) {
-      throw new AppError('Agency does not belong to the selected department', 400);
-    }
-  }
-  if (role.name === 'AGENT' && department.type === 'VANGUARD_COACH' && !agency) {
-    throw new AppError('An agency is required for AGENT users', 400);
-  }
   await assertManageableUser(null, currentUser, { creating: true, requestedDepartmentId: department.id, requestedRole: role });
+  const agency = await resolveAgencyAssignment(role.name, department, agencyId);
 
   const existingUser = await userRepository.findByEmail(email.toLowerCase().trim());
   if (existingUser) {
@@ -205,7 +228,14 @@ const updateUser = async (userId, data, currentUser) => {
   if (!user) {
     throw new AppError('User not found', 404);
   }
-  await assertManageableUser(user, currentUser);
+  const roleId = data?.roleId ?? user.roleId;
+  const departmentId = data?.departmentId ?? user.departmentId;
+  const role = await prisma.role.findUnique({ where: { id: roleId } });
+  if (!role) throw new AppError('Role not found', 404);
+  const department = departmentId ? await prisma.department.findUnique({ where: { id: departmentId } }) : null;
+  if (!department) throw new AppError('Department is required and must exist', 400);
+  if (!isRoleDepartmentCompatible(role.name, department.type)) throw new AppError('Role is not valid for this department', 400);
+  await assertManageableUser(user, currentUser, { requestedDepartmentId: department.id, requestedRole: role });
 
   const updatePayload = {};
   if (data?.firstName !== undefined) {
@@ -216,6 +246,25 @@ const updateUser = async (userId, data, currentUser) => {
   }
   if (data?.phone !== undefined) {
     updatePayload.phone = data.phone;
+  }
+
+  const roleChanged = roleId !== user.roleId;
+  const departmentChanged = department.id !== user.departmentId;
+  const agencyProvided = Object.hasOwn(data || {}, 'agencyId');
+  const agencyPolicy = getAgencyAssignmentPolicy(role.name, department.type);
+  if (agencyProvided || roleChanged || departmentChanged) {
+    if (agencyPolicy.required && (roleChanged || departmentChanged) && !agencyProvided) {
+      throw new AppError('Select an active agency when changing to this role or department', 400);
+    }
+    const requestedAgencyId = agencyProvided
+      ? data.agencyId
+      : agencyPolicy.allowed && user.agency?.departmentId === department.id && user.agency?.isActive
+        ? user.agency.id
+        : null;
+    const agency = await resolveAgencyAssignment(role.name, department, requestedAgencyId);
+    updatePayload.roleId = role.id;
+    updatePayload.departmentId = department.id;
+    updatePayload.agencyId = agency?.id || null;
   }
 
   const updatedUser = await userRepository.updateUserById(userId, updatePayload);

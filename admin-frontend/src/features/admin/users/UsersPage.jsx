@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../services/api'
 import { useLanguage } from '../../../i18n/useLanguage'
+import { useAuth } from '../../auth/authContext'
+import { buildAgencyAwareUserPayload, getAgencyAssignmentForSelection, reconcileDepartmentSelection, reconcileRoleSelection } from './agencyAssignmentForm'
 import {
   UserPlus,
   Search,
@@ -35,13 +37,14 @@ async function fetchDepartments() {
   return response.data?.data?.items || response.data?.data || []
 }
 
-async function fetchAgencies() {
-  const response = await api.get('/api/agencies?limit=100')
+async function fetchAgencies(departmentId) {
+  const response = await api.get('/api/agencies', { params: { limit: 100, departmentId, isActive: true } })
   return response.data?.data?.items || response.data?.data || []
 }
 
 export function UsersPage() {
   const { t } = useLanguage()
+  const { user: currentUser } = useAuth()
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -71,6 +74,9 @@ export function UsersPage() {
     firstName: '',
     lastName: '',
     phone: '',
+    roleId: '',
+    departmentId: '',
+    agencyId: '',
   })
   const [formError, setFormError] = useState('')
 
@@ -98,9 +104,22 @@ export function UsersPage() {
     queryFn: fetchDepartments,
   })
 
+  const rolesList = rolesQuery.data || []
+  const deptsList = deptsQuery.data || []
+  const createRole = rolesList.find((role) => role.id === createForm.roleId)
+  const createDepartment = deptsList.find((department) => department.id === createForm.departmentId)
+  const createAgencyPolicy = getAgencyAssignmentForSelection(rolesList, deptsList, createForm.roleId, createForm.departmentId)
+  const editRole = rolesList.find((role) => role.id === editForm.roleId)
+  const editDepartment = deptsList.find((department) => department.id === editForm.departmentId)
+  const editAgencyPolicy = getAgencyAssignmentForSelection(rolesList, deptsList, editForm.roleId, editForm.departmentId)
+  const agencyDepartmentId = createAgencyPolicy.allowed
+    ? createDepartment?.id
+    : editAgencyPolicy.allowed ? editDepartment?.id : null
+
   const agenciesQuery = useQuery({
-    queryKey: ['admin-agencies-list'],
-    queryFn: fetchAgencies,
+    queryKey: ['admin-agencies-list', agencyDepartmentId],
+    queryFn: () => fetchAgencies(agencyDepartmentId),
+    enabled: Boolean(agencyDepartmentId),
   })
 
   // Mutations
@@ -170,25 +189,33 @@ export function UsersPage() {
   const usersList = usersQuery.data?.items || []
   const totalUsers = usersQuery.data?.total || 0
   const totalPages = Math.ceil(totalUsers / 15) || 1
-  const rolesList = rolesQuery.data || []
-  const deptsList = deptsQuery.data || []
   const agenciesList = agenciesQuery.data || []
+  const availableAgencies = agenciesList.filter((agency) => agency.departmentId === agencyDepartmentId && agency.isActive !== false)
+  const manageableDepartments = deptsList.filter((department) => currentUser?.role === 'SUPER_ADMIN' || department.type === currentUser?.department?.type)
+  const canOfferRole = (role) => currentUser?.role === 'SUPER_ADMIN' || !['SUPER_ADMIN', 'SERVICE_ADMIN'].includes(role.name)
+  const createRoleOptions = rolesList.filter((role) => canOfferRole(role) && (!createDepartment || role.departmentTypes?.includes(createDepartment.type)))
+  const createDepartmentOptions = manageableDepartments.filter((department) => !createRole || createRole.departmentTypes?.includes(department.type))
+  const editRoleOptions = rolesList.filter((role) => canOfferRole(role) && (!editDepartment || role.departmentTypes?.includes(editDepartment.type)))
+  const editDepartmentOptions = manageableDepartments.filter((department) => !editRole || editRole.departmentTypes?.includes(department.type))
 
   const handleCreateSubmit = (e) => {
     e.preventDefault()
     setFormError('')
-    const selectedRole = rolesList.find((role) => role.id === createForm.roleId)?.name
-    if (!createForm.firstName || !createForm.lastName || !createForm.email || !createForm.roleId || !createForm.departmentId || (selectedRole === 'AGENT' && !createForm.agencyId)) {
-      setFormError(t('userAdmin.requiredFields'))
+    if (!createForm.firstName || !createForm.lastName || !createForm.email || !createForm.roleId || !createForm.departmentId || (createAgencyPolicy.required && !createForm.agencyId)) {
+      setFormError(createAgencyPolicy.required && !createForm.agencyId ? t('userAdmin.agencyRequired') : t('userAdmin.requiredFields'))
       return
     }
-    createUserMutation.mutate(createForm)
+    createUserMutation.mutate(buildAgencyAwareUserPayload(createForm, createAgencyPolicy))
   }
 
   const handleEditSubmit = (e) => {
     e.preventDefault()
     setFormError('')
-    updateUserMutation.mutate({ id: editingUser.id, data: editForm })
+    if (!editForm.roleId || !editForm.departmentId || (editAgencyPolicy.required && !editForm.agencyId)) {
+      setFormError(editAgencyPolicy.required && !editForm.agencyId ? t('userAdmin.agencyRequired') : t('userAdmin.requiredFields'))
+      return
+    }
+    updateUserMutation.mutate({ id: editingUser.id, data: buildAgencyAwareUserPayload(editForm, editAgencyPolicy, { clearDisallowed: true }) })
   }
 
   const startEdit = (user) => {
@@ -197,6 +224,9 @@ export function UsersPage() {
       firstName: user.firstName || '',
       lastName: user.lastName || '',
       phone: user.phone || '',
+      roleId: user.roleId || user.role?.id || '',
+      departmentId: user.departmentId || user.department?.id || '',
+      agencyId: user.agencyId || user.agency?.id || '',
     })
     setFormError('')
   }
@@ -453,10 +483,10 @@ export function UsersPage() {
                     className="form-control"
                     required
                     value={createForm.roleId}
-                    onChange={(e) => setCreateForm({ ...createForm, roleId: e.target.value })}
+                    onChange={(e) => setCreateForm((form) => reconcileRoleSelection(form, e.target.value, rolesList, deptsList))}
                   >
                     <option value="">{t('userAdmin.selectRole')}</option>
-                    {rolesList.map((r) => (
+                    {createRoleOptions.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
                       </option>
@@ -469,30 +499,31 @@ export function UsersPage() {
                     className="form-control"
                     required
                     value={createForm.departmentId}
-                    onChange={(e) => setCreateForm({ ...createForm, departmentId: e.target.value })}
+                    onChange={(e) => setCreateForm((form) => reconcileDepartmentSelection(form, e.target.value, rolesList, deptsList))}
                   >
                     <option value="">{t('userAdmin.selectDepartment')}</option>
-                    {deptsList.map((d) => (
+                    {createDepartmentOptions.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name} ({d.type})
                       </option>
                     ))}
                   </select>
                 </div>
-                {rolesList.find((role) => role.id === createForm.roleId)?.name === 'AGENT' && (
+                {createAgencyPolicy.allowed && (
                   <div className="form-group">
-                    <label className="form-label">{t('userAdmin.agency')} *</label>
+                    <label className="form-label">{t('userAdmin.agency')}{createAgencyPolicy.required ? ' *' : ''}</label>
                     <select
                       className="form-control"
-                      required
+                      required={createAgencyPolicy.required}
                       value={createForm.agencyId}
                       onChange={(e) => setCreateForm({ ...createForm, agencyId: e.target.value })}
                     >
                       <option value="">{t('userAdmin.selectAgency')}</option>
-                      {agenciesList.map((agency) => (
+                      {availableAgencies.map((agency) => (
                         <option key={agency.id} value={agency.id}>{agency.name} ({agency.code})</option>
                       ))}
                     </select>
+                    {createAgencyPolicy.required && <small>{t('userAdmin.agencyRequired')}</small>}
                   </div>
                 )}
               </div>
@@ -552,6 +583,28 @@ export function UsersPage() {
                     onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                   />
                 </div>
+                <div className="form-group">
+                  <label className="form-label">{t('userAdmin.role')} *</label>
+                  <select className="form-control" required value={editForm.roleId} onChange={(e) => setEditForm((form) => reconcileRoleSelection(form, e.target.value, rolesList, deptsList))}>
+                    <option value="">{t('userAdmin.selectRole')}</option>
+                    {editRoleOptions.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('userAdmin.department')} *</label>
+                  <select className="form-control" required value={editForm.departmentId} onChange={(e) => setEditForm((form) => reconcileDepartmentSelection(form, e.target.value, rolesList, deptsList))}>
+                    <option value="">{t('userAdmin.selectDepartment')}</option>
+                    {editDepartmentOptions.map((department) => <option key={department.id} value={department.id}>{department.name} ({department.type})</option>)}
+                  </select>
+                </div>
+                {editAgencyPolicy.allowed && <div className="form-group">
+                  <label className="form-label">{t('userAdmin.agency')}{editAgencyPolicy.required ? ' *' : ''}</label>
+                  <select className="form-control" required={editAgencyPolicy.required} value={editForm.agencyId} onChange={(e) => setEditForm({ ...editForm, agencyId: e.target.value })}>
+                    <option value="">{t('userAdmin.selectAgency')}</option>
+                    {availableAgencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.name} ({agency.code})</option>)}
+                  </select>
+                  {editAgencyPolicy.required && <small>{t('userAdmin.agencyRequired')}</small>}
+                </div>}
               </div>
               <div className="modal-footer">
                 <button type="button" className="button secondary" onClick={() => setEditingUser(null)}>

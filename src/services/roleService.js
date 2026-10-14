@@ -2,6 +2,8 @@ const prisma = require('../config/prisma');
 const roleRepository = require('./roleRepository');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
+const { ROLE_DEPARTMENT_COMPATIBILITY } = require('../config/rbac');
+const { getAgencyAssignmentPolicy } = require('../config/agencyAssignmentPolicy');
 
 const VALID_ROLE_NAMES = ['SUPER_ADMIN', 'SERVICE_ADMIN', 'MANAGER', 'AGENT'];
 
@@ -66,6 +68,8 @@ const listRoles = async (query = {}, currentUser) => {
       name: item.name,
       description: item.description,
       permissions: item.permissions.map(({ permission }) => permission.name),
+      departmentTypes: ROLE_DEPARTMENT_COMPATIBILITY[item.name] || [],
+      agencyAssignmentPolicies: Object.fromEntries((ROLE_DEPARTMENT_COMPATIBILITY[item.name] || []).map((departmentType) => [departmentType, getAgencyAssignmentPolicy(item.name, departmentType)])),
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
     })),

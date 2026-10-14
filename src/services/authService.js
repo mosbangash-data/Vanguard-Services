@@ -12,6 +12,7 @@ const JWT_EXPIRES_IN = env.jwtExpiresIn;
 
 const normalizeIdentifier = (value) => (typeof value === 'string' ? value.trim() : '');
 const { isRoleDepartmentCompatible, filterPermissionsForDepartment } = require('../config/rbac');
+const { getAgencyAssignmentPolicy } = require('../config/agencyAssignmentPolicy');
 const { syncRolePermissionsForRole } = require('./rbacService');
 
 const resolvePermissionNames = async (user) => {
@@ -132,7 +133,7 @@ const getCurrentUser = async (userId) => {
  * @deprecated Administrative user creation should be handled through userService.
  */
 const createUser = async (data) => {
-  const { email, password, firstName, lastName, phone, roleName, departmentType, status = 'ACTIVE' } = data;
+  const { email, password, firstName, lastName, phone, roleName, departmentType, agencyId, status = 'ACTIVE' } = data;
 
   if (!email || !password || !firstName || !lastName || !roleName || !departmentType) {
     throw new AppError('Email, password, first name, last name, role and department are required', 400);
@@ -153,6 +154,16 @@ const createUser = async (data) => {
   if (!department) {
     throw new AppError('Department not found', 404);
   }
+  if (!isRoleDepartmentCompatible(role.name, department.type)) throw new AppError('Role is not valid for this department', 400);
+  const agencyPolicy = getAgencyAssignmentPolicy(role.name, department.type);
+  const requestedAgencyId = typeof agencyId === 'string' ? agencyId.trim() : '';
+  if (agencyPolicy.required && !requestedAgencyId) throw new AppError('An active Vanguard Coach agency is required for this role', 400);
+  if (!agencyPolicy.allowed && requestedAgencyId) throw new AppError('This role and department do not support an agency assignment', 400);
+  let agency = null;
+  if (requestedAgencyId) {
+    agency = await prisma.agency.findFirst({ where: { id: requestedAgencyId, departmentId: department.id, ...(agencyPolicy.requireActive ? { isActive: true } : {}) } });
+    if (!agency || (agencyPolicy.requireActive && !agency.isActive)) throw new AppError('Agency must be active and belong to the selected department', 400);
+  }
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await userRepository.createUser({
@@ -163,6 +174,7 @@ const createUser = async (data) => {
     phone,
     roleId: role.id,
     departmentId: department.id,
+    agencyId: agency?.id || null,
     status,
   });
 
