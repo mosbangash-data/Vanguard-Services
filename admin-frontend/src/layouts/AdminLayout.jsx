@@ -25,6 +25,7 @@ import {
   Calendar,
   Ticket,
   CreditCard,
+  Wallet,
   Package,
   UserRoundPlus,
   Wrench,
