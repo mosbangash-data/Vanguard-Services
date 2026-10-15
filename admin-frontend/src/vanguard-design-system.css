@@ -291,6 +291,10 @@ body {
 .vanguard-agent-brand .sidebar-brand-link { width: 100%; }
 .vanguard-agent-brand-name { color: #f8fafc; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; font-size: 0.96rem; font-weight: 800; letter-spacing: 0.16em; white-space: nowrap; }
 .vanguard-agent-brand + .sidebar-nav { padding-top: 14px; }
+.vanguard-manager-brand { min-height: 78px; }
+.vanguard-manager-brand .sidebar-brand-link { width: 100%; }
+.vanguard-manager-brand-name { color: #f8fafc; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; font-size: .9rem; font-weight: 800; letter-spacing: .14em; white-space: nowrap; }
+.vanguard-manager-brand + .sidebar-nav { padding-top: 14px; }
 .vanguard-sidebar:has(.vanguard-agent-brand) .vanguard-sidebar-link.active { background: rgba(221, 93, 61, 0.18); box-shadow: inset 3px 0 0 #e87958; }
 .vanguard-sidebar:has(.vanguard-agent-brand) .vanguard-sidebar-link.active .vanguard-sidebar-icon { color: #f3a189; }
 .vanguard-sidebar:has(.vanguard-agent-brand) .vanguard-sidebar-link:hover { background-color: rgba(255, 255, 255, 0.08); }
@@ -2171,6 +2175,24 @@ body {
 .manager-activity-icon { flex: 0 0 auto; color: #22627c; background: #e9f5f7; }
 .manager-cell-subtitle { display: block; margin-top: .18rem; color: var(--color-text-muted); font-size: .7rem; }
 .manager-mobile-nav { display: none; }
+.manager-cash-panel { width: min(100%, 760px); margin-inline: auto; padding: clamp(1.1rem, 2.5vw, 1.75rem); }
+.manager-cash-status { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; }
+.manager-cash-status-dot { width: .7rem; height: .7rem; flex: 0 0 auto; border-radius: 50%; background: #788796; box-shadow: 0 0 0 4px color-mix(in srgb, #788796 14%, transparent); }
+.manager-cash-status--open .manager-cash-status-dot { background: #16845b; box-shadow: 0 0 0 4px color-mix(in srgb, #16845b 14%, transparent); }
+.manager-cash-status strong { color: var(--color-text-main); font-size: 1.05rem; }
+.manager-cash-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem 1rem; }
+.manager-cash-form label { display: grid; gap: .4rem; color: var(--color-text-muted); font-size: .85rem; font-weight: 600; }
+.manager-cash-form input, .manager-cash-form textarea { width: 100%; min-height: 44px; border: 1px solid var(--color-border-subtle); border-radius: .7rem; padding: .65rem .8rem; background: var(--color-surface-card); color: var(--color-text-main); font: inherit; }
+.manager-cash-form input:focus-visible, .manager-cash-form textarea:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.manager-cash-form textarea { min-height: 80px; resize: vertical; }
+.manager-cash-expected { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; padding: .8rem 0; color: var(--color-text-muted); font-size: .85rem; }
+.manager-cash-actions { display: flex; justify-content: flex-end; padding-top: 1.1rem; }
+.manager-cash-feedback { margin-top: 1rem; padding: .8rem 1rem; border-radius: .7rem; }
+.manager-cash-feedback--success { color: #126b4b; background: #e9f7f0; }
+.manager-cash-feedback--error { color: #9b2c25; background: #fff0ee; }
+:root[data-theme='dark'] .manager-cash-feedback--success { color: #9be2c3; background: #15352b; }
+:root[data-theme='dark'] .manager-cash-feedback--error { color: #ffc0b8; background: #432421; }
+.manager-cash-note { margin: .85rem 0 0; color: var(--color-text-muted); font-size: .82rem; }
 @keyframes manager-reveal { from { opacity: .5; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) {
   .manager-priority-card, .manager-quick-action, .manager-details, .manager-details-content, .manager-panel .data-table tbody tr { transition: none; animation: none; }
@@ -2187,6 +2209,8 @@ body {
   .vanguard-app-main:has(.manager-workspace) { padding-bottom: 5.5rem; }
 }
 @media (max-width: 640px) {
+  .manager-cash-form { grid-template-columns: 1fr; }
+  .manager-cash-actions .button { width: 100%; }
   .manager-workspace { padding: .75rem .75rem 6.25rem; gap: .8rem; }
   .manager-header { min-height: 0; padding: 1.2rem; border-radius: .95rem; }
   .manager-header { flex-direction: column; align-items: stretch; }

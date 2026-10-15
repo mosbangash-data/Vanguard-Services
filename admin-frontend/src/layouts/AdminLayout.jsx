@@ -354,9 +354,9 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
 
       {/* Sidebar */}
       <aside id="app-navigation" className={`sidebar vanguard-sidebar ${mobileOpen ? 'open' : ''}`} aria-label={t('navigation.title')}>
-        <div className={`sidebar-brand vanguard-sidebar-brand ${isCoachAgent ? 'vanguard-agent-brand' : ''}`}>
+        <div className={`sidebar-brand vanguard-sidebar-brand ${isCoachAgent ? 'vanguard-agent-brand' : isCoachManager ? 'vanguard-manager-brand' : ''}`}>
           <Link to={isSuperAdmin ? '/admin' : userDept === 'VANGUARD_COACH' ? '/transport' : userDept === 'AUTO_SALES' ? '/automobile' : '/construction'} className="sidebar-brand-link">
-            {isCoachAgent ? <span className="vanguard-agent-brand-name">VANGUARD COACH</span> : <img
+            {(isCoachAgent || isCoachManager) ? <span className={isCoachManager ? 'vanguard-manager-brand-name' : 'vanguard-agent-brand-name'}>VANGUARD COACH</span> : <img
               src={`${import.meta.env.BASE_URL}assets/logos/vanguard-admin-logo.svg`}
               alt={`Vanguard Services · ${t('authUi.administration')}`}
               className="sidebar-logo vanguard-sidebar-logo-svg"
@@ -462,7 +462,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           </div>
 
           <div className="header-right vanguard-header-right">
-            {!isCoachAgent && <>
+            {!isCoachAgent && !isCoachManager && <>
             <label className="theme-selector">
               <span className="theme-selector-icon" aria-hidden="true">{resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}</span>
               <span className="sr-only">{t('layout.theme')}</span>
