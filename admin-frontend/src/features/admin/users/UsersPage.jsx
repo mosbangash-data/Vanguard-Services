@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../services/api'
 import { useLanguage } from '../../../i18n/useLanguage'
 import { useAuth } from '../../auth/authContext'
+import { hasPermission } from '../../auth/permissions'
 import { buildAgencyAwareUserPayload, getAgencyAssignmentForSelection, reconcileDepartmentSelection, reconcileRoleSelection } from './agencyAssignmentForm'
 import {
   UserPlus,
@@ -45,6 +46,8 @@ async function fetchAgencies(departmentId) {
 export function UsersPage() {
   const { t } = useLanguage()
   const { user: currentUser } = useAuth()
+  const canCreateUsers = hasPermission(currentUser, 'CREATE_USER')
+  const canUpdateUsers = hasPermission(currentUser, 'UPDATE_USER')
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -243,10 +246,10 @@ export function UsersPage() {
           <h1>{t('userAdmin.title')}</h1>
           <p>{t('userAdmin.subtitle')}</p>
         </div>
-        <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
+        {canCreateUsers && <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
           <UserPlus size={16} />
           <span>{t('userAdmin.newUser')}</span>
-        </button>
+        </button>}
       </div>
 
       {/* Toolbar & Filters */}
@@ -362,30 +365,30 @@ export function UsersPage() {
                           >
                             <Eye size={14} />
                           </button>
-                          <button
+                          {canUpdateUsers && <button
                             type="button"
                             className="action-btn"
                             title={t('userAdmin.edit')}
                             onClick={() => startEdit(u)}
                           >
                             <Edit2 size={14} />
-                          </button>
-                          <button
+                          </button>}
+                          {canUpdateUsers && <button
                             type="button"
                             className={`action-btn ${u.status === 'ACTIVE' ? 'danger' : ''}`}
                             title={u.status === 'ACTIVE' ? t('userAdmin.deactivate') : t('userAdmin.activate')}
                             onClick={() => toggleStatusMutation.mutate({ id: u.id, status: u.status })}
                           >
                             <Power size={14} />
-                          </button>
-                          <button
+                          </button>}
+                          {canUpdateUsers && <button
                             type="button"
                             className="action-btn"
                             title={t('userAdmin.resetPassword')}
                             onClick={() => startPasswordReset(u)}
                           >
                             <Lock size={14} />
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>

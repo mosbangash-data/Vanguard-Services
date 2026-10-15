@@ -127,7 +127,7 @@ export function ResourcePage({ resource }) {
   const enabled =
     !resource.unavailable &&
     hasRequiredRole &&
-    (!resource.permission || hasPermission(user, resource.permission) || user?.role === 'SUPER_ADMIN')
+    (!resource.permission || hasPermission(user, resource.permission))
 
   const query = useQuery({
     queryKey: ['resource', resource.endpoint, debouncedSearch, page, parcelStatusFilter, parcelPaymentFilter, parcelDestinationFilter, parcelFromFilter, parcelToFilter],
@@ -372,7 +372,7 @@ export function ResourcePage({ resource }) {
   // Permissions checks
   const can = (permission) =>
     hasRequiredRole &&
-    (!permission ? !resource.readOnly : hasPermission(user, permission) || user?.role === 'SUPER_ADMIN')
+    (!permission ? !resource.readOnly : hasPermission(user, permission))
 
   const canWriteResource = !resource.writeRoles || resource.writeRoles.includes(user?.role)
   const canCreate = can(resource.createPermission) && !resource.readOnly && canWriteResource

@@ -61,6 +61,7 @@ test.after(async () => {
   await prisma.route.deleteMany();
   await prisma.bus.deleteMany();
   await prisma.user.deleteMany({ where: { email: { contains: 'dashboard' } } });
+  await prisma.auditLog.deleteMany({ where: { action: 'dashboard_scope_probe' } });
   await prisma.serviceSettings.deleteMany();
   await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
 });
@@ -284,7 +285,7 @@ test('dashboard overview restricts non-super-admin access to local scope and rej
   const serviceAdminPassword = 'ServiceAdmin123!';
 
   const serviceAdminRole = await prisma.role.findUnique({ where: { name: 'SERVICE_ADMIN' } });
-  await prisma.user.create({
+  const serviceAdminUser = await prisma.user.create({
     data: {
       email: serviceAdminEmail,
       passwordHash: await bcrypt.hash(serviceAdminPassword, 10),
@@ -298,11 +299,31 @@ test('dashboard overview restricts non-super-admin access to local scope and rej
     },
   });
 
+  const coachDepartment = await prisma.department.findUnique({ where: { type: 'VANGUARD_COACH' } });
+  const outsideDepartmentUser = await prisma.user.create({
+    data: {
+      email: `dashboard-scope-outside-${Date.now()}@example.com`,
+      passwordHash: await bcrypt.hash('Outside123!', 10),
+      firstName: 'Outside',
+      lastName: 'Department',
+      phone: `+339${Date.now().toString().slice(-8)}`,
+      roleId: serviceAdminRole.id,
+      departmentId: coachDepartment.id,
+      status: 'ACTIVE',
+      firstLogin: false,
+    },
+  });
+  await prisma.auditLog.create({ data: { action: 'dashboard_scope_probe', actorId: outsideDepartmentUser.id, details: { departmentId: coachDepartment.id, marker: 'outside' } } });
+  await prisma.auditLog.create({ data: { action: 'dashboard_scope_probe', actorId: serviceAdminUser.id, details: { marker: 'inside' } } });
+
   const serviceAdminToken = await login(serviceAdminEmail, serviceAdminPassword);
   const serviceAdminResponse = await request('GET', '/api/dashboard/overview', null, serviceAdminToken);
   assert.equal(serviceAdminResponse.status, 200);
   assert.equal(serviceAdminResponse.data.data.department, 'CONSTRUCTION');
   assert.ok(serviceAdminResponse.data.data.construction);
+  assert.equal(serviceAdminResponse.data.data.global.totalUsers, await prisma.user.count({ where: { departmentId: serviceAdminDepartment.id } }));
+  assert.ok(serviceAdminResponse.data.data.recentActivity.some((entry) => entry.details?.marker === 'inside'));
+  assert.ok(!serviceAdminResponse.data.data.recentActivity.some((entry) => entry.details?.marker === 'outside'));
 
   const agentEmail = `dashboard-agent-${Date.now()}@example.com`;
   const agentUser = await prisma.user.create({

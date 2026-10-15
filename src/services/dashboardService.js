@@ -66,7 +66,11 @@ const enrichStatusCounter = async ({ modelName, where, statuses }) => {
   };
 };
 
-const buildLatestActivity = async () => prisma.auditLog.findMany({
+const buildLatestActivity = async (departmentId = null, departmentUserIds = []) => prisma.auditLog.findMany({
+  ...(departmentId ? { where: { OR: [
+    { details: { path: ['departmentId'], equals: departmentId } },
+    ...(departmentUserIds.length ? [{ actorId: { in: departmentUserIds } }] : []),
+  ] } } : {}),
   orderBy: { createdAt: 'desc' },
   take: 10,
   select: {
@@ -185,6 +189,10 @@ const getOverview = async (currentUser) => {
   const quoteRequestWhere = scope.departmentId ? { departmentId: scope.departmentId } : {};
   const vehicleReservationWhere = scope.departmentId ? { vehicle: { departmentId: scope.departmentId } } : {};
   const vehicleInquiryWhere = scope.departmentId ? { vehicle: { departmentId: scope.departmentId } } : {};
+  const userWhere = scope.departmentId ? { departmentId: scope.departmentId } : {};
+  const departmentUserIds = scope.departmentId
+    ? (await prisma.user.findMany({ where: userWhere, select: { id: true } })).map(({ id }) => id)
+    : [];
 
   const [
     totalUsers,
@@ -203,10 +211,10 @@ const getOverview = async (currentUser) => {
     autoSalesPayments,
     activity,
   ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { status: 'ACTIVE' } }),
-    prisma.user.count({ where: { status: 'ACTIVE', role: { name: { in: ACTIVE_AGENT_ROLES } } } }),
-    prisma.user.count({ where: { status: 'ACTIVE', role: { name: { in: ACTIVE_ADMIN_ROLES } } } }),
+    prisma.user.count({ where: userWhere }),
+    prisma.user.count({ where: { ...userWhere, status: 'ACTIVE' } }),
+    prisma.user.count({ where: { ...userWhere, status: 'ACTIVE', role: { name: { in: ACTIVE_AGENT_ROLES } } } }),
+    prisma.user.count({ where: { ...userWhere, status: 'ACTIVE', role: { name: { in: ACTIVE_ADMIN_ROLES } } } }),
     enrichStatusCounter({ modelName: 'trip', where: tripWhere, statuses: ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] }),
     enrichStatusCounter({ modelName: 'reservation', where: reservationWhere, statuses: ['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'] }),
     enrichStatusCounter({ modelName: 'ticket', where: ticketWhere, statuses: ['VALID', 'USED', 'CANCELLED'] }),
@@ -232,7 +240,7 @@ const getOverview = async (currentUser) => {
       },
       statuses: ['PENDING', 'VERIFIED', 'COMPLETED', 'REJECTED'],
     }),
-    buildLatestActivity(),
+    buildLatestActivity(scope.departmentId, departmentUserIds),
   ]);
 
   const transportRevenue = await getRevenueForService({

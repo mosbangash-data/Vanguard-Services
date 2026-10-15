@@ -19,7 +19,7 @@ const ROLE_PERMISSION_MAP = {
     'VIEW_VEHICLE_INQUIRY', 'CREATE_VEHICLE_INQUIRY', 'UPDATE_VEHICLE_INQUIRY', 'ASSIGN_VEHICLE_INQUIRY', 'CLOSE_VEHICLE_INQUIRY', 'MANAGE_VEHICLE_INQUIRY', 'MANAGE_VEHICLE_RESERVATION',
     'CREATE_CUSTOMER_REQUEST', 'VIEW_CUSTOMER_REQUEST', 'UPDATE_CUSTOMER_REQUEST', 'CREATE_QUOTE_REQUEST', 'VIEW_QUOTE_REQUEST', 'UPDATE_QUOTE_REQUEST',
     'CREATE_PROJECT', 'VIEW_PROJECT', 'UPDATE_PROJECT', 'DELETE_PROJECT', 'CREATE_PROJECT_UPDATE',
-    'VIEW_USER', 'CREATE_USER', 'UPDATE_USER', 'DELETE_USER',
+  'VIEW_USER', 'CREATE_USER', 'UPDATE_USER', 'DELETE_USER', 'VIEW_ROLE',
     'CREATE_PARCEL', 'VIEW_PARCEL', 'UPDATE_PARCEL', 'RECEIVE_PARCEL', 'CHANGE_PARCEL_STATUS', 'VERIFY_PARCEL_PAYMENT', 'VIEW_PARCEL_PAYMENT', 'COLLECT_PARCEL', 'VIEW_IDENTITY_DATA', 'PRINT_PARCEL_RECEIPT',
   ],
   MANAGER: [
@@ -55,6 +55,32 @@ const AUTO_SALES_ONLY_AGENT_PERMISSIONS = new Set([
   'MANAGE_VEHICLE_RESERVATION', 'CANCEL_VEHICLE_RESERVATION',
 ]);
 
+const COACH_DEPARTMENT_PERMISSIONS = new Set([
+  'APPROVE_DAILY_CASH_CLOSURE',
+  'CREATE_RESERVATION', 'VIEW_RESERVATION', 'UPDATE_RESERVATION', 'CANCEL_VEHICLE_RESERVATION', 'MANAGE_RESERVATION_PAYMENT',
+  'VIEW_TRIP', 'VIEW_PAYMENT', 'VIEW_OCCUPANCY', 'SCAN_TICKET', 'VIEW_TICKET_SCAN',
+  'CREATE_PARCEL', 'VIEW_PARCEL', 'UPDATE_PARCEL', 'RECEIVE_PARCEL', 'CHANGE_PARCEL_STATUS', 'VERIFY_PARCEL_PAYMENT',
+  'VIEW_PARCEL_PAYMENT', 'COLLECT_PARCEL', 'VIEW_IDENTITY_DATA', 'PRINT_PARCEL_RECEIPT',
+    'VIEW_USER', 'CREATE_USER', 'UPDATE_USER', 'DELETE_USER', 'VIEW_ROLE',
+]);
+const CONSTRUCTION_DEPARTMENT_PERMISSIONS = new Set([
+  'CREATE_CUSTOMER_REQUEST', 'VIEW_CUSTOMER_REQUEST', 'UPDATE_CUSTOMER_REQUEST',
+  'CREATE_QUOTE_REQUEST', 'VIEW_QUOTE_REQUEST', 'UPDATE_QUOTE_REQUEST',
+  'CREATE_PROJECT', 'VIEW_PROJECT', 'UPDATE_PROJECT', 'DELETE_PROJECT', 'CREATE_PROJECT_UPDATE',
+    'VIEW_USER', 'CREATE_USER', 'UPDATE_USER', 'DELETE_USER', 'VIEW_ROLE',
+]);
+const AUTO_SALES_DEPARTMENT_PERMISSIONS = new Set([
+  'VIEW_VEHICLE', 'CREATE_VEHICLE', 'UPDATE_VEHICLE', 'DELETE_VEHICLE', 'MANAGE_VEHICLE_MEDIA',
+  'VIEW_VEHICLE_INQUIRY', 'CREATE_VEHICLE_INQUIRY', 'UPDATE_VEHICLE_INQUIRY', 'ASSIGN_VEHICLE_INQUIRY', 'CLOSE_VEHICLE_INQUIRY', 'MANAGE_VEHICLE_INQUIRY',
+  'MANAGE_VEHICLE_RESERVATION', 'CANCEL_VEHICLE_RESERVATION', 'VIEW_RESERVATION',
+  'VIEW_USER', 'CREATE_USER', 'UPDATE_USER', 'DELETE_USER', 'VIEW_ROLE',
+]);
+const DEPARTMENT_PERMISSION_MAP = {
+  VANGUARD_COACH: COACH_DEPARTMENT_PERMISSIONS,
+  CONSTRUCTION: CONSTRUCTION_DEPARTMENT_PERMISSIONS,
+  AUTO_SALES: AUTO_SALES_DEPARTMENT_PERMISSIONS,
+};
+
 const normalizeRoleName = (roleName) => {
   const value = typeof roleName === 'string' ? roleName.trim().toUpperCase() : '';
   if (Object.prototype.hasOwnProperty.call(ROLE_PERMISSION_MAP, value)) {
@@ -77,12 +103,18 @@ const getExpectedRolePermissions = (roleName) => {
 };
 
 const filterPermissionsForDepartment = (roleName, departmentType, permissionNames = []) => {
-  if (normalizeRoleName(roleName) !== 'AGENT') return [...new Set(permissionNames)];
+  const normalizedRole = normalizeRoleName(roleName);
+  if (!normalizedRole) return [];
+  if (normalizedRole === 'SUPER_ADMIN') return [...new Set(permissionNames)];
+  const allowedForDepartment = DEPARTMENT_PERMISSION_MAP[departmentType];
+  if (!allowedForDepartment) return [];
+  const departmentPermissions = [...new Set(permissionNames)].filter((permission) => allowedForDepartment.has(permission));
+  if (normalizedRole !== 'AGENT') return departmentPermissions;
   if (departmentType === 'AUTO_SALES') {
-    const granted = new Set(permissionNames);
+    const granted = new Set(departmentPermissions);
     return AUTO_SALES_AGENT_PERMISSIONS.filter((permission) => granted.has(permission));
   }
-  if (departmentType === 'VANGUARD_COACH') return [...new Set(permissionNames)].filter((permission) => !AUTO_SALES_ONLY_AGENT_PERMISSIONS.has(permission));
+  if (departmentType === 'VANGUARD_COACH') return departmentPermissions.filter((permission) => !AUTO_SALES_ONLY_AGENT_PERMISSIONS.has(permission));
   return [];
 };
 

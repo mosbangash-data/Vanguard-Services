@@ -2,7 +2,6 @@ require('dotenv').config();
 
 const path = require('path');
 const express = require('express');
-const { syncAllRolePermissions } = require('./services/rbacService');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -54,10 +53,6 @@ const adminMediaRoutes = require('./routes/adminMedia');
 const publicRoutes = require('./routes/public');
 
 const app = express();
-
-syncAllRolePermissions().catch((error) => {
-  console.warn('[rbac:startup]', error.message || error);
-});
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);

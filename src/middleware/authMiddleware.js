@@ -4,7 +4,6 @@ const { AppError } = require('./errorHandler');
 const env = require('../config/env');
 const prisma = require('../config/prisma');
 
-const { syncRolePermissionsForRole } = require('../services/rbacService');
 const { filterPermissionsForDepartment } = require('../config/rbac');
 const { getAgencyAssignmentPolicy } = require('../config/agencyAssignmentPolicy');
 
@@ -23,10 +22,6 @@ const normalizePermissionNames = (user) => {
 };
 
 const hydratePermissionsFromRole = async (user) => {
-  if (user?.role?.name) {
-    await syncRolePermissionsForRole(user.role.name);
-  }
-
   let names = normalizePermissionNames(user);
   if (user?.roleId) {
     const rolePermissions = await prisma.rolePermission.findMany({

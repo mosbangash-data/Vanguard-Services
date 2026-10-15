@@ -185,9 +185,9 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           title: customTitle,
           items: customNavigation
             .filter((item) => {
-              if (item.roles && !item.roles.includes(user?.role) && !isSuperAdmin) return false
+              if (item.roles && !item.roles.includes(user?.role)) return false
               if (item.excludeRoles && item.excludeRoles.includes(user?.role)) return false
-              return !item.permission || hasPermission(user, item.permission) || isSuperAdmin
+              return !item.permission || hasPermission(user, item.permission)
             })
             .map((item) => {
               const label = item.labelKey
@@ -299,7 +299,10 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
       id: 'system',
       title: t('navigation.sections.system'),
       items: [
-        ...(isSuperAdmin
+        ...(user?.role === 'SERVICE_ADMIN' && hasPermission(user, 'VIEW_USER')
+          ? [{ path: '/admin/users', label: 'Utilisateurs', icon: Users }]
+          : []),
+        ...(isSuperAdmin || user?.role === 'SERVICE_ADMIN'
           ? [{ path: '/admin/audit', label: 'Audit & Activité', icon: FileText }]
           : []),
         { path: '/admin/account', label: 'Mon compte', icon: Settings },
@@ -310,7 +313,10 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     return sections.map((section) => ({
       ...section,
       title: t(`navigation.sections.${sectionKeys[section.id]}`) || section.title,
-      items: section.items.map((item) => ({
+      items: section.items.filter((item) =>
+        (!item.roles || item.roles.includes(user?.role)) &&
+        (!item.permission || hasPermission(user, item.permission))
+      ).map((item) => ({
         ...item,
         label: item.labelKey ? t(item.labelKey) : PATH_KEYS[item.path] ? (t(`navigation.items.${PATH_KEYS[item.path]}`) || item.label) : item.label,
       })),

@@ -129,8 +129,6 @@ async function main() {
     AGENT: getExpectedRolePermissions('AGENT'),
   };
 
-  await prisma.rolePermission.deleteMany();
-
   for (const [roleName, permissionNames] of Object.entries(rolePermissions)) {
     const role = await prisma.role.findUnique({ where: { name: roleName } });
     if (!role) continue;

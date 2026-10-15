@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../services/api'
 import { useLanguage } from '../../../i18n/useLanguage'
+import { useAuth } from '../../auth/authContext'
+import { hasPermission } from '../../auth/permissions'
 import {
   Plus,
   Search,
@@ -22,6 +24,10 @@ async function fetchDepartments({ page, limit, search }) {
 
 export function DepartmentsPage() {
   const { t } = useLanguage()
+  const { user } = useAuth()
+  const canCreateDepartment = hasPermission(user, 'CREATE_DEPARTMENT')
+  const canUpdateDepartment = hasPermission(user, 'UPDATE_DEPARTMENT')
+  const canDeleteDepartment = hasPermission(user, 'DELETE_DEPARTMENT')
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -140,10 +146,10 @@ export function DepartmentsPage() {
           <h1>{t('departmentUi.title')}</h1>
           <p>{t('departmentUi.subtitle')}</p>
         </div>
-        <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
+        {canCreateDepartment && <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
           <Plus size={16} />
           <span>{t('departmentUi.new')}</span>
-        </button>
+        </button>}
       </div>
 
       <div className="toolbar">
@@ -153,7 +159,7 @@ export function DepartmentsPage() {
             <input
               type="text"
               className="search-input"
-              placeholder="Rechercher type ou nom..."
+              placeholder={t('departmentUi.searchPlaceholder')}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             />
@@ -161,7 +167,7 @@ export function DepartmentsPage() {
         </div>
         <button type="button" className="button secondary sm" onClick={() => deptsQuery.refetch()}>
           <RefreshCw size={14} />
-          <span>Actualiser</span>
+          <span>{t('departmentUi.refresh')}</span>
         </button>
       </div>
 
@@ -187,7 +193,7 @@ export function DepartmentsPage() {
                     <th>{t('departmentUi.type')}</th>
                     <th>{t('departmentUi.name')}</th>
                     <th>{t('departmentUi.description')}</th>
-                    <th>Statut</th>
+                    <th>{t('commonUi.status')}</th>
                     <th style={{ textAlign: 'right' }}>{t('commonUi.actions')}</th>
                   </tr>
                 </thead>
@@ -200,38 +206,38 @@ export function DepartmentsPage() {
                       <td>
                         <strong>{d.name}</strong>
                       </td>
-                      <td>{d.description || 'Aucune description'}</td>
+                      <td>{d.description || t('departmentUi.noDescription')}</td>
                       <td>
                         <span className={`badge ${d.isActive ? 'active' : 'inactive'}`}>
-                          {d.isActive ? 'Actif' : 'Inactif'}
+                          {d.isActive ? t('departmentUi.statusActive') : t('departmentUi.statusInactive')}
                         </span>
                       </td>
                       <td>
                         <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
-                          <button
+                          {canUpdateDepartment && <button
                             type="button"
                             className="action-btn"
                             title={t('commonUi.edit')}
                             onClick={() => startEdit(d)}
                           >
                             <Edit2 size={14} />
-                          </button>
-                          <button
+                          </button>}
+                          {canUpdateDepartment && <button
                             type="button"
                             className={`action-btn ${d.isActive ? 'danger' : ''}`}
                             title={d.isActive ? t('departmentUi.deactivate') : t('departmentUi.activate')}
                             onClick={() => toggleStatus(d)}
                           >
                             <Power size={14} />
-                          </button>
-                          <button
+                          </button>}
+                          {canDeleteDepartment && <button
                             type="button"
                             className="action-btn danger"
                             title={t('commonUi.delete')}
                             onClick={() => setDeletingDept(d)}
                           >
                             <Trash2 size={14} />
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>

@@ -13,13 +13,8 @@ const JWT_EXPIRES_IN = env.jwtExpiresIn;
 const normalizeIdentifier = (value) => (typeof value === 'string' ? value.trim() : '');
 const { isRoleDepartmentCompatible, filterPermissionsForDepartment } = require('../config/rbac');
 const { getAgencyAssignmentPolicy } = require('../config/agencyAssignmentPolicy');
-const { syncRolePermissionsForRole } = require('./rbacService');
 
 const resolvePermissionNames = async (user) => {
-  if (user?.role?.name) {
-    await syncRolePermissionsForRole(user.role.name);
-  }
-
   const permissionNames = [];
   const directPermissions = Array.isArray(user?.role?.permissions) ? user.role.permissions : [];
 

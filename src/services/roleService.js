@@ -42,14 +42,16 @@ const listRoles = async (query = {}, currentUser) => {
   const search = typeof query.search === 'string' ? query.search.trim() : '';
   const skip = (page - 1) * limit;
 
-  const where = search
-    ? {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-        ],
-      }
-    : {};
+  const manageableRoleNames = currentUser.role === 'SERVICE_ADMIN'
+    ? (currentUser.department?.type === 'VANGUARD_COACH' ? ['AGENT', 'MANAGER'] : currentUser.department?.type === 'AUTO_SALES' ? ['AGENT'] : [])
+    : null;
+  const where = {
+    ...(manageableRoleNames ? { name: { in: manageableRoleNames } } : {}),
+    ...(search ? { OR: [
+      { name: { contains: search, mode: 'insensitive' } },
+      { description: { contains: search, mode: 'insensitive' } },
+    ] } : {}),
+  };
 
   const [items, total] = await Promise.all([
     roleRepository.findMany({
@@ -57,7 +59,7 @@ const listRoles = async (query = {}, currentUser) => {
       skip,
       take: limit,
       orderBy: { name: 'asc' },
-      include: { permissions: { include: { permission: true } } },
+      ...(currentUser.role === 'SUPER_ADMIN' ? { include: { permissions: { include: { permission: true } } } } : {}),
     }),
     roleRepository.count(where),
   ]);
@@ -67,7 +69,7 @@ const listRoles = async (query = {}, currentUser) => {
       id: item.id,
       name: item.name,
       description: item.description,
-      permissions: item.permissions.map(({ permission }) => permission.name),
+      permissions: (item.permissions || []).map(({ permission }) => permission.name),
       departmentTypes: ROLE_DEPARTMENT_COMPATIBILITY[item.name] || [],
       agencyAssignmentPolicies: Object.fromEntries((ROLE_DEPARTMENT_COMPATIBILITY[item.name] || []).map((departmentType) => [departmentType, getAgencyAssignmentPolicy(item.name, departmentType)])),
       createdAt: item.createdAt,

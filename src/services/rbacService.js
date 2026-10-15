@@ -27,11 +27,8 @@ const syncRolePermissionsForRole = async (roleName) => {
   const existingIds = new Set(existingMappings.map(({ permissionId }) => permissionId));
 
   const idsToAdd = desiredIds.filter((id) => !existingIds.has(id));
-  const idsToRemove = [...existingIds].filter((permissionId) => !desiredIds.includes(permissionId));
-
-  if (idsToAdd.length || idsToRemove.length) {
+  if (idsToAdd.length) {
     await prisma.$transaction([
-      ...(idsToRemove.length ? [prisma.rolePermission.deleteMany({ where: { roleId: role.id, permissionId: { in: idsToRemove } } })] : []),
       ...idsToAdd.map((permissionId) => prisma.rolePermission.upsert({
         where: { roleId_permissionId: { roleId: role.id, permissionId } },
         update: {},
@@ -44,7 +41,7 @@ const syncRolePermissionsForRole = async (roleName) => {
     synced: true,
     role: normalizedRoleName,
     added: idsToAdd.length,
-    removed: idsToRemove.length,
+    removed: 0,
     permissions: expectedPermissions,
   };
 };

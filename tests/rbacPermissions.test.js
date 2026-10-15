@@ -38,6 +38,7 @@ test('AGENT permissions are isolated by department', () => {
   assert.ok(!autoSalesPermissions.includes('VIEW_TRIP'));
   assert.ok(!autoSalesPermissions.includes('CREATE_PARCEL'));
   assert.ok(coachPermissions.includes('VIEW_TRIP'));
+  assert.ok(!coachPermissions.includes('VIEW_ROLE'));
   assert.ok(coachPermissions.includes('CREATE_PARCEL'));
   assert.ok(!coachPermissions.includes('VIEW_VEHICLE'));
   assert.ok(!coachPermissions.includes('CREATE_VEHICLE_INQUIRY'));
@@ -51,4 +52,19 @@ test('SUPER_ADMIN permissions remain broader than AGENT without being the same s
   assert.ok(superAdminPermissions.includes('VIEW_USER'));
   assert.ok(agentPermissions.includes('VIEW_TRIP'));
   assert.ok(!agentPermissions.includes('DELETE_USER'));
+});
+
+test('department administrators receive only business permissions for their department', () => {
+  const serviceAdminPermissions = getExpectedRolePermissions('SERVICE_ADMIN');
+  const coachPermissions = filterPermissionsForDepartment('SERVICE_ADMIN', 'VANGUARD_COACH', serviceAdminPermissions);
+  const constructionPermissions = filterPermissionsForDepartment('SERVICE_ADMIN', 'CONSTRUCTION', serviceAdminPermissions);
+  const autoSalesPermissions = filterPermissionsForDepartment('SERVICE_ADMIN', 'AUTO_SALES', serviceAdminPermissions);
+
+  assert.ok(coachPermissions.includes('VIEW_TRIP'));
+  assert.ok(!coachPermissions.includes('VIEW_PROJECT'));
+  assert.ok(constructionPermissions.includes('VIEW_PROJECT'));
+  assert.ok(!constructionPermissions.includes('VIEW_TRIP'));
+  assert.ok(autoSalesPermissions.includes('VIEW_VEHICLE'));
+  assert.ok(!autoSalesPermissions.includes('CREATE_PARCEL'));
+  assert.deepEqual(filterPermissionsForDepartment('SERVICE_ADMIN', 'UNKNOWN', serviceAdminPermissions), []);
 });

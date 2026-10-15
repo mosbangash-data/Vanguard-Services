@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../services/api'
 import { useLanguage } from '../../../i18n/useLanguage'
+import { useAuth } from '../../auth/authContext'
+import { hasPermission } from '../../auth/permissions'
 import {
   Plus,
   Search,
@@ -143,6 +145,10 @@ async function fetchAllPermissions() {
 
 export function RolesPage() {
   const { t } = useLanguage()
+  const { user } = useAuth()
+  const canCreateRole = hasPermission(user, 'CREATE_ROLE')
+  const canUpdateRole = hasPermission(user, 'UPDATE_ROLE')
+  const canDeleteRole = hasPermission(user, 'DELETE_ROLE')
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -329,10 +335,10 @@ export function RolesPage() {
           <h1>{t('roleUi.title')}</h1>
           <p>{t('roleUi.subtitle')}</p>
         </div>
-        <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
+        {canCreateRole && <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
           <Plus size={16} />
           <span>{t('roleUi.newRole')}</span>
-        </button>
+        </button>}
       </div>
 
       <div className="toolbar">
@@ -396,7 +402,7 @@ export function RolesPage() {
                       </td>
                       <td>
                         <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
-                          <button
+                          {canUpdateRole && <button
                             type="button"
                             className="action-btn"
                             title={t('roleUi.managePermissions')}
@@ -404,23 +410,23 @@ export function RolesPage() {
                           >
                             <Key size={14} />
                             <span>{t('roleUi.permissions')}</span>
-                          </button>
-                          <button
+                          </button>}
+                          {canUpdateRole && <button
                             type="button"
                             className="action-btn"
                             title={t('roleUi.edit')}
                             onClick={() => startEdit(r)}
                           >
                             <Edit2 size={14} />
-                          </button>
-                          <button
+                          </button>}
+                          {canDeleteRole && <button
                             type="button"
                             className="action-btn danger"
                             title={t('roleUi.delete')}
                             onClick={() => setDeletingRole(r)}
                           >
                             <Trash2 size={14} />
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>

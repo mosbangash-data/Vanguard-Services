@@ -6,7 +6,7 @@ const PasswordRecoveryPage = lazy(() => import('./features/auth/PasswordRecovery
 const ForbiddenPage = lazy(() => import('./components/Pages').then((m) => ({ default: m.ForbiddenPage })))
 const NotFoundPage = lazy(() => import('./components/Pages').then((m) => ({ default: m.NotFoundPage })))
 const PublicTicketPage = lazy(() => import('./components/Pages').then((m) => ({ default: m.PublicTicketPage })))
-import { DepartmentRoute, ProtectedRoute, RoleRoute } from './routes/guards'
+import { DepartmentRoute, PermissionRoute, ProtectedRoute, RoleRoute } from './routes/guards'
 import { AppLayout } from './layouts/AppLayout'
 import { AdminLayout } from './layouts/AdminLayout'
 
@@ -183,12 +183,27 @@ export default function App() {
             <Route element={<RoleRoute roles={['SUPER_ADMIN']} />}>
               <Route element={<AdminLayout />}>
                 <Route path="/admin" element={<AdminDashboardPage />} />
-                <Route path="/admin/users" element={<UsersPage />} />
-                <Route path="/admin/roles" element={<RolesPage />} />
-                <Route path="/admin/permissions" element={<PermissionsPage />} />
-                <Route path="/admin/departments" element={<DepartmentsPage />} />
-                <Route path="/admin/audit" element={<AuditLogsPage />} />
                 <Route path="/admin/notifications" element={<NotificationsPage />} />
+              </Route>
+              <Route element={<PermissionRoute permission="VIEW_ROLE" />}>
+                <Route element={<AdminLayout />}><Route path="/admin/roles" element={<RolesPage />} /></Route>
+              </Route>
+              <Route element={<PermissionRoute permission="VIEW_PERMISSION" />}>
+                <Route element={<AdminLayout />}><Route path="/admin/permissions" element={<PermissionsPage />} /></Route>
+              </Route>
+              <Route element={<PermissionRoute permission="VIEW_DEPARTMENT" />}>
+                <Route element={<AdminLayout />}><Route path="/admin/departments" element={<DepartmentsPage />} /></Route>
+              </Route>
+            </Route>
+
+            <Route element={<RoleRoute roles={['SUPER_ADMIN', 'SERVICE_ADMIN']} />}>
+              <Route element={<PermissionRoute permission="VIEW_USER" />}>
+                <Route element={<AdminLayout />}>
+                  <Route path="/admin/users" element={<UsersPage />} />
+                </Route>
+              </Route>
+              <Route element={<AdminLayout />}>
+                <Route path="/admin/audit" element={<AuditLogsPage />} />
               </Route>
             </Route>
 

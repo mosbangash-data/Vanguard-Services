@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../services/api'
 import { useLanguage } from '../../../i18n/useLanguage'
+import { useAuth } from '../../auth/authContext'
+import { hasPermission } from '../../auth/permissions'
 import {
   Plus,
   Search,
@@ -21,6 +23,10 @@ async function fetchPermissions({ page, limit, search }) {
 
 export function PermissionsPage() {
   const { t } = useLanguage()
+  const { user } = useAuth()
+  const canCreatePermission = hasPermission(user, 'CREATE_PERMISSION')
+  const canUpdatePermission = hasPermission(user, 'UPDATE_PERMISSION')
+  const canDeletePermission = hasPermission(user, 'DELETE_PERMISSION')
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -127,10 +133,10 @@ export function PermissionsPage() {
           <h1>{t('permissionUi.title')}</h1>
           <p>{t('permissionUi.subtitle')}</p>
         </div>
-        <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
+        {canCreatePermission && <button type="button" className="button" onClick={() => { setIsCreateOpen(true); setFormError('') }}>
           <Plus size={16} />
           <span>{t('permissionUi.new')}</span>
-        </button>
+        </button>}
       </div>
 
       <div className="toolbar">
@@ -189,22 +195,22 @@ export function PermissionsPage() {
                       <td>{p.description || t('permissionUi.noDescription')}</td>
                       <td>
                         <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
-                          <button
+                          {canUpdatePermission && <button
                             type="button"
                             className="action-btn"
                             title={t('commonUi.edit')}
                             onClick={() => startEdit(p)}
                           >
                             <Edit2 size={14} />
-                          </button>
-                          <button
+                          </button>}
+                          {canDeletePermission && <button
                             type="button"
                             className="action-btn danger"
                             title={t('commonUi.delete')}
                             onClick={() => setDeletingPermission(p)}
                           >
                             <Trash2 size={14} />
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>
