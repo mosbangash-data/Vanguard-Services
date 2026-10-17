@@ -147,6 +147,11 @@ Keep localhost origins only for local development.
 
 ## Static frontends
 
+Render builds the Prisma client and both frontends with `npm run render:build`.
+The admin HTML is served with revalidation required; fingerprinted files under
+`/admin/assets` are cacheable as immutable. A missing asset remains a 404 and is
+never rewritten to the SPA HTML.
+
 The Express server serves the generated static files in production:
 
 - / -> client-frontend/dist

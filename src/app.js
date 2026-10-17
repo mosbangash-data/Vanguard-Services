@@ -93,12 +93,13 @@ app.use(express.static(path.join(__dirname, '../public')));
 const clientDistDir = path.join(__dirname, '../client-frontend/dist');
 const adminDistDir = path.join(__dirname, '../admin-frontend/dist');
 
-const serveSpaIndex = (distDir, predicate) => (req, res, next) => {
+const serveSpaIndex = (distDir, predicate, responseHeaders = {}) => (req, res, next) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   if (!predicate(req)) return next();
 
+  for (const [name, value] of Object.entries(responseHeaders)) res.setHeader(name, value);
   const indexPath = path.join(distDir, 'index.html');
-  return res.sendFile(indexPath, (error) => {
+  return res.sendFile(indexPath, { cacheControl: false }, (error) => {
     if (error) next(error);
   });
 };
@@ -211,9 +212,16 @@ const adminSpaPredicate = (req) => {
 };
 
 if (process.env.NODE_ENV === 'production') {
-  app.use('/admin/assets', express.static(path.join(adminDistDir, 'assets'), { index: false }));
+  app.use('/admin/assets', express.static(path.join(adminDistDir, 'assets'), {
+    index: false,
+    setHeaders(res, filePath) {
+      if (/-[A-Za-z0-9_-]{8,}\.[^./]+$/.test(path.basename(filePath))) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    },
+  }));
   app.use('/admin', express.static(adminDistDir, { index: false }));
-  app.use('/admin', serveSpaIndex(adminDistDir, adminSpaPredicate));
+  app.use('/admin', serveSpaIndex(adminDistDir, adminSpaPredicate, { 'Cache-Control': 'no-cache, must-revalidate' }));
   app.use(express.static(clientDistDir, { index: false }));
   app.use(serveSpaIndex(clientDistDir, clientSpaPredicate));
 }

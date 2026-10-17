@@ -3,10 +3,7 @@ services:
     name: vanguard-services
     env: node
     rootDir: .
-    buildCommand: |
-      npm install
-      npm run prisma:generate
-      npm run build
+    buildCommand: npm run render:build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
