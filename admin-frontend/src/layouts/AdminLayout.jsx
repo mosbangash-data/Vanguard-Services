@@ -140,6 +140,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           { path: '/transport/reservations', labelKey: 'navigation.items.sellTicket', icon: UserRoundPlus, permission: 'CREATE_RESERVATION' },
           { path: '/transport/parcels', labelKey: 'navigation.items.parcels', icon: Package, permission: 'VIEW_PARCEL' },
           { path: '/transport/operations', labelKey: 'navigation.items.payments', icon: CreditCard, permission: 'VIEW_PAYMENT' },
+          { path: '/transport/financial-reports', labelKey: 'coachFinance.nav', icon: Wallet, permission: 'VIEW_PAYMENT' },
           { path: '/admin/account', labelKey: 'navigation.items.account', icon: Settings },
         ] },
       ]
@@ -157,6 +158,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         { path: '/transport/reservations', labelKey: 'navigation.items.reservations', icon: Ticket, permission: 'VIEW_RESERVATION' },
         { path: '/transport/trips', labelKey: 'navigation.items.trips', icon: Bus, permission: 'VIEW_TRIP' },
         { path: '/transport/operations', labelKey: 'navigation.items.payments', icon: CreditCard, permission: 'VIEW_PAYMENT' },
+        { path: '/transport/financial-reports', labelKey: 'coachFinance.nav', icon: Wallet, permission: 'VIEW_PAYMENT' },
         { path: '/transport/parcels', labelKey: 'navigation.items.parcels', icon: Package, permission: 'VIEW_PARCEL' },
         { path: '/transport/scanner', labelKey: 'managerWorkspace.openScanner', icon: QrCode, permission: 'SCAN_TICKET' },
         { path: '/transport/tickets', labelKey: 'navigation.items.tickets', icon: Ticket, permission: 'VIEW_TICKET_SCAN' },

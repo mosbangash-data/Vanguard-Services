@@ -70,6 +70,7 @@ function ResourceRoute({ path }) {
 const ManagerDashboard = lazy(() => import('./features/admin/coach/ManagerDashboard').then((m) => ({ default: m.ManagerDashboard })))
 const ManagerPersonnelPage = lazy(() => import('./features/admin/coach/ManagerPersonnelPage').then((m) => ({ default: m.ManagerPersonnelPage })))
 const CashClosurePage = lazy(() => import('./features/admin/coach/CashClosurePage').then((m) => ({ default: m.CashClosurePage })))
+const CoachFinancialReportsPage = lazy(() => import('./features/admin/coach/CoachFinancialReportsPage').then((m) => ({ default: m.CoachFinancialReportsPage })))
 
 function ManagerPersonnelRoute() {
   const { user } = useAuth()
@@ -123,6 +124,7 @@ function renderDepartmentRoutes({ base, department, title, resources, DashboardC
         {department === 'VANGUARD_COACH' && <Route path="/transport/agencies/:id" element={<AgencyDetailPage />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/personnel" element={<ManagerPersonnelRoute />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/cash-closure" element={<CashClosurePage />} />}
+        {department === 'VANGUARD_COACH' && <Route element={<PermissionRoute permission="VIEW_PAYMENT" />}><Route path="/transport/financial-reports" element={<CoachFinancialReportsPage />} /></Route>}
         {department === 'VANGUARD_COACH' && <Route path="/transport/scanner" element={<TicketScanner />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/operations" element={<CoachOperationsPage />} />}
         {department === 'VANGUARD_COACH' && <Route path="/transport/tickets/:ticketCode" element={<TicketDetailPage />} />}

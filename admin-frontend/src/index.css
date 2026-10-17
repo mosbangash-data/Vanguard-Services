@@ -2411,3 +2411,32 @@ table.data-table tbody tr:hover { background-color: var(--color-primary-light); 
   .vanguard-agent-shell .ticket-detail-card { padding: 16px; }
   .vanguard-agent-shell .agent-mobile-nav a { font-size: .59rem; }
 }
+
+.coach-finance-page { display: grid; gap: 1rem; min-width: 0; }
+.coach-finance-actions, .coach-finance-filter-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.coach-finance-actions .button, .coach-finance-filter-actions .button { display: inline-flex; align-items: center; gap: .4rem; }
+.coach-finance-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); align-items: end; gap: .8rem; padding: 1rem; }
+.coach-finance-filters label { display: grid; gap: .35rem; min-width: 0; font-size: .84rem; font-weight: 650; }
+.coach-finance-filters input, .coach-finance-filters select { width: 100%; min-height: 42px; }
+.coach-finance-filters .error { grid-column: 1 / -1; margin: 0; }
+.coach-finance-report { display: grid; gap: 1rem; min-width: 0; }
+.coach-finance-period, .coach-finance-generated { color: var(--color-medium-gray); font-size: .88rem; margin: 0; }
+.coach-finance-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr)); gap: .85rem; }
+.coach-finance-card { display: flex; min-width: 0; flex-direction: column; gap: .55rem; padding: 1rem; }
+.coach-finance-card > span { display: flex; align-items: center; gap: .45rem; color: var(--color-medium-gray); font-size: .86rem; }
+.coach-finance-card > strong { font-size: clamp(1rem, 3vw, 1.35rem); overflow-wrap: anywhere; }
+.coach-finance-warning { display: flex; gap: .8rem; align-items: flex-start; padding: 1rem; border: 1px solid #eab30866; border-radius: .8rem; background: color-mix(in srgb, #facc15 10%, var(--color-surface)); }
+.coach-finance-warning > svg { flex: 0 0 auto; color: #ca8a04; }
+.coach-finance-warning p { margin: .3rem 0; overflow-wrap: anywhere; }
+.coach-finance-history { padding: 1rem; }
+.coach-finance-history p { margin-bottom: .4rem; }
+@media (max-width: 600px) { .coach-finance-page > .manager-header { align-items: flex-start; flex-direction: column; } .coach-finance-actions { width: 100%; } }
+@media print {
+  body:has(.coach-finance-page) * { visibility: hidden !important; }
+  body:has(.coach-finance-page) .coach-finance-page, body:has(.coach-finance-page) .coach-finance-page * { visibility: visible !important; }
+  body:has(.coach-finance-page) .coach-finance-page { position: absolute; inset: 0; width: 100%; padding: 10mm; color: #111; background: #fff; }
+  body:has(.coach-finance-page) .coach-finance-actions, body:has(.coach-finance-page) .coach-finance-filters { display: none !important; }
+  body:has(.coach-finance-page) .coach-finance-cards { grid-template-columns: repeat(2, 1fr); }
+  body:has(.coach-finance-page) .coach-finance-warning, body:has(.coach-finance-page) .coach-finance-card { break-inside: avoid; box-shadow: none; background: #fff; }
+  @page { size: A4; margin: 12mm; }
+}

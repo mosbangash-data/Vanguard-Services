@@ -15,14 +15,20 @@ export function Modal({
   const { t } = useLanguage()
   const titleId = useId()
   const dialogRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     if (!isOpen) return undefined
 
     const previouslyFocused = document.activeElement
     const previousOverflow = document.body.style.overflow
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape' && onClose) {
-        onClose()
+      if (event.key === 'Escape' && onCloseRef.current) {
+        onCloseRef.current()
         return
       }
 
@@ -61,7 +67,7 @@ export function Modal({
       document.removeEventListener('keydown', handleKeyDown)
       if (previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) previouslyFocused.focus()
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   if (!isOpen) return null
 

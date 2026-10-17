@@ -2206,12 +2206,14 @@ body {
   .manager-mobile-nav a, .manager-mobile-nav button { display: flex; min-width: 0; flex: 1 1 0; flex-direction: column; align-items: center; justify-content: center; gap: .2rem; padding: .25rem .1rem; border: 0; color: var(--color-text-muted); background: transparent; text-decoration: none; font: inherit; font-size: .62rem; font-weight: 600; }
   .manager-mobile-nav a.active { color: #1b6078; }
   .manager-mobile-nav a:focus-visible, .manager-mobile-nav button:focus-visible { border-radius: .5rem; outline-offset: 0; }
-  .vanguard-app-main:has(.manager-workspace) { padding-bottom: 5.5rem; }
+  .vanguard-app-shell:has(.manager-mobile-nav) .vanguard-app-main {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
 }
 @media (max-width: 640px) {
   .manager-cash-form { grid-template-columns: 1fr; }
   .manager-cash-actions .button { width: 100%; }
-  .manager-workspace { padding: .75rem .75rem 6.25rem; gap: .8rem; }
+  .manager-workspace { padding: .75rem; gap: .8rem; }
   .manager-header { min-height: 0; padding: 1.2rem; border-radius: .95rem; }
   .manager-header { flex-direction: column; align-items: stretch; }
   .manager-header > button { align-self: flex-start; }
