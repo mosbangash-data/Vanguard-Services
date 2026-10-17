@@ -128,6 +128,42 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   const userDept = user?.department?.type || user?.departmentType
   const isCoachAgent = user?.role === 'AGENT' && userDept === 'VANGUARD_COACH'
   const isCoachManager = user?.role === 'MANAGER' && userDept === 'VANGUARD_COACH'
+  const isCoachServiceAdmin = user?.role === 'SERVICE_ADMIN' && userDept === 'VANGUARD_COACH'
+
+  const coachAdminNav = useMemo(() => {
+    if (!isCoachServiceAdmin) return null
+    const can = (permission) => hasPermission(user, permission)
+    const links = [
+      { path: '/transport', label: t('navigation.items.dashboard'), icon: LayoutDashboard, end: true },
+      { path: '/transport/agencies', label: t('navigation.items.agencies'), icon: Building2 },
+      { path: '/transport/buses', label: t('navigation.items.buses'), icon: Bus },
+      { path: '/transport/drivers', label: t('navigation.items.drivers'), icon: User },
+      { path: '/transport/destinations', label: t('navigation.items.destinations'), icon: Compass },
+      { path: '/transport/schedules', label: t('navigation.items.schedules'), icon: Calendar },
+      ...(can('VIEW_TRIP') ? [{ path: '/transport/trips', label: t('navigation.items.trips'), icon: Layers }] : []),
+      ...(can('VIEW_RESERVATION') ? [{ path: '/transport/reservations', label: t('navigation.items.reservations'), icon: Ticket }] : []),
+      ...(can('VIEW_RESERVATION') ? [{ path: '/transport/tickets', label: t('navigation.items.tickets'), icon: Ticket }] : []),
+      ...(can('SCAN_TICKET') ? [{ path: '/transport/scanner', label: t('navigation.items.scanner'), icon: QrCode }] : []),
+      ...(can('VIEW_PAYMENT') ? [{ path: '/transport/operations', label: t('operations.title'), icon: CreditCard }] : []),
+      ...(can('VIEW_PAYMENT') ? [{ path: '/transport/payments', label: t('navigation.items.payments'), icon: Wallet }] : []),
+      ...(can('VIEW_PAYMENT') ? [{ path: '/transport/financial-reports', label: t('coachFinance.nav'), icon: Wallet }] : []),
+      ...(can('APPROVE_DAILY_CASH_CLOSURE') ? [{ path: '/transport/cash-closure', label: t('managerWorkspace.cashClosureTitle'), icon: Wallet }] : []),
+      { path: '/transport/parcels', label: t('navigation.items.parcels'), icon: Package },
+      ...(can('VIEW_USER') ? [{ path: '/admin/users', label: t('navigation.items.users'), icon: Users }] : []),
+      { path: '/admin/audit', label: t('navigation.items.audit'), icon: FileText },
+      { path: '/admin/account', label: t('navigation.items.account'), icon: Settings },
+    ]
+    const sections = [
+      { id: 'coach-overview', title: t('coachAdminNav.overview'), items: links.slice(0, 1) },
+      { id: 'coach-network', title: t('coachAdminNav.network'), collapsible: true, items: links.slice(1, 6) },
+      { id: 'coach-travel', title: t('coachAdminNav.travel'), collapsible: true, items: links.filter((item) => ['/transport/trips', '/transport/reservations', '/transport/tickets', '/transport/scanner'].includes(item.path)) },
+      { id: 'coach-finance', title: t('coachAdminNav.finance'), collapsible: true, items: links.filter((item) => ['/transport/operations', '/transport/payments', '/transport/financial-reports', '/transport/cash-closure'].includes(item.path)) },
+      { id: 'coach-parcels', title: t('coachAdminNav.parcels'), items: links.filter((item) => item.path === '/transport/parcels') },
+      { id: 'coach-admin', title: t('coachAdminNav.admin'), collapsible: true, items: links.filter((item) => ['/admin/users', '/admin/audit'].includes(item.path)) },
+      { id: 'coach-account', title: t('coachAdminNav.account'), items: links.filter((item) => item.path === '/admin/account') },
+    ]
+    return sections.filter((section) => section.items.length)
+  }, [isCoachServiceAdmin, user, t])
 
   // Navigation Items Definitions
   const navSections = useMemo(() => {
@@ -151,6 +187,8 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         items: section.items.filter((item) => !item.permission || hasPermission(user, item.permission)).map((item) => ({ ...item, label: t(item.labelKey) })),
       })).filter((section) => section.items.length)
     }
+
+    if (isCoachServiceAdmin) return coachAdminNav
 
     if (isCoachManager) {
       const managerLinks = [
@@ -324,7 +362,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         label: item.labelKey ? t(item.labelKey) : PATH_KEYS[item.path] ? (t(`navigation.items.${PATH_KEYS[item.path]}`) || item.label) : item.label,
       })),
     }))
-  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t, location.pathname, isCoachAgent, isCoachManager])
+  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t, location.pathname, isCoachAgent, isCoachManager, isCoachServiceAdmin, coachAdminNav])
 
   useEffect(() => {
     const activeCollapsible = navSections.find((section) => section.collapsible && section.items.some((item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)))
@@ -344,7 +382,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   }
 
   return (
-      <div className={`app-shell vanguard-app-shell${isCoachAgent ? ' vanguard-agent-shell' : ''}`}>
+      <div className={`app-shell vanguard-app-shell${isCoachAgent ? ' vanguard-agent-shell' : ''}${isCoachServiceAdmin ? ' vanguard-coach-admin-shell' : ''}`}>
       {/* Mobile Backdrop Overlay */}
       {mobileOpen && (
         <div
@@ -356,9 +394,9 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
 
       {/* Sidebar */}
       <aside id="app-navigation" className={`sidebar vanguard-sidebar ${mobileOpen ? 'open' : ''}`} aria-label={t('navigation.title')}>
-        <div className={`sidebar-brand vanguard-sidebar-brand ${isCoachAgent ? 'vanguard-agent-brand' : isCoachManager ? 'vanguard-manager-brand' : ''}`}>
+        <div className={`sidebar-brand vanguard-sidebar-brand ${isCoachAgent ? 'vanguard-agent-brand' : isCoachManager ? 'vanguard-manager-brand' : isCoachServiceAdmin ? 'vanguard-coach-admin-brand' : ''}`}>
           <Link to={isSuperAdmin ? '/admin' : userDept === 'VANGUARD_COACH' ? '/transport' : userDept === 'AUTO_SALES' ? '/automobile' : '/construction'} className="sidebar-brand-link">
-            {(isCoachAgent || isCoachManager) ? <span className={isCoachManager ? 'vanguard-manager-brand-name' : 'vanguard-agent-brand-name'}>VANGUARD COACH</span> : <img
+            {(isCoachAgent || isCoachManager || isCoachServiceAdmin) ? <span className={isCoachServiceAdmin ? 'vanguard-coach-admin-brand-name' : isCoachManager ? 'vanguard-manager-brand-name' : 'vanguard-agent-brand-name'}>VANGUARD COACH</span> : <img
               src={`${import.meta.env.BASE_URL}assets/logos/vanguard-admin-logo.svg`}
               alt={`Vanguard Services · ${t('authUi.administration')}`}
               className="sidebar-logo vanguard-sidebar-logo-svg"

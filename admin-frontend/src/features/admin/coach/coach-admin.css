@@ -1,0 +1,122 @@
+/* Vanguard Coach Service Admin workspace: department-local visual system. */
+.vanguard-coach-admin-shell {
+  --vanguard-primary: #176b5b;
+  --color-primary: #176b5b;
+  --color-primary-hover: #104c43;
+  --color-primary-light: #e5f2ec;
+  --color-primary-border: #a8d0bb;
+  --color-coach-accent: #176b5b;
+  --coach-ink: #142526;
+  --coach-muted: #657775;
+  --coach-green: #176b5b;
+  --coach-green-dark: #104c43;
+  --coach-coral: #d97855;
+  --coach-line: #dce6e1;
+  --coach-paper: #f4f7f4;
+  background: var(--coach-paper);
+  color: var(--coach-ink);
+}
+.vanguard-coach-admin-shell .sidebar { width: 252px; background: #102a29; }
+.vanguard-coach-admin-brand { min-height: 82px; padding-inline: 22px; border-bottom-color: rgba(232,244,238,.12); }
+.vanguard-coach-admin-brand .sidebar-brand-link { width: 100%; text-decoration: none; }
+.vanguard-coach-admin-brand-name { color: #f3f7f3; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; font-size: .91rem; font-weight: 800; letter-spacing: .155em; white-space: nowrap; }
+.vanguard-coach-admin-brand + .sidebar-nav { padding-top: 14px; }
+.vanguard-coach-admin-shell .vanguard-nav-section { margin-bottom: 8px; }
+.vanguard-coach-admin-shell .vanguard-nav-section-title { color: #8fa6a0; font-size: .66rem; letter-spacing: .13em; }
+.vanguard-coach-admin-shell .vanguard-sidebar-link { min-height: 41px; margin: 2px 12px; border-radius: 8px; color: #d4e1dc; }
+.vanguard-coach-admin-shell .vanguard-sidebar-link:hover { background: rgba(255,255,255,.07); }
+.vanguard-coach-admin-shell .vanguard-sidebar-link.active { background: rgba(56,145,119,.23); box-shadow: inset 3px 0 #84c6a9; color: #fff; }
+.vanguard-coach-admin-shell .vanguard-sidebar-link.active .vanguard-sidebar-icon { color: #a7dfbf; }
+.vanguard-coach-admin-shell .vanguard-app-area { min-width: 0; margin-left: 252px; }
+.vanguard-coach-admin-shell .vanguard-page-container { max-width: 1500px; }
+.vanguard-coach-admin-shell .vanguard-page-title { letter-spacing: -.035em; }
+.vanguard-coach-admin-shell .resource-toolbar,
+.vanguard-coach-admin-shell .vanguard-filter-bar { border-color: var(--coach-line); border-radius: 12px; background: var(--color-surface-card); box-shadow: 0 4px 16px rgba(16,42,41,.035); }
+.vanguard-coach-admin-shell .resource-search-input,
+.vanguard-coach-admin-shell .form-control,
+.vanguard-coach-admin-shell .form-input,
+.vanguard-coach-admin-shell .form-select,
+.vanguard-coach-admin-shell .form-textarea { min-height: 42px; border-color: var(--coach-line); border-radius: 8px; }
+.vanguard-coach-admin-shell .resource-mobile-card { border-color: var(--coach-line); border-radius: 12px; }
+.vanguard-coach-admin-shell .resource-card-field-row { border-bottom-color: var(--coach-line); }
+.vanguard-coach-admin-shell .resource-pagination button,
+.vanguard-coach-admin-shell .pagination-controls button { min-width: 40px; min-height: 40px; border-radius: 8px; }
+.vanguard-coach-admin-shell .vanguard-modal-overlay { padding: 16px; }
+.vanguard-coach-admin-shell .vanguard-modal-dialog { max-height: min(92dvh, 900px); }
+.vanguard-coach-admin-shell .vanguard-app-header { border-bottom-color: var(--coach-line); background: color-mix(in srgb, #fff 92%, var(--coach-paper)); }
+.vanguard-coach-admin-shell .vanguard-header-context-tag { color: var(--coach-green-dark); font-weight: 700; }
+.vanguard-coach-admin-shell .vanguard-btn--primary,
+.vanguard-coach-admin-shell .button:not(.secondary) { background: var(--coach-green); border-color: var(--coach-green); color: #fff; }
+.vanguard-coach-admin-shell .vanguard-btn--primary:hover:not(:disabled),
+.vanguard-coach-admin-shell .button:not(.secondary):hover:not(:disabled) { background: var(--coach-green-dark); border-color: var(--coach-green-dark); }
+.vanguard-coach-admin-shell .vanguard-app-main { min-width: 0; padding: clamp(20px, 3vw, 38px); padding-bottom: max(clamp(20px, 3vw, 38px), env(safe-area-inset-bottom)); }
+.vanguard-coach-admin-shell .page,
+.vanguard-coach-admin-shell .manager-workspace,
+.vanguard-coach-admin-shell .coach-finance-page,
+.vanguard-coach-admin-shell .coach-operations-page { width: 100%; max-width: 1500px; min-width: 0; margin-inline: auto; }
+.vanguard-coach-admin-shell .manager-workspace { gap: 18px; }
+.vanguard-coach-admin-shell .manager-header { align-items: center; gap: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--coach-line); }
+.vanguard-coach-admin-shell .manager-header .eyebrow { color: var(--coach-green); font-size: .69rem; font-weight: 800; letter-spacing: .14em; }
+.vanguard-coach-admin-shell .manager-header h1 { color: var(--coach-ink); font-size: clamp(1.5rem, 2.5vw, 2rem); letter-spacing: -.04em; }
+.vanguard-coach-admin-shell .manager-header p { color: var(--coach-muted); }
+.vanguard-coach-admin-shell .manager-priority-grid { gap: 12px; }
+.vanguard-coach-admin-shell .manager-priority-card,
+.vanguard-coach-admin-shell .manager-panel,
+.vanguard-coach-admin-shell .manager-details,
+.vanguard-coach-admin-shell .coach-finance-card,
+.vanguard-coach-admin-shell .coach-finance-history {
+  border: 1px solid var(--coach-line); border-radius: 13px; background: var(--color-surface, #fff); box-shadow: 0 5px 18px rgba(16,42,41,.045);
+}
+.vanguard-coach-admin-shell .manager-priority-card { min-width: 0; padding: 18px; }
+.vanguard-coach-admin-shell .manager-priority-card--revenue { border-top: 3px solid var(--coach-green); }
+.vanguard-coach-admin-shell .manager-kpi-icon { color: var(--coach-green); }
+.vanguard-coach-admin-shell .manager-priority-card > strong { overflow-wrap: anywhere; color: var(--coach-ink); font-size: clamp(1.25rem, 2vw, 1.65rem); }
+.vanguard-coach-admin-shell .manager-quick-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.vanguard-coach-admin-shell .manager-quick-action { min-height: 44px; border: 1px solid var(--coach-line); border-radius: 9px; background: var(--color-surface, #fff); }
+.vanguard-coach-admin-shell .manager-panel { min-width: 0; padding: 18px; }
+.vanguard-coach-admin-shell .manager-panel .section-heading h2 { color: var(--coach-ink); font-size: 1rem; }
+.vanguard-coach-admin-shell .manager-panel .section-heading p,
+.vanguard-coach-admin-shell .manager-cell-subtitle { color: var(--coach-muted); }
+.vanguard-coach-admin-shell .manager-secondary-stats { gap: 8px; }
+.vanguard-coach-admin-shell .manager-secondary-stats > span { border: 1px solid var(--coach-line); border-radius: 8px; background: var(--color-surface, #fff); }
+.vanguard-coach-admin-shell .manager-details { overflow: clip; }
+.vanguard-coach-admin-shell .manager-details > summary { min-height: 52px; padding: 14px 16px; }
+.vanguard-coach-admin-shell .manager-details-content { min-width: 0; padding: 0 16px 16px; }
+.vanguard-coach-admin-shell .table-responsive { width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.vanguard-coach-admin-shell .data-table { min-width: 680px; }
+.vanguard-coach-admin-shell input,
+.vanguard-coach-admin-shell select,
+.vanguard-coach-admin-shell textarea { max-width: 100%; }
+.vanguard-coach-admin-shell button,
+.vanguard-coach-admin-shell a { touch-action: manipulation; }
+.vanguard-coach-admin-shell :focus-visible { outline-color: var(--coach-coral); }
+[data-theme='dark'] .vanguard-coach-admin-shell { --coach-ink: #e5eeea; --coach-muted: #a4b8b0; --coach-line: #344b46; --coach-paper: #14201e; }
+:root[data-theme='dark'] .vanguard-coach-admin-shell { --vanguard-primary: #74c5a0; --color-primary: #74c5a0; --color-primary-hover: #a3e0c1; --color-primary-light: #1d3b32; --color-primary-border: #426b5b; --color-coach-accent: #74c5a0; }
+@media (max-width: 1024px) {
+  .vanguard-coach-admin-shell .vanguard-sidebar { width: min(252px, 84vw); }
+  .vanguard-coach-admin-shell .vanguard-app-area { margin-left: 0; }
+  .vanguard-coach-admin-shell .vanguard-app-main { padding: 22px; }
+}
+@media (max-width: 768px) {
+  .vanguard-coach-admin-shell .vanguard-app-main { padding: 16px; }
+  .vanguard-coach-admin-shell .manager-header { align-items: flex-start; flex-direction: column; }
+  .vanguard-coach-admin-shell .manager-priority-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vanguard-coach-admin-shell .manager-content-grid { grid-template-columns: minmax(0, 1fr); }
+  .vanguard-coach-admin-shell .manager-quick-action { flex: 1 1 220px; }
+  .vanguard-coach-admin-shell .manager-agency-stats { flex-wrap: wrap; }
+}
+@media (max-width: 480px) {
+  .vanguard-coach-admin-shell .vanguard-app-main { padding: 12px; padding-bottom: max(22px, env(safe-area-inset-bottom)); }
+  .vanguard-coach-admin-shell .manager-priority-grid { grid-template-columns: minmax(0, 1fr); }
+  .vanguard-coach-admin-shell .manager-priority-card { padding: 15px; }
+  .vanguard-coach-admin-shell .manager-panel { padding: 14px; }
+  .vanguard-coach-admin-shell .manager-details-content { padding-inline: 10px; }
+  .vanguard-coach-admin-shell .manager-quick-actions > * { flex: 1 1 100%; }
+  .vanguard-coach-admin-shell .manager-secondary-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vanguard-coach-admin-shell .resource-toolbar { align-items: stretch; }
+  .vanguard-coach-admin-shell .resource-search-wrap { min-width: 0; }
+  .vanguard-coach-admin-shell .resource-toolbar-actions,
+  .vanguard-coach-admin-shell .resource-toolbar-actions > * { width: 100%; }
+  .vanguard-coach-admin-shell .vanguard-modal-overlay { align-items: flex-end; padding: 0; }
+  .vanguard-coach-admin-shell .vanguard-modal-dialog { width: 100% !important; max-width: none; max-height: 94dvh; margin: 0; border-radius: 16px 16px 0 0; }
+}
