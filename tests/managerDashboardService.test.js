@@ -44,6 +44,7 @@ test.before(() => {
   prismaModule.user = { groupBy: record('user', 'groupBy', []) };
   prismaModule.ticket = { groupBy: record('ticket', 'groupBy', []) };
   prismaModule.ticketScan = { findMany: record('ticketScan', 'findMany', []) };
+  prismaModule.auditLog = { findMany: record('auditLog', 'findMany', []) };
 });
 
 test.after(() => {
@@ -106,16 +107,27 @@ test('Manager agency assignment outside the authenticated department is refused'
   await assert.rejects(service.getManagerDashboard({ role: 'MANAGER', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, agencyId: 'foreign-agency', permissions: ['VIEW_TRIP'] }), { statusCode: 403 });
 });
 
-test('Vanguard Coach Service Admin receives department-wide scope', async () => {
+test('Vanguard Coach Service Admin receives department-wide scope and only own department audit activity', async () => {
   prismaModule.agency.findFirst = record('agency', 'findFirst', null);
   const service = require('../src/services/managerDashboardService');
-  const result = await service.getManagerDashboard({ role: 'SERVICE_ADMIN', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, agencyId: 'agency-a', permissions: ['VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'VIEW_PARCEL', 'VIEW_PARCEL_PAYMENT', 'VIEW_USER'] });
+  const result = await service.getManagerDashboard({ id: 'service-admin-1', role: 'SERVICE_ADMIN', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, agencyId: 'agency-a', permissions: ['VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'VIEW_PARCEL', 'VIEW_PARCEL_PAYMENT', 'VIEW_USER'] });
   assert.equal(result.scope.departmentId, 'dept-coach');
   assert.equal(result.scope.agencyId, null);
   assert.equal(calls.some((call) => call.model === 'agency' && call.method === 'findFirst'), false);
   const tripQuery = calls.filter((call) => call.model === 'trip' && call.method === 'findMany').at(-1);
   assert.equal(tripQuery.args.where.schedule.departmentId, 'dept-coach');
   assert.equal(Object.hasOwn(tripQuery.args.where.schedule, 'agencyId'), false);
+  const auditQuery = calls.find((call) => call.model === 'auditLog' && call.method === 'findMany');
+  assert.equal(auditQuery.args.where.actorId, 'service-admin-1');
+  assert.deepEqual(auditQuery.args.where.details, { path: ['departmentId'], equals: 'dept-coach' });
+  assert.deepEqual(auditQuery.args.orderBy, { createdAt: 'desc' });
+  assert.equal(result.ownAuditActivity.length, 0);
+});
+
+test('Service Admin dashboard accepts a scoped dashboard read permission', async () => {
+  const service = require('../src/services/managerDashboardService');
+  const result = await service.getManagerDashboard({ id: 'service-admin-1', role: 'SERVICE_ADMIN', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, permissions: ['VIEW_OCCUPANCY'] });
+  assert.equal(result.scope.departmentId, 'dept-coach');
 });
 
 test('A Coach dashboard request from another department is refused', async () => {

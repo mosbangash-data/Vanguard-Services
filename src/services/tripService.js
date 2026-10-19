@@ -202,7 +202,7 @@ const createTrip = async (data, currentUser) => {
     : 'SCHEDULED';
 
   const trip = await prisma.trip.create({ data: { scheduleId, departureAt, arrivalAt, status } });
-  await auditService.log('create_trip', currentUser.id, { targetTripId: trip.id });
+  await auditService.log('create_trip', currentUser.id, { targetTripId: trip.id, departmentId: schedule.departmentId, scheduleId: schedule.id });
   return { trip };
 };
 
@@ -218,7 +218,7 @@ const updateTrip = async (id, data, currentUser) => {
   if (data?.status !== undefined) updatePayload.status = data.status;
 
   const updated = await prisma.trip.update({ where: { id }, data: updatePayload });
-  await auditService.log('update_trip', currentUser.id, { targetTripId: id });
+  await auditService.log('update_trip', currentUser.id, { targetTripId: id, departmentId: trip.schedule.departmentId, scheduleId: trip.scheduleId });
   return { trip: updated };
 };
 
@@ -229,7 +229,7 @@ const deleteTrip = async (id, currentUser) => {
   await assertDepartmentIdForUser(currentUser, trip.schedule.departmentId, 'VANGUARD_COACH');
 
   await prisma.trip.delete({ where: { id } });
-  await auditService.log('delete_trip', currentUser.id, { targetTripId: id });
+  await auditService.log('delete_trip', currentUser.id, { targetTripId: id, departmentId: trip.schedule.departmentId, scheduleId: trip.scheduleId });
   return { success: true };
 };
 

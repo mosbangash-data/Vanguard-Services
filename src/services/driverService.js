@@ -61,7 +61,7 @@ const createDriver = async (data, currentUser) => {
   if (existing) throw new AppError('Driver with this license number already exists', 409);
 
   const driver = await prisma.driver.create({ data: { departmentId, firstName, lastName, licenseNumber, phone, email } });
-  await auditService.log('create_driver', currentUser.id, { targetDriverId: driver.id });
+  await auditService.log('create_driver', currentUser.id, { targetDriverId: driver.id, departmentId: driver.departmentId });
   return { driver };
 };
 
@@ -79,7 +79,7 @@ const updateDriver = async (driverId, data, currentUser) => {
   if (data?.isActive !== undefined) updatePayload.isActive = Boolean(data.isActive);
 
   const updated = await prisma.driver.update({ where: { id: driverId }, data: updatePayload });
-  await auditService.log('update_driver', currentUser.id, { targetDriverId: driverId });
+  await auditService.log('update_driver', currentUser.id, { targetDriverId: driverId, departmentId: driver.departmentId });
   return { driver: updated };
 };
 
@@ -90,7 +90,7 @@ const deleteDriver = async (driverId, currentUser) => {
   await assertDepartmentIdForUser(currentUser, driver.departmentId, 'VANGUARD_COACH');
 
   await prisma.driver.delete({ where: { id: driverId } });
-  await auditService.log('delete_driver', currentUser.id, { targetDriverId: driverId });
+  await auditService.log('delete_driver', currentUser.id, { targetDriverId: driverId, departmentId: driver.departmentId });
   return { success: true };
 };
 

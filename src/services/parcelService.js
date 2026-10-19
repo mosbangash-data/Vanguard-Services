@@ -7,6 +7,10 @@ const { buildSignedQrPayload } = require('../utils/qrUtils');
 const QRCode = require('qrcode');
 
 const PARCEL_RECEIPT_FORMATS = ['a4', '58mm', '80mm', '110mm'];
+const auditCoachActivity = (action, currentUser, details = {}) => auditService.log(action, currentUser?.id || null, {
+  ...details,
+  departmentId: currentUser?.departmentId || currentUser?.department?.id || null,
+});
 const normalizeParcelReceiptFormat = (format = 'a4') => {
   const normalized = String(format).toLowerCase();
   if (!PARCEL_RECEIPT_FORMATS.includes(normalized)) {
@@ -332,7 +336,7 @@ const createParcel = async (data, currentUser) => {
     return created;
   });
 
-  await auditService.log('create_parcel', currentUser?.id || null, {
+  await auditCoachActivity('create_parcel', currentUser, {
     targetParcelId: parcel.id,
     trackingCode: parcel.trackingCode,
     amount: parcel.amount,
@@ -377,7 +381,7 @@ const payParcel = async (id, paymentData = {}, currentUser) => {
     return { payment, newStatus: parcel.status };
   });
 
-  await auditService.log('pay_parcel', currentUser?.id || null, {
+  await auditCoachActivity('pay_parcel', currentUser, {
     targetParcelId: parcel.id,
     paymentId: result.payment.id,
     channel,
@@ -447,7 +451,7 @@ const changeParcelStatus = async (id, { newStatus, reason } = {}, currentUser, d
     return tx.parcel.findUnique({ where: { id } });
   });
 
-  await auditService.log('change_parcel_status', currentUser?.id || null, {
+  await auditCoachActivity('change_parcel_status', currentUser, {
     targetParcelId: id,
     previousStatus: parcel.status,
     newStatus,
@@ -537,7 +541,7 @@ const collectParcel = async (id, pickupData = {}, currentUser) => {
     return { pickup, payment: collectedPayment, parcel: await tx.parcel.findUnique({ where: { id } }) };
   });
 
-  await auditService.log('collect_parcel', currentUser.id, {
+  await auditCoachActivity('collect_parcel', currentUser, {
     targetParcelId: id,
     pickupId: result.pickup.id,
     paymentId: result.payment.id,
@@ -575,7 +579,7 @@ const getParcelIdentityData = async (id, currentUser) => {
 
   const decryptedIdNumber = decryptSensitiveData(pickup.idNumberEncrypted);
 
-  await auditService.log('view_sensitive_identity_data', currentUser.id, {
+  await auditCoachActivity('view_sensitive_identity_data', currentUser, {
     targetParcelId: id,
     pickupId: pickup.id,
     idType: pickup.idType,
@@ -688,7 +692,7 @@ const updateParcel = async (id, data, currentUser) => {
   }
 
   const updated = await prisma.parcel.update({ where: { id }, data: updateData });
-  await auditService.log('update_parcel', currentUser.id, { targetParcelId: id, changes: updateData });
+  await auditCoachActivity('update_parcel', currentUser, { targetParcelId: id, changes: updateData });
   return { parcel: updated };
 };
 
@@ -707,7 +711,7 @@ const deleteParcel = async (id, currentUser) => {
   }
 
   await prisma.parcel.delete({ where: { id } });
-  await auditService.log('delete_parcel', currentUser.id, { targetParcelId: id });
+  await auditCoachActivity('delete_parcel', currentUser, { targetParcelId: id });
   return { success: true };
 };
 

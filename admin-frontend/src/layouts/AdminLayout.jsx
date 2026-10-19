@@ -37,6 +37,7 @@ import { useAuth } from '../features/auth/authContext'
 import { hasPermission } from '../features/auth/permissions'
 import { useLanguage } from '../i18n/useLanguage'
 import { useTheme } from '../theme/useTheme'
+import { buildCoachServiceAdminNav } from '../features/admin/coach/coachAdminWorkflow.mjs'
 
 const PATH_KEYS = {
   '/admin': 'dashboard',
@@ -104,6 +105,9 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     construction: true,
     'agent-tickets': false,
     'agent-transport': false,
+    'coach-travel': false,
+    'coach-finance': false,
+    'coach-tickets': false,
   })
 
   const toggleSection = (sectionKey) => {
@@ -133,36 +137,11 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
   const coachAdminNav = useMemo(() => {
     if (!isCoachServiceAdmin) return null
     const can = (permission) => hasPermission(user, permission)
-    const links = [
-      { path: '/transport', label: t('navigation.items.dashboard'), icon: LayoutDashboard, end: true },
-      { path: '/transport/agencies', label: t('navigation.items.agencies'), icon: Building2 },
-      { path: '/transport/buses', label: t('navigation.items.buses'), icon: Bus },
-      { path: '/transport/drivers', label: t('navigation.items.drivers'), icon: User },
-      { path: '/transport/destinations', label: t('navigation.items.destinations'), icon: Compass },
-      { path: '/transport/schedules', label: t('navigation.items.schedules'), icon: Calendar },
-      ...(can('VIEW_TRIP') ? [{ path: '/transport/trips', label: t('navigation.items.trips'), icon: Layers }] : []),
-      ...(can('VIEW_RESERVATION') ? [{ path: '/transport/reservations', label: t('navigation.items.reservations'), icon: Ticket }] : []),
-      ...(can('VIEW_RESERVATION') ? [{ path: '/transport/tickets', label: t('navigation.items.tickets'), icon: Ticket }] : []),
-      ...(can('SCAN_TICKET') ? [{ path: '/transport/scanner', label: t('navigation.items.scanner'), icon: QrCode }] : []),
-      ...(can('VIEW_PAYMENT') ? [{ path: '/transport/operations', label: t('operations.title'), icon: CreditCard }] : []),
-      ...(can('VIEW_PAYMENT') ? [{ path: '/transport/payments', label: t('navigation.items.payments'), icon: Wallet }] : []),
-      ...(can('VIEW_PAYMENT') ? [{ path: '/transport/financial-reports', label: t('coachFinance.nav'), icon: Wallet }] : []),
-      ...(can('APPROVE_DAILY_CASH_CLOSURE') ? [{ path: '/transport/cash-closure', label: t('managerWorkspace.cashClosureTitle'), icon: Wallet }] : []),
-      { path: '/transport/parcels', label: t('navigation.items.parcels'), icon: Package },
-      ...(can('VIEW_USER') ? [{ path: '/admin/users', label: t('navigation.items.users'), icon: Users }] : []),
-      { path: '/admin/audit', label: t('navigation.items.audit'), icon: FileText },
-      { path: '/admin/account', label: t('navigation.items.account'), icon: Settings },
-    ]
-    const sections = [
-      { id: 'coach-overview', title: t('coachAdminNav.overview'), items: links.slice(0, 1) },
-      { id: 'coach-network', title: t('coachAdminNav.network'), collapsible: true, items: links.slice(1, 6) },
-      { id: 'coach-travel', title: t('coachAdminNav.travel'), collapsible: true, items: links.filter((item) => ['/transport/trips', '/transport/reservations', '/transport/tickets', '/transport/scanner'].includes(item.path)) },
-      { id: 'coach-finance', title: t('coachAdminNav.finance'), collapsible: true, items: links.filter((item) => ['/transport/operations', '/transport/payments', '/transport/financial-reports', '/transport/cash-closure'].includes(item.path)) },
-      { id: 'coach-parcels', title: t('coachAdminNav.parcels'), items: links.filter((item) => item.path === '/transport/parcels') },
-      { id: 'coach-admin', title: t('coachAdminNav.admin'), collapsible: true, items: links.filter((item) => ['/admin/users', '/admin/audit'].includes(item.path)) },
-      { id: 'coach-account', title: t('coachAdminNav.account'), items: links.filter((item) => item.path === '/admin/account') },
-    ]
-    return sections.filter((section) => section.items.length)
+    return buildCoachServiceAdminNav({
+      t,
+      can,
+      icons: { dashboard: LayoutDashboard, bus: Bus, compass: Compass, user: User, building: Building2, calendar: Calendar, fileText: FileText, creditCard: CreditCard, wallet: Wallet, ticket: Ticket, qrCode: QrCode, package: Package, settings: Settings },
+    })
   }, [isCoachServiceAdmin, user, t])
 
   // Navigation Items Definitions
@@ -412,10 +391,18 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           {navSections.map((section) => {
             const isCollapsible = section.collapsible
             const isExpanded = expandedSections[section.id] ?? true
+            const StandaloneIcon = section.standalone?.icon
 
             return (
               <div key={section.id} className={`vanguard-nav-section ${section.id.startsWith('agent-') ? 'vanguard-nav-section--agent' : ''}`}>
-                {isCollapsible ? <button
+                {section.standalone ? <NavLink
+                  to={section.standalone.path}
+                  end={section.standalone.end}
+                  className={({ isActive }) => `vanguard-nav-section-header vanguard-nav-standalone${isActive ? ' active' : ''}`}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <span className="vanguard-nav-section-title-wrap"><StandaloneIcon size={16} /><span className="vanguard-nav-section-title">{section.title}</span></span>
+                </NavLink> : isCollapsible ? <button
                   type="button"
                   className="vanguard-nav-section-header is-collapsible"
                   aria-expanded={isExpanded}
@@ -467,7 +454,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         </nav>
 
         {/* Sidebar Footer User Card */}
-        {!isCoachAgent && <div className="vanguard-sidebar-footer">
+        {!isCoachAgent && !isCoachServiceAdmin && <div className="vanguard-sidebar-footer">
           <Link to="/admin/account" className="vanguard-sidebar-user" onClick={() => setMobileOpen(false)}>
             <div className="vanguard-sidebar-avatar">
               {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
@@ -502,7 +489,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           </div>
 
           <div className="header-right vanguard-header-right">
-            {!isCoachAgent && !isCoachManager && <>
+            {!isCoachAgent && !isCoachManager && !isCoachServiceAdmin && <>
             <label className="theme-selector">
               <span className="theme-selector-icon" aria-hidden="true">{resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}</span>
               <span className="sr-only">{t('layout.theme')}</span>
@@ -557,7 +544,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
               title={t('layout.logout')}
             >
               <LogOut size={15} />
-              <span className="hide-on-mobile">{t('layout.logout')}</span>
+              <span className={isCoachServiceAdmin ? '' : 'hide-on-mobile'}>{t('layout.logout')}</span>
             </button>
           </div>
         </header>

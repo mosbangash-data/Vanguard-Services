@@ -11,7 +11,10 @@ const asNumber = (value) => Number(value || 0);
 const getManagerDashboard = async (user) => {
   requireCoachOperational(user);
   if (!['MANAGER', 'SERVICE_ADMIN'].includes(user.role)) throw new AppError('Access denied', 403);
-  if (!(user.permissions || []).some((permission) => ['VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'VIEW_PARCEL', 'VIEW_TICKET_SCAN'].includes(permission))) {
+  const dashboardPermissions = user.role === 'SERVICE_ADMIN'
+    ? ['VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'VIEW_PARCEL', 'VIEW_PARCEL_PAYMENT', 'VIEW_TICKET_SCAN', 'VIEW_OCCUPANCY', 'VIEW_USER']
+    : ['VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'VIEW_PARCEL', 'VIEW_PARCEL_PAYMENT', 'VIEW_TICKET_SCAN'];
+  if (!(user.permissions || []).some((permission) => dashboardPermissions.includes(permission))) {
     throw new AppError('Insufficient permissions', 403);
   }
   const departmentId = user.departmentId || user.department?.id;
@@ -93,6 +96,14 @@ const getManagerDashboard = async (user) => {
     can('VIEW_PAYMENT') && agencyIds.length ? prisma.payment.groupBy({ by: ['agencyId', 'currency'], where: { agencyId: { in: agencyIds }, status: { in: PAID }, ...(agencyId ? { AND: [{ OR: [{ reservation: { is: reservationScope } }, { parcel: { is: parcelScope } }] }] } : {}) }, _sum: { amount: true } }) : [],
     can('VIEW_USER') && agencyIds.length ? prisma.user.groupBy({ by: ['agencyId', 'status'], where: { departmentId, agencyId: { in: agencyIds }, role: { name: 'AGENT' } }, _count: { _all: true } }) : [],
   ]);
+  const ownAuditActivity = user.role === 'SERVICE_ADMIN'
+    ? await prisma.auditLog.findMany({
+      where: { actorId: user.id, details: { path: ['departmentId'], equals: departmentId } },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+      select: { id: true, action: true, actorId: true, details: true, createdAt: true },
+    })
+    : [];
   const tripIds = [...new Set([...todayTrips, ...upcomingTrips].map(({ id }) => id))];
   const reservedGroups = tripIds.length && can('VIEW_RESERVATION') ? await prisma.reservation.groupBy({ by: ['tripId'], where: { ...reservationScope, tripId: { in: tripIds }, status: { in: ['PENDING', 'CONFIRMED'] } }, _count: { _all: true } }) : [];
   const reservedByTrip = Object.fromEntries(reservedGroups.map(({ tripId, _count }) => [tripId, _count._all]));
@@ -141,6 +152,7 @@ const getManagerDashboard = async (user) => {
     operations: { todayTrips: todayTrips.map(enrichTrip), upcomingTrips: upcomingTrips.map(enrichTrip), pendingReservations: pendingReservationRows, pendingPayments: payments.filter((item) => item.status === 'PENDING'), parcelAlerts },
     agencies: agencyMetrics, occupancy, reservations, payments, paymentSummary, tickets: { statuses: ticketStatuses, recentScans }, parcels: { statuses: parcelStatus, recentAlerts: parcelAlerts }, agents: { active: agentCounts.ACTIVE || 0, inactive: (agentCounts.INACTIVE || 0) + (agentCounts.SUSPENDED || 0) },
     alerts: [(pendingPayments + pendingParcelPayments) > 0 && { id: 'payments', type: 'warning', messageKey: 'alertPayments', count: pendingPayments + pendingParcelPayments, message: `${pendingPayments + pendingParcelPayments} paiements nécessitent un suivi` }, pendingReservations > 0 && { id: 'reservations', type: 'info', messageKey: 'alertReservations', count: pendingReservations, message: `${pendingReservations} réservations en attente` }, pendingParcelPickup > 0 && { id: 'parcels', type: 'warning', messageKey: 'alertParcels', count: pendingParcelPickup, message: `${pendingParcelPickup} colis arrivés attendent leur retrait` }, lowOccupancyTrips.length > 0 && { id: 'low-occupancy', type: 'info', messageKey: 'alertLowOccupancy', count: lowOccupancyTrips.length, message: `${lowOccupancyTrips.length} départ(s) ont une occupation inférieure à 25 %` }, nearDepartureTrips.length > 0 && { id: 'near-departure', type: 'warning', messageKey: 'alertNearDeparture', count: nearDepartureTrips.length, message: `${nearDepartureTrips.length} départ(s) sont prévus dans moins d’une heure` }].filter(Boolean), recentActivity: activity,
+    ...(user.role === 'SERVICE_ADMIN' ? { ownAuditActivity } : {}),
   };
 };
 

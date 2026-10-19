@@ -28,7 +28,7 @@ const listSchedules = async (query = {}, currentUser) => {
   if (query.busId) where.busId = query.busId;
 
   const [items, total] = await Promise.all([
-    prisma.schedule.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+    prisma.schedule.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { route: true, bus: true, agency: true } }),
     prisma.schedule.count({ where }),
   ]);
 
@@ -37,7 +37,7 @@ const listSchedules = async (query = {}, currentUser) => {
 
 const getScheduleById = async (id, currentUser) => {
   requireCoachAdmin(currentUser);
-  const schedule = await prisma.schedule.findUnique({ where: { id } });
+  const schedule = await prisma.schedule.findUnique({ where: { id }, include: { route: true, bus: true, agency: true } });
   if (!schedule) throw new AppError('Schedule not found', 404);
   await assertDepartmentIdForUser(currentUser, schedule.departmentId, 'VANGUARD_COACH');
   return { schedule };
@@ -66,7 +66,7 @@ const createSchedule = async (data, currentUser) => {
   }
 
   const schedule = await prisma.schedule.create({ data: { departmentId, agencyId, routeId, busId, departureTime, returnTime: data.returnTime || null, availableDays, price: price.toString() } });
-  await auditService.log('create_schedule', currentUser.id, { targetScheduleId: schedule.id });
+  await auditService.log('create_schedule', currentUser.id, { targetScheduleId: schedule.id, departmentId });
   return { schedule };
 };
 
@@ -89,7 +89,7 @@ const updateSchedule = async (id, data, currentUser) => {
   }
 
   const updated = await prisma.schedule.update({ where: { id }, data: updatePayload });
-  await auditService.log('update_schedule', currentUser.id, { targetScheduleId: id });
+  await auditService.log('update_schedule', currentUser.id, { targetScheduleId: id, departmentId: schedule.departmentId });
   return { schedule: updated };
 };
 
@@ -100,7 +100,7 @@ const deleteSchedule = async (id, currentUser) => {
   await assertDepartmentIdForUser(currentUser, schedule.departmentId, 'VANGUARD_COACH');
 
   await prisma.schedule.delete({ where: { id } });
-  await auditService.log('delete_schedule', currentUser.id, { targetScheduleId: id });
+  await auditService.log('delete_schedule', currentUser.id, { targetScheduleId: id, departmentId: schedule.departmentId });
   return { success: true };
 };
 

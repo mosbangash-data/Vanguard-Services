@@ -294,7 +294,7 @@ export const resourceGroups = {
           optionsUrl: '/api/schedules',
           optionsMapper: (item) => ({
             value: item.id,
-            label: `Départ ${item.departureTime} (${item.route ? item.route.departureCity + ' → ' + item.route.arrivalCity : 'Trajet standard'} - ${item.price} USD)`,
+            label: `${item.route ? item.route.departureCity + ' → ' + item.route.arrivalCity : 'Trajet'} · ${item.departureTime || '—'} · ${item.bus?.plateNumber || 'Bus'} · ${item.price || '—'} USD`,
           }),
           placeholder: 'Sélectionner l’horaire',
         },

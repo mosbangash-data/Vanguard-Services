@@ -190,7 +190,7 @@ const updateReservation = async (id, data, currentUser) => {
   if (!Object.keys(payload).length) throw new AppError('No editable fields provided', 400);
 
   const updated = await prisma.reservation.update({ where: { id }, data: payload });
-  await auditService.log('update_reservation', currentUser.id, { targetReservationId: id, agencyId: effectiveAgencyId, changes: payload });
+  await auditService.log('update_reservation', currentUser.id, { targetReservationId: id, agencyId: effectiveAgencyId, departmentId: reservation.trip.schedule.departmentId, changes: payload });
   return { reservation: updated };
 };
 

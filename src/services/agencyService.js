@@ -142,7 +142,7 @@ const createAgency = async (data, currentUser) => {
       timeZone,
     },
   });
-  await auditService.log('create_agency', currentUser.id, { targetAgencyId: agency.id, name, code });
+  await auditService.log('create_agency', currentUser.id, { targetAgencyId: agency.id, name, code, departmentId: agency.departmentId });
 
   return { agency };
 };
@@ -169,7 +169,7 @@ const updateAgency = async (agencyId, data, currentUser) => {
   }
 
   const updated = await prisma.agency.update({ where: { id: agencyId }, data: updatePayload });
-  await auditService.log('update_agency', currentUser.id, { targetAgencyId: agencyId });
+  await auditService.log('update_agency', currentUser.id, { targetAgencyId: agencyId, departmentId: agency.departmentId });
 
   return { agency: updated };
 };
@@ -182,7 +182,7 @@ const deleteAgency = async (agencyId, currentUser) => {
   await assertDepartmentIdForUser(currentUser, agency.departmentId, 'VANGUARD_COACH');
 
   await prisma.agency.delete({ where: { id: agencyId } });
-  await auditService.log('delete_agency', currentUser.id, { targetAgencyId: agencyId });
+  await auditService.log('delete_agency', currentUser.id, { targetAgencyId: agencyId, departmentId: agency.departmentId });
 
   return { success: true };
 };

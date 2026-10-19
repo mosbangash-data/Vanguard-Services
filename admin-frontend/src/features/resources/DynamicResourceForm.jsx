@@ -7,6 +7,7 @@ import { getResourceSingular } from '../../i18n/resourceLabels'
 import { FormField, Input, Select, Textarea, Button, Modal } from '../../components/ui'
 import { MediaUploader } from '../../components/media/MediaUploader'
 import { normalizeListResponse, unwrapApiResponse, getRelationValue } from '../../utils/apiResponse'
+import { calculateTripArrivalAt } from '../admin/coach/coachAdminWorkflow.mjs'
 import { AlertCircle, Check, Save, X, Loader2 } from 'lucide-react'
 
 const toOptionsList = (payload) => normalizeListResponse(payload)
@@ -292,6 +293,16 @@ export function DynamicResourceForm({
     existing: [],
     deleted: [],
   })
+  const isCoachTripForm = resource?.path === '/transport/trips' && mode === 'create'
+  const selectedScheduleQuery = useQuery({
+    queryKey: ['coach-trip-schedule-details', formData.scheduleId],
+    queryFn: async () => {
+      const response = await api.get(`/api/schedules/${encodeURIComponent(formData.scheduleId)}`)
+      const payload = unwrapApiResponse(response)
+      return payload?.schedule || payload
+    },
+    enabled: Boolean(isOpen && isCoachTripForm && formData.scheduleId),
+  })
 
   const updateFields = resource.updateFields?.map((field) => typeof field === 'string'
     ? (resource.fields || []).find((resourceField) => resourceField.name === field)
@@ -377,6 +388,15 @@ export function DynamicResourceForm({
     })
   }, [isOpen, resource, initialData, mode])
 
+  useEffect(() => {
+    const schedule = selectedScheduleQuery.data
+    const selectedDate = formData.date
+    if (!isCoachTripForm || !schedule || !selectedDate) return
+    const localArrival = calculateTripArrivalAt(selectedDate, schedule.departureTime, schedule.route?.durationHours)
+    if (!localArrival) return
+    setFormData((current) => current.arrivalAt === localArrival ? current : { ...current, arrivalAt: localArrival })
+  }, [isCoachTripForm, selectedScheduleQuery.data, formData.date])
+
   if (!fields.length) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title={title} subtitle={subtitle} size="lg">
@@ -450,7 +470,9 @@ export function DynamicResourceForm({
   }
 
   const handleFieldChange = (name, value) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData((prev) => name === 'scheduleId'
+      ? { ...prev, scheduleId: value, arrivalAt: '' }
+      : { ...prev, [name]: value })
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }))
     }
@@ -568,6 +590,20 @@ export function DynamicResourceForm({
           <div className="form-alert-info" role="status">
             <Loader2 size={18} className="spin-icon" />
             <span>{mediaProgress}</span>
+          </div>
+        )}
+
+        {isCoachTripForm && formData.scheduleId && (
+          <div className="coach-trip-schedule-summary" role="status" aria-live="polite">
+            {selectedScheduleQuery.isPending ? <span>{t('coachTripForm.loadingSchedule')}</span> : selectedScheduleQuery.isError ? <span role="alert">{t('coachTripForm.scheduleUnavailable')}</span> : selectedScheduleQuery.data && <>
+              <strong>{t('coachTripForm.selectedSchedule')}</strong>
+              <span>{selectedScheduleQuery.data.route?.departureCity || '—'} → {selectedScheduleQuery.data.route?.arrivalCity || '—'}</span>
+              <span>{t('coachTripForm.bus')}: {selectedScheduleQuery.data.bus?.plateNumber || '—'}</span>
+              <span>{t('coachTripForm.departure')}: {selectedScheduleQuery.data.departureTime || '—'}</span>
+              <span>{t('coachTripForm.price')}: {selectedScheduleQuery.data.price || '—'} USD</span>
+              <span>{t('coachTripForm.duration')}: {selectedScheduleQuery.data.route?.durationHours || '2'} h</span>
+              <small>{t('coachTripForm.arrivalHint')}</small>
+            </>}
           </div>
         )}
 

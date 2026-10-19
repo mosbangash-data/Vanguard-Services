@@ -162,6 +162,7 @@ const createReservationPayment = async (data, currentUser) => {
   await auditService.log('create_reservation_payment', currentUser.id, {
     targetReservationId: reservation.id,
     targetPaymentId: payment.id,
+    departmentId: reservation.trip.schedule.departmentId,
     agencyId: payment.agencyId,
     amount: payment.amount,
     method: payment.method,
@@ -269,6 +270,7 @@ const updateReservationPayment = async (paymentId, data, currentUser) => {
   await auditService.log('update_reservation_payment', currentUser.id, {
     targetReservationId: reservation.id,
     targetPaymentId: paymentId,
+    departmentId: reservation.trip.schedule.departmentId,
     changes: updatePayload,
   });
 

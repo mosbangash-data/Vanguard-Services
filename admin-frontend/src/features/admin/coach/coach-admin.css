@@ -23,6 +23,13 @@
 .vanguard-coach-admin-brand + .sidebar-nav { padding-top: 14px; }
 .vanguard-coach-admin-shell .vanguard-nav-section { margin-bottom: 8px; }
 .vanguard-coach-admin-shell .vanguard-nav-section-title { color: #8fa6a0; font-size: .66rem; letter-spacing: .13em; }
+.vanguard-coach-admin-shell .vanguard-nav-standalone { min-height: 42px; border-radius: 9px; }
+.vanguard-coach-admin-shell .vanguard-nav-standalone:hover,
+.vanguard-coach-admin-shell .vanguard-nav-standalone.active { color: #fff; background: var(--coach-green); }
+.vanguard-coach-admin-shell .coach-trip-schedule-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; margin: 0 0 16px; padding: 14px; border: 1px solid var(--coach-line); border-left: 3px solid var(--coach-green); border-radius: 10px; background: color-mix(in srgb, var(--coach-green) 5%, var(--color-surface, #fff)); }
+.vanguard-coach-admin-shell .coach-trip-schedule-summary > :first-child { grid-column: 1 / -1; color: var(--coach-ink); }
+.vanguard-coach-admin-shell .coach-trip-schedule-summary > span,
+.vanguard-coach-admin-shell .coach-trip-schedule-summary > small { min-width: 0; overflow-wrap: anywhere; color: var(--coach-muted); }
 .vanguard-coach-admin-shell .vanguard-sidebar-link { min-height: 41px; margin: 2px 12px; border-radius: 8px; color: #d4e1dc; }
 .vanguard-coach-admin-shell .vanguard-sidebar-link:hover { background: rgba(255,255,255,.07); }
 .vanguard-coach-admin-shell .vanguard-sidebar-link.active { background: rgba(56,145,119,.23); box-shadow: inset 3px 0 #84c6a9; color: #fff; }
@@ -106,6 +113,7 @@
   .vanguard-coach-admin-shell .manager-agency-stats { flex-wrap: wrap; }
 }
 @media (max-width: 480px) {
+  .vanguard-coach-admin-shell .coach-trip-schedule-summary { grid-template-columns: minmax(0, 1fr); }
   .vanguard-coach-admin-shell .vanguard-app-main { padding: 12px; padding-bottom: max(22px, env(safe-area-inset-bottom)); }
   .vanguard-coach-admin-shell .manager-priority-grid { grid-template-columns: minmax(0, 1fr); }
   .vanguard-coach-admin-shell .manager-priority-card { padding: 15px; }

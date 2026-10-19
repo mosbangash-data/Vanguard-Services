@@ -83,7 +83,7 @@ const createBus = async (data, currentUser) => {
     findMany: () => prisma.bus.findMany({ select: { plateNumber: true } }),
     create: (uniquePlateNumber) => prisma.bus.create({ data: { departmentId, plateNumber: uniquePlateNumber, brand, model, seats } }),
   });
-  await auditService.log('create_bus', currentUser.id, { targetBusId: bus.id });
+  await auditService.log('create_bus', currentUser.id, { targetBusId: bus.id, departmentId: bus.departmentId });
   return { bus };
 };
 
@@ -100,7 +100,7 @@ const updateBus = async (busId, data, currentUser) => {
   if (data?.status !== undefined) updatePayload.status = data.status;
 
   const updated = await prisma.bus.update({ where: { id: busId }, data: updatePayload });
-  await auditService.log('update_bus', currentUser.id, { targetBusId: busId });
+  await auditService.log('update_bus', currentUser.id, { targetBusId: busId, departmentId: bus.departmentId });
   return { bus: updated };
 };
 
@@ -111,7 +111,7 @@ const deleteBus = async (busId, currentUser) => {
   await assertDepartmentIdForUser(currentUser, bus.departmentId, 'VANGUARD_COACH');
 
   await prisma.bus.delete({ where: { id: busId } });
-  await auditService.log('delete_bus', currentUser.id, { targetBusId: busId });
+  await auditService.log('delete_bus', currentUser.id, { targetBusId: busId, departmentId: bus.departmentId });
   return { success: true };
 };
 

@@ -13,9 +13,13 @@ import { StatusBadge } from '../../../components/ui/StatusBadge'
 const money = (amount, currency = 'USD', lang = 'fr') => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Number(amount || 0))
 const dateTime = (value, lang = 'fr') => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—'
 const dashboardErrorMessage = (error, t) => {
+  if (error?.code === 'INVALID_DASHBOARD_RESPONSE') return t('managerWorkspaceErrors.invalidResponse')
   const status = error?.response?.status
   if (status === 401) return t('managerWorkspace.error401')
-  if (status === 403) return t('managerWorkspace.error403')
+  if (status === 403) {
+    const message = String(error?.response?.data?.message || '').toLowerCase()
+    return message.includes('permission') ? t('managerWorkspaceErrors.permissions') : t('managerWorkspaceErrors.scope')
+  }
   if (status === 404) return t('managerWorkspace.error404')
   if (status === 409) return t('managerWorkspace.error409')
   if (status === 422) return t('managerWorkspace.error422')
@@ -48,7 +52,11 @@ export function ManagerDashboard() {
     queryFn: async () => {
       try {
         const response = await api.get('/api/manager/dashboard')
-        if (!response.data?.success || !response.data.data?.scope || !response.data.data?.kpis) throw new Error('Invalid manager dashboard response shape')
+        if (!response.data?.success || !response.data.data?.scope || !response.data.data?.kpis) {
+          const invalidResponse = new Error('Invalid manager dashboard response shape')
+          invalidResponse.code = 'INVALID_DASHBOARD_RESPONSE'
+          throw invalidResponse
+        }
         return response.data.data
       } catch (error) {
         console.error('[manager-dashboard] API request failed', { status: error?.response?.status, message: error?.response?.data?.message || error?.message })
@@ -156,6 +164,13 @@ export function ManagerDashboard() {
       {canViewScans && <DetailGroup title={t('managerWorkspace.ticketsAndScans')} count={Object.values(data.tickets?.statuses || {}).reduce((sum, count) => sum + count, 0)}><div className="manager-detail-actions">{canScanTickets ? <Link className="button secondary sm" to="/transport/scanner"><QrCode size={15} /> {t('managerWorkspace.openScanner')}</Link> : <Link className="button secondary sm" to="/transport/tickets">{t('managerWorkspace.openTickets')}</Link>}</div><div className="manager-payment-summary">{Object.entries(data.tickets?.statuses || {}).map(([status, count]) => <span key={status}>{t(`status.${status.toLowerCase()}`)} <strong>{count}</strong></span>)}</div>{data.tickets?.recentScans?.length ? <Table headers={[t('managerWorkspace.ticket'), t('managerWorkspace.result'), t('managerWorkspace.status'), t('managerWorkspace.agent'), t('managerWorkspace.date')]}>{data.tickets.recentScans.map((scan) => <tr key={scan.id}><td>{scan.ticket.ticketCode}</td><td>{t(`managerWorkspace.scan_${String(scan.result).toLowerCase()}`)}</td><td><StatusBadge status={scan.ticket.status} /></td><td>{scan.scannedBy.firstName} {scan.scannedBy.lastName}</td><td>{dateTime(scan.scannedAt, lang)}</td></tr>)}</Table> : <EmptyState title={t('managerWorkspace.noRecentScans')} description={t('managerWorkspace.scansWillAppear')} />}</DetailGroup>}
 
       <DetailGroup title={t('managerWorkspace.recentActivity')} count={data.recentActivity?.length || 0}>{data.recentActivity?.length ? <ol className="manager-activity-list">{data.recentActivity.map((item) => <li key={item.id}><span className="manager-activity-icon"><Activity size={15} /></span><span>{activityLabel(item)}</span><time>{dateTime(item.at, lang)}</time></li>)}</ol> : <EmptyState title={t('managerWorkspace.noRecentActivity')} />}</DetailGroup>
+      {user.role === 'SERVICE_ADMIN' && <DetailGroup title={t('coachAudit.title')} count={data.ownAuditActivity?.length || 0}>{data.ownAuditActivity?.length ? <ol className="manager-activity-list">{data.ownAuditActivity.map((entry) => {
+        const contextId = Object.entries(entry.details || {}).find(([key]) => /^target(?:Trip|Schedule|Agency|Bus|Route|Driver)Id$/.test(key))?.[1]
+        const actionKey = `coachAudit.actions.${entry.action}`
+        const translatedAction = t(actionKey)
+        const actionLabel = translatedAction === actionKey ? entry.action.replaceAll('_', ' ') : translatedAction
+        return <li key={entry.id}><span className="manager-activity-icon"><Activity size={15} /></span><span><strong>{user.firstName ? `${user.firstName} ${user.lastName || ''}` : user.email}</strong><small className="manager-cell-subtitle">{actionLabel}{contextId ? ` · ${t('coachAudit.context', { id: contextId })}` : ''}</small></span><time>{dateTime(entry.createdAt, lang)}</time></li>
+      })}</ol> : <EmptyState title={t('coachAudit.empty')} />}</DetailGroup>}
     </section>
   </section>
 }

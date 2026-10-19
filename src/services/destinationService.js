@@ -58,7 +58,7 @@ const createDestination = async (data, currentUser) => {
   if (existing) throw new AppError('Route code already exists', 409);
 
   const route = await prisma.route.create({ data: { departmentId, code, departureCity, arrivalCity, distanceKm: data.distanceKm || null, durationHours: data.durationHours || null, description: data.description || null } });
-  await auditService.log('create_destination', currentUser.id, { targetRouteId: route.id });
+  await auditService.log('create_destination', currentUser.id, { targetRouteId: route.id, departmentId: route.departmentId });
   return { route };
 };
 
@@ -76,7 +76,7 @@ const updateDestination = async (id, data, currentUser) => {
   if (data?.description !== undefined) updatePayload.description = typeof data.description === 'string' && data.description.trim() ? data.description.trim() : null;
 
   const updated = await prisma.route.update({ where: { id }, data: updatePayload });
-  await auditService.log('update_destination', currentUser.id, { targetRouteId: id });
+  await auditService.log('update_destination', currentUser.id, { targetRouteId: id, departmentId: route.departmentId });
   return { route: updated };
 };
 
@@ -87,7 +87,7 @@ const deleteDestination = async (id, currentUser) => {
   await assertDepartmentIdForUser(currentUser, route.departmentId, 'VANGUARD_COACH');
 
   await prisma.route.delete({ where: { id } });
-  await auditService.log('delete_destination', currentUser.id, { targetRouteId: id });
+  await auditService.log('delete_destination', currentUser.id, { targetRouteId: id, departmentId: route.departmentId });
   return { success: true };
 };
 
