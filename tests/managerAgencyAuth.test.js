@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
 
 const prismaPath = require.resolve('../src/config/prisma');
-const prismaModule = { agency: { findFirst: async () => null } };
+const prismaModule = {
+  agency: { findFirst: async () => null },
+  rolePermission: { findMany: async () => [] },
+};
 require.cache[prismaPath] = { id: prismaPath, filename: prismaPath, loaded: true, exports: prismaModule };
 let currentUser;
 const authServicePath = require.resolve('../src/services/authService');

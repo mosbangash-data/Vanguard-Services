@@ -94,9 +94,19 @@ async function runProductionBootstrap(prisma, options = {}) {
   const config = getBootstrapConfig(environment);
   await runMigrations(config.databaseUrl, options.execute);
   await bootstrapSuperAdmin(prisma, environment);
+  // The closure permission is intentionally not granted to SUPER_ADMIN by this
+  // bootstrap list, but it must exist for the Manager default role mapping.
+  await prisma.permission.upsert({
+    where: { name: 'APPROVE_DAILY_CASH_CLOSURE' },
+    update: {},
+    create: { name: 'APPROVE_DAILY_CASH_CLOSURE' },
+  });
   // Existing Agent accounts share the AGENT role mapping. Ensure its defaults
   // exist before serving login or /auth/me, without changing other role grants.
   await syncRolePermissionsForRole('AGENT', prisma);
+  // Managers retain their own role and agency scope while receiving the
+  // operational Coach permissions declared for their role.
+  await syncRolePermissionsForRole('MANAGER', prisma);
 }
 
 module.exports = {

@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { getExpectedRolePermissions, filterPermissionsForDepartment } = require('../src/config/rbac');
 
 const prismaPath = require.resolve('../src/config/prisma');
 const prismaModule = {};
@@ -61,7 +62,8 @@ test('Manager dashboard rejects operational roles without department supervision
 
 test('Manager dashboard derives department and agency filters from the authenticated user', async () => {
   const service = require('../src/services/managerDashboardService');
-  const result = await service.getManagerDashboard({ role: 'MANAGER', departmentId: 'dept-coach', department: { id: 'dept-coach', type: 'VANGUARD_COACH' }, agencyId: 'agency-a', permissions: ['VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'VIEW_PARCEL', 'VIEW_PARCEL_PAYMENT', 'VERIFY_PARCEL_PAYMENT', 'VIEW_USER'] });
+  const managerPermissions = filterPermissionsForDepartment('MANAGER', 'VANGUARD_COACH', getExpectedRolePermissions('MANAGER'));
+  const result = await service.getManagerDashboard({ role: 'MANAGER', departmentId: 'dept-coach', department: { id: 'dept-coach', type: 'VANGUARD_COACH' }, agencyId: 'agency-a', permissions: managerPermissions });
   assert.equal(result.scope.departmentId, 'dept-coach');
   assert.equal(result.scope.agencyId, 'agency-a');
   const todayTrips = calls.find((call) => call.model === 'trip' && call.method === 'findMany');

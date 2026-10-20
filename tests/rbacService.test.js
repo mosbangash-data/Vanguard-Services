@@ -46,6 +46,21 @@ test('missing AGENT role mappings are restored additively from the default permi
   assert.ok(transactionCalls[0].every((operation) => operation.operation === 'upsert'));
 });
 
+test('missing MANAGER role mappings are restored additively from Manager defaults', async () => {
+  existingMappings = [];
+  transactionCalls.length = 0;
+
+  const result = await syncRolePermissionsForRole('MANAGER', prisma);
+
+  assert.equal(result.synced, true);
+  assert.equal(result.role, 'MANAGER');
+  assert.equal(result.removed, 0);
+  assert.equal(result.added, result.permissions.length);
+  assert.ok(result.permissions.includes('CREATE_RESERVATION'));
+  assert.ok(result.permissions.includes('SCAN_TICKET'));
+  assert.ok(transactionCalls[0].every((operation) => operation.operation === 'upsert'));
+});
+
 test.after(() => {
   if (originalPrisma) require.cache[prismaPath] = originalPrisma;
   else delete require.cache[prismaPath];

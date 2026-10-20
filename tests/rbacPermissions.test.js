@@ -81,6 +81,23 @@ test('Manager and Service Admin operational defaults retain their existing permi
   assert.ok(serviceAdminPermissions.includes('CREATE_PARCEL'));
 });
 
+test('Manager receives the Coach Agent operational workflow without administrative grants', () => {
+  const managerDefaults = getExpectedRolePermissions('MANAGER');
+  const managerPermissions = filterPermissionsForDepartment('MANAGER', 'VANGUARD_COACH', managerDefaults);
+
+  for (const permission of [
+    'CREATE_RESERVATION', 'VIEW_RESERVATION', 'UPDATE_RESERVATION', 'MANAGE_RESERVATION_PAYMENT',
+    'VIEW_TRIP', 'VIEW_PAYMENT', 'SCAN_TICKET', 'VIEW_TICKET_SCAN', 'CREATE_PARCEL',
+    'VIEW_PARCEL', 'RECEIVE_PARCEL', 'CHANGE_PARCEL_STATUS', 'VERIFY_PARCEL_PAYMENT',
+    'COLLECT_PARCEL', 'PRINT_PARCEL_RECEIPT', 'APPROVE_DAILY_CASH_CLOSURE',
+  ]) assert.ok(managerPermissions.includes(permission), `missing ${permission}`);
+
+  assert.ok(!managerPermissions.includes('CREATE_USER'));
+  assert.ok(!managerPermissions.includes('DELETE_USER'));
+  assert.ok(!managerPermissions.includes('CREATE_VEHICLE'));
+  assert.ok(!managerPermissions.includes('CREATE_PROJECT'));
+});
+
 test('Agent dashboard permission guard allows an authorized Agent and continues to reject empty permissions', () => {
   const guard = requireAnyPermission('VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'SCAN_TICKET', 'VIEW_TICKET_SCAN', 'VIEW_PARCEL');
   let allowedError = null;
