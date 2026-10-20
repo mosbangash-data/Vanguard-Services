@@ -6,6 +6,7 @@ const {
   isRoleDepartmentCompatible,
   filterPermissionsForDepartment,
 } = require('../src/config/rbac');
+const { requireAnyPermission } = require('../src/middleware/permissionMiddleware');
 
 test('Coach AGENT role includes operational permissions expected by the RBAC matrix', () => {
   const permissions = getExpectedRolePermissions('AGENT');
@@ -67,4 +68,26 @@ test('department administrators receive only business permissions for their depa
   assert.ok(autoSalesPermissions.includes('VIEW_VEHICLE'));
   assert.ok(!autoSalesPermissions.includes('CREATE_PARCEL'));
   assert.deepEqual(filterPermissionsForDepartment('SERVICE_ADMIN', 'UNKNOWN', serviceAdminPermissions), []);
+});
+
+test('Manager and Service Admin operational defaults retain their existing permissions', () => {
+  const managerPermissions = getExpectedRolePermissions('MANAGER');
+  const serviceAdminPermissions = getExpectedRolePermissions('SERVICE_ADMIN');
+
+  assert.ok(managerPermissions.includes('APPROVE_DAILY_CASH_CLOSURE'));
+  assert.ok(managerPermissions.includes('VIEW_USER'));
+  assert.ok(serviceAdminPermissions.includes('CREATE_RESERVATION'));
+  assert.ok(serviceAdminPermissions.includes('VIEW_TRIP'));
+  assert.ok(serviceAdminPermissions.includes('CREATE_PARCEL'));
+});
+
+test('Agent dashboard permission guard allows an authorized Agent and continues to reject empty permissions', () => {
+  const guard = requireAnyPermission('VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'SCAN_TICKET', 'VIEW_TICKET_SCAN', 'VIEW_PARCEL');
+  let allowedError = null;
+  guard({ user: { role: 'AGENT', permissions: ['VIEW_TRIP'] } }, {}, (error) => { allowedError = error || null; });
+  assert.equal(allowedError, null);
+
+  let deniedError = null;
+  guard({ user: { role: 'AGENT', permissions: [] } }, {}, (error) => { deniedError = error; });
+  assert.equal(deniedError?.statusCode, 403);
 });

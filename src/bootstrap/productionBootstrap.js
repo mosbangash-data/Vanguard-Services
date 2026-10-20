@@ -1,5 +1,6 @@
 const { execFile } = require('child_process');
 const bcrypt = require('bcrypt');
+const { syncRolePermissionsForRole } = require('../services/rbacService');
 
 const requiredEnvironmentVariables = ['DATABASE_URL', 'SUPER_ADMIN_EMAIL', 'SUPER_ADMIN_PASSWORD'];
 
@@ -93,6 +94,9 @@ async function runProductionBootstrap(prisma, options = {}) {
   const config = getBootstrapConfig(environment);
   await runMigrations(config.databaseUrl, options.execute);
   await bootstrapSuperAdmin(prisma, environment);
+  // Existing Agent accounts share the AGENT role mapping. Ensure its defaults
+  // exist before serving login or /auth/me, without changing other role grants.
+  await syncRolePermissionsForRole('AGENT', prisma);
 }
 
 module.exports = {

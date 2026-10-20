@@ -6,8 +6,9 @@ const rbacServicePath = require.resolve('../src/services/rbacService');
 const originalPrisma = require.cache[prismaPath];
 const originalService = require.cache[rbacServicePath];
 const transactionCalls = [];
+let existingMappings = [{ permissionId: 'custom-permission' }];
 const rolePermission = {
-  findMany: async () => [{ permissionId: 'custom-permission' }],
+  findMany: async () => existingMappings,
   upsert: (args) => ({ operation: 'upsert', args }),
   deleteMany: () => { throw new Error('Role synchronization must not erase configured permissions'); },
 };
@@ -23,11 +24,25 @@ delete require.cache[rbacServicePath];
 const { syncRolePermissionsForRole } = require('../src/services/rbacService');
 
 test('role permission default synchronization keeps explicit permission assignments', async () => {
-  const result = await syncRolePermissionsForRole('AGENT');
+  const result = await syncRolePermissionsForRole('AGENT', prisma);
 
   assert.equal(result.synced, true);
   assert.equal(result.removed, 0);
   assert.equal(transactionCalls.length, 1);
+  assert.ok(transactionCalls[0].every((operation) => operation.operation === 'upsert'));
+});
+
+test('missing AGENT role mappings are restored additively from the default permission set', async () => {
+  existingMappings = [];
+  transactionCalls.length = 0;
+
+  const result = await syncRolePermissionsForRole('AGENT', prisma);
+
+  assert.equal(result.synced, true);
+  assert.equal(result.removed, 0);
+  assert.equal(result.added, result.permissions.length);
+  assert.equal(transactionCalls.length, 1);
+  assert.equal(transactionCalls[0].length, result.permissions.length);
   assert.ok(transactionCalls[0].every((operation) => operation.operation === 'upsert'));
 });
 

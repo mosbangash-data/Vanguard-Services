@@ -98,6 +98,24 @@ test.after(async () => {
   await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 });
 
+test('Agent login and /auth/me return the same department-filtered role permissions', async () => {
+  const loginResponse = await request('POST', '/api/auth/login', {
+    identifier: 'coach.agent@vanguard.local',
+    password: process.env.COACH_AGENT_PASSWORD || 'dev-coach-agent-password',
+  });
+  assert.equal(loginResponse.status, 200);
+
+  const token = loginResponse.data.data.token;
+  const loginPermissions = loginResponse.data.data.user.permissions;
+  const profileResponse = await request('GET', '/api/auth/me', null, token);
+
+  assert.equal(profileResponse.status, 200);
+  assert.deepEqual(profileResponse.data.data.user.permissions, loginPermissions);
+  assert.ok(loginPermissions.includes('VIEW_TRIP'));
+  assert.ok(loginPermissions.includes('CREATE_PARCEL'));
+  assert.ok(!loginPermissions.includes('DELETE_USER'));
+});
+
 async function createAgencyAndTrip({ departmentId, agencyId, suffix }) {
   const route = await prisma.route.create({
     data: {
@@ -209,6 +227,11 @@ test('Agent without agency is rejected by the dashboard endpoint', async () => {
 
 test('Users without dashboard permissions are rejected', async () => {
   const response = await request('GET', '/api/agent/dashboard', null, limitedToken);
+  assert.equal(response.status, 403);
+});
+
+test('Agent cannot perform administrative trip creation', async () => {
+  const response = await request('POST', '/api/trips', {}, agentToken);
   assert.equal(response.status, 403);
 });
 
