@@ -107,6 +107,9 @@ async function runProductionBootstrap(prisma, options = {}) {
   // Managers retain their own role and agency scope while receiving the
   // operational Coach permissions declared for their role.
   await syncRolePermissionsForRole('MANAGER', prisma);
+  // Service Admin defaults are shared across department types; auth hydration
+  // applies the existing department whitelist before exposing effective grants.
+  await syncRolePermissionsForRole('SERVICE_ADMIN', prisma);
 }
 
 module.exports = {

@@ -1,5 +1,9 @@
 export const isCoachDepartmentUser = (user) => user?.department?.type === 'VANGUARD_COACH' || user?.departmentType === 'VANGUARD_COACH';
 
+export const getCoachDashboardEndpoint = (user) => user?.role === 'SERVICE_ADMIN'
+  ? '/api/dashboard/service-admin'
+  : '/api/manager/dashboard';
+
 export const getDestination = (user) => {
   if (!user) return '/admin/login';
 

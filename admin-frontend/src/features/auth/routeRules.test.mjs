@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getDestination } from './routeRules.mjs';
+import { getCoachDashboardEndpoint, getDestination } from './routeRules.mjs';
 
 test('AGENT coach users are redirected to /transport/agent', () => {
   const destination = getDestination({
@@ -19,6 +19,11 @@ test('SERVICE_ADMIN coach users are redirected to /transport', () => {
   });
 
   assert.equal(destination, '/transport');
+});
+
+test('dashboard requests use the Service Admin endpoint for SERVICE_ADMIN and the Manager endpoint for MANAGER', () => {
+  assert.equal(getCoachDashboardEndpoint({ role: 'SERVICE_ADMIN' }), '/api/dashboard/service-admin');
+  assert.equal(getCoachDashboardEndpoint({ role: 'MANAGER' }), '/api/manager/dashboard');
 });
 
 test('SUPER_ADMIN users are redirected to /admin', () => {

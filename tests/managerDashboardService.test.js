@@ -112,7 +112,8 @@ test('Manager agency assignment outside the authenticated department is refused'
 test('Vanguard Coach Service Admin receives department-wide scope and only own department audit activity', async () => {
   prismaModule.agency.findFirst = record('agency', 'findFirst', null);
   const service = require('../src/services/managerDashboardService');
-  const result = await service.getManagerDashboard({ id: 'service-admin-1', role: 'SERVICE_ADMIN', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, agencyId: 'agency-a', permissions: ['VIEW_TRIP', 'VIEW_RESERVATION', 'VIEW_PAYMENT', 'VIEW_PARCEL', 'VIEW_PARCEL_PAYMENT', 'VIEW_USER'] });
+  const serviceAdminPermissions = filterPermissionsForDepartment('SERVICE_ADMIN', 'VANGUARD_COACH', getExpectedRolePermissions('SERVICE_ADMIN'));
+  const result = await service.getManagerDashboard({ id: 'service-admin-1', role: 'SERVICE_ADMIN', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, agencyId: null, permissions: serviceAdminPermissions });
   assert.equal(result.scope.departmentId, 'dept-coach');
   assert.equal(result.scope.agencyId, null);
   assert.equal(calls.some((call) => call.model === 'agency' && call.method === 'findFirst'), false);
@@ -124,6 +125,11 @@ test('Vanguard Coach Service Admin receives department-wide scope and only own d
   assert.deepEqual(auditQuery.args.where.details, { path: ['departmentId'], equals: 'dept-coach' });
   assert.deepEqual(auditQuery.args.orderBy, { createdAt: 'desc' });
   assert.equal(result.ownAuditActivity.length, 0);
+});
+
+test('Vanguard Coach Service Admin without dashboard read permissions is refused', async () => {
+  const service = require('../src/services/managerDashboardService');
+  await assert.rejects(service.getManagerDashboard({ id: 'service-admin-1', role: 'SERVICE_ADMIN', departmentId: 'dept-coach', department: { type: 'VANGUARD_COACH' }, agencyId: null, permissions: [] }), { statusCode: 403 });
 });
 
 test('Service Admin dashboard accepts a scoped dashboard read permission', async () => {

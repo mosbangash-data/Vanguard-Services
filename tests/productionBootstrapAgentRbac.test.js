@@ -21,7 +21,7 @@ delete require.cache[bootstrapPath];
 const { runProductionBootstrap, superAdminPermissionNames } = require('../src/bootstrap/productionBootstrap');
 const { getExpectedRolePermissions } = require('../src/config/rbac');
 
-test('production bootstrap synchronizes Agent and Manager defaults after roles and permissions are bootstrapped', async () => {
+test('production bootstrap synchronizes Agent, Manager, and Service Admin defaults after permissions are bootstrapped', async () => {
   assert.ok(getExpectedRolePermissions('AGENT').every((name) => superAdminPermissionNames.includes(name)));
 
   const prisma = {
@@ -45,11 +45,13 @@ test('production bootstrap synchronizes Agent and Manager defaults after roles a
     execute,
   });
 
-  assert.equal(syncCalls.length, 2);
+  assert.equal(syncCalls.length, 3);
   assert.equal(syncCalls[0][0], 'AGENT');
   assert.equal(syncCalls[0][1], prisma);
   assert.equal(syncCalls[1][0], 'MANAGER');
   assert.equal(syncCalls[1][1], prisma);
+  assert.equal(syncCalls[2][0], 'SERVICE_ADMIN');
+  assert.equal(syncCalls[2][1], prisma);
   assert.equal(closurePermissionEnsured, true);
   assert.ok(!bootstrapPermissionNames.includes('APPROVE_DAILY_CASH_CLOSURE'));
 });

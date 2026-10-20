@@ -7,7 +7,7 @@ const staffController = require('../controllers/agencyStaffController');
 const cashClosureRoutes = require('./cashClosures');
 
 router.use(authenticateToken);
-router.get('/dashboard', requireRole('MANAGER', 'SERVICE_ADMIN'), controller.getManagerDashboard);
+router.get('/dashboard', requireRole('MANAGER'), controller.getManagerDashboard);
 router.use('/cash-closures', cashClosureRoutes);
 router.get('/staff', requireRole('MANAGER'), staffController.list);
 router.post('/staff', requireRole('MANAGER'), staffController.create);

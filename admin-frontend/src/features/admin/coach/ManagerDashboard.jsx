@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
 import { useLanguage } from '../../../i18n/useLanguage'
 import { api } from '../../../services/api'
+import { getCoachDashboardEndpoint } from '../../auth/routeRules.mjs'
 import { LoadingState } from '../../../components/ui/LoadingState'
 import { ErrorState } from '../../../components/ui/ErrorState'
 import { EmptyState } from '../../../components/ui/EmptyState'
@@ -51,7 +52,7 @@ export function ManagerDashboard() {
     queryKey: ['manager-dashboard', user?.id],
     queryFn: async () => {
       try {
-        const response = await api.get('/api/manager/dashboard')
+        const response = await api.get(getCoachDashboardEndpoint(user))
         if (!response.data?.success || !response.data.data?.scope || !response.data.data?.kpis) {
           const invalidResponse = new Error('Invalid manager dashboard response shape')
           invalidResponse.code = 'INVALID_DASHBOARD_RESPONSE'
