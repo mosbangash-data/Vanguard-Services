@@ -1,6 +1,11 @@
 export const translations = {
   fr: {
     brandSubtitle: 'Plateforme d’Administration',
+    superAdminNav: { dashboard: 'Tableau de bord', users: 'Gestion des utilisateurs', coach: 'Vanguard Coach', autoSales: 'Vente automobile', construction: 'Construction', account: 'Mon compte' },
+    apiErrors: { unauthorized: 'Votre session a expiré. Reconnectez-vous pour continuer.', forbidden: 'Votre compte ne dispose pas des droits requis pour cette action.', notFound: 'La page ou la ressource demandée est introuvable.', invalidRequest: 'La requête ne peut pas être traitée. Vérifiez les données saisies.', rateLimited: 'Trop de requêtes ont été envoyées. Patientez avant de réessayer.', conflict: 'Cette opération entre en conflit avec l’état actuel des données.', server: 'Le service rencontre une difficulté temporaire. Réessayez dans un instant.' },
+    resourceFieldExtras: { paymentTiming: 'Moment du paiement CASH', cashCollected: 'Confirmer que les espèces ont réellement été reçues au dépôt' },
+    resourceFieldOptionExtras: { paymentTiming: { AT_DEPOSIT: 'Au dépôt', AT_PICKUP: 'Au retrait' } },
+    resourceFieldStatus: { calculatingPrice: 'Calcul du tarif officiel…', priceUnavailable: 'Le tarif ne peut pas être calculé. Vérifiez les données puis réessayez.', optionsUnavailable: 'Les options ne peuvent pas être chargées. Vérifiez votre connexion et réessayez.', retry: 'Réessayer' },
     navigation: {
       title: 'Navigation',
       sections: { global: 'Vue globale', admin: 'Administration', coach: 'Vanguard Coach', automobile: 'Vanguard Automobile', construction: 'Vanguard Construction', system: 'Système', agentDashboard: 'Vue générale', agentSales: 'Ventes', agentBoarding: 'Exploitation', agentParcels: 'Colis', agentAccount: 'Compte', agentTicketTools: 'Billets et réservations', agentTransportTools: 'Opérations transport' },
@@ -639,6 +644,11 @@ export const translations = {
   },
   en: {
     brandSubtitle: 'Administration Platform',
+    superAdminNav: { dashboard: 'Dashboard', users: 'User management', coach: 'Vanguard Coach', autoSales: 'Auto sales', construction: 'Construction', account: 'My account' },
+    apiErrors: { unauthorized: 'Your session has expired. Sign in again to continue.', forbidden: 'Your account does not have permission to perform this action.', notFound: 'The requested page or resource could not be found.', invalidRequest: 'The request could not be processed. Check the submitted information.', rateLimited: 'Too many requests were sent. Wait before trying again.', conflict: 'This operation conflicts with the current data state.', server: 'The service is temporarily unavailable. Please try again shortly.' },
+    resourceFieldExtras: { paymentTiming: 'CASH payment timing', cashCollected: 'Confirm that cash was actually received at drop-off' },
+    resourceFieldOptionExtras: { paymentTiming: { AT_DEPOSIT: 'At drop-off', AT_PICKUP: 'At pickup' } },
+    resourceFieldStatus: { calculatingPrice: 'Calculating the official price…', priceUnavailable: 'The price could not be calculated. Check the information and try again.', optionsUnavailable: 'Options could not be loaded. Check your connection and try again.', retry: 'Retry' },
     navigation: {
       title: 'Navigation',
       sections: { global: 'Global overview', admin: 'Administration', coach: 'Vanguard Coach', automobile: 'Vanguard Automobile', construction: 'Vanguard Construction', system: 'System', agentDashboard: 'Overview', agentSales: 'Sales', agentBoarding: 'Operations', agentParcels: 'Parcels', agentAccount: 'Account', agentTicketTools: 'Tickets and reservations', agentTransportTools: 'Transport operations' },

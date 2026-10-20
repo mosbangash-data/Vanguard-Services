@@ -2289,3 +2289,104 @@ body {
 .manager-staff-attendance-form { display: grid; grid-template-columns: 1fr 1fr 1.3fr auto; gap: .65rem; align-items: end; margin: .8rem 0 1rem; }
 @media (max-width: 760px) { .manager-staff-filters { grid-template-columns: 1fr 1fr; } .manager-staff-filters label:first-child { grid-column: 1 / -1; } .manager-staff-attendance-form { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 480px) { .manager-staff-form-grid, .manager-staff-detail, .manager-staff-filters, .manager-staff-attendance-form { grid-template-columns: 1fr; } .manager-staff-filters label:first-child { grid-column: auto; } .manager-staff-actions .button { flex: 1 1 100%; } }
+/* Super Admin workspace: scoped so shared role layouts keep their current styling. */
+.vanguard-super-admin-shell {
+  --sa-ink: #d8e1eb;
+  --sa-active: #ffffff;
+  --sa-muted: #647789;
+  --sa-accent: #d68b35;
+  --color-primary: #a96524;
+  --color-primary-hover: #88501c;
+  --color-primary-light: #fff5e8;
+  --color-primary-border: #edcfaa;
+  --vanguard-primary: #a96524;
+}
+
+.vanguard-super-admin-shell .vanguard-sidebar {
+  width: min(17rem, 84vw);
+}
+
+.vanguard-super-admin-shell .vanguard-sidebar-nav {
+  gap: .45rem;
+  padding: .75rem .7rem 1.25rem;
+  overscroll-behavior: contain;
+}
+
+.vanguard-super-admin-shell .vanguard-nav-section-header {
+  min-height: 2.85rem;
+  border-radius: .7rem;
+  color: var(--sa-ink);
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.vanguard-super-admin-shell .vanguard-nav-section-header.active,
+.vanguard-super-admin-shell .vanguard-nav-section-header.is-active {
+  color: var(--sa-active);
+  background: color-mix(in srgb, var(--sa-accent) 22%, transparent);
+}
+
+.vanguard-super-admin-shell .vanguard-nav-section-header.active::before,
+.vanguard-super-admin-shell .vanguard-nav-section-header.is-active::before {
+  background: var(--sa-accent);
+}
+
+.vanguard-super-admin-shell .vanguard-nav-section-items {
+  padding: .25rem 0 .45rem .55rem;
+}
+
+.vanguard-super-admin-shell .vanguard-nav-section-items a {
+  min-height: 2.45rem;
+  border-radius: .55rem;
+}
+
+.vanguard-super-admin-shell .vanguard-nav-section-items a.active {
+  color: var(--sa-active);
+  background: color-mix(in srgb, var(--sa-accent) 20%, transparent);
+  box-shadow: inset 3px 0 0 var(--sa-accent);
+}
+
+.vanguard-super-admin-shell .vanguard-app-area {
+  min-width: 0;
+}
+
+.vanguard-super-admin-shell .vanguard-btn--primary {
+  background: #a96524;
+  border-color: #a96524;
+}
+
+.vanguard-super-admin-shell .vanguard-btn--primary:hover:not(:disabled) {
+  background: #88501c;
+  border-color: #88501c;
+}
+
+.vanguard-super-admin-shell .vanguard-stat-card--primary::before {
+  background-color: var(--sa-accent);
+}
+
+.vanguard-super-admin-shell .vanguard-app-main {
+  min-width: 0;
+  min-height: calc(100dvh - 4rem);
+  max-width: none;
+  padding: clamp(1rem, 2.4vw, 2rem);
+  padding-bottom: max(clamp(1.5rem, 3vw, 2.5rem), env(safe-area-inset-bottom));
+}
+
+@media (max-width: 1024px) {
+  .vanguard-super-admin-shell .vanguard-sidebar {
+    width: min(18rem, 88vw);
+  }
+}
+
+@media (max-width: 640px) {
+  .vanguard-super-admin-shell .vanguard-app-main {
+    padding: 1rem .85rem max(1.75rem, env(safe-area-inset-bottom));
+  }
+
+  .vanguard-super-admin-shell .vanguard-app-header {
+    min-height: 3.75rem;
+    height: auto;
+    padding-top: max(.35rem, env(safe-area-inset-top));
+  }
+}

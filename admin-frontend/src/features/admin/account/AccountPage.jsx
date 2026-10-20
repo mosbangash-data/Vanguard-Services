@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/authContext'
 import { api } from '../../../services/api'
 import { useLanguage } from '../../../i18n/useLanguage'
 import { useTheme } from '../../../theme/useTheme'
+import { apiErrorMessage } from '../../../utils/apiErrorMessage.mjs'
 import {
   PageHeader,
   Card,
@@ -67,10 +68,7 @@ export function AccountPage() {
         setConfirmPassword('')
       }
     } catch (err) {
-      setErrorMsg(
-        err?.response?.data?.message ||
-          t('accountUi.updateFailed')
-      )
+      setErrorMsg(apiErrorMessage(err, t, 'accountUi.updateFailed'))
     } finally {
       setLoading(false)
     }

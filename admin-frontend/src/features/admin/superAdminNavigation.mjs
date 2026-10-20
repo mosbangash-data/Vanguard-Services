@@ -1,0 +1,78 @@
+export function buildSuperAdminNavigation({ t, can, icons }) {
+  return [
+    {
+      id: 'super-dashboard',
+      title: t('superAdminNav.dashboard'),
+      standalone: { path: '/admin', end: true, icon: icons.dashboard },
+      items: [],
+    },
+    {
+      id: 'super-users',
+      title: t('superAdminNav.users'),
+      collapsible: true,
+      items: [
+        { path: '/admin/users', label: t('navigation.items.users'), icon: icons.users, permission: 'VIEW_USER' },
+        { path: '/admin/departments', label: t('navigation.items.departments'), icon: icons.departments, permission: 'VIEW_DEPARTMENT' },
+        { path: '/admin/roles', label: t('navigation.items.roles'), icon: icons.roles, permission: 'VIEW_ROLE' },
+        { path: '/admin/permissions', label: t('navigation.items.permissions'), icon: icons.permissions, permission: 'VIEW_PERMISSION' },
+        { path: '/admin/notifications', label: t('navigation.items.notifications'), icon: icons.notifications },
+        { path: '/admin/audit', label: t('navigation.items.audit'), icon: icons.audit },
+      ].filter((item) => !item.permission || can(item.permission)),
+    },
+    {
+      id: 'super-coach',
+      title: t('superAdminNav.coach'),
+      collapsible: true,
+      items: [
+        { path: '/transport', label: t('navigation.items.operations'), icon: icons.coach, end: true },
+        { path: '/transport/agencies', label: t('navigation.items.agencies'), icon: icons.agencies },
+        { path: '/transport/buses', label: t('navigation.items.buses'), icon: icons.coach },
+        { path: '/transport/drivers', label: t('navigation.items.drivers'), icon: icons.users },
+        { path: '/transport/destinations', label: t('navigation.items.destinations'), icon: icons.routes },
+        { path: '/transport/schedules', label: t('navigation.items.schedules'), icon: icons.calendar },
+        { path: '/transport/trips', label: t('navigation.items.trips'), icon: icons.coach, permission: 'VIEW_TRIP' },
+        { path: '/transport/reservations', label: t('navigation.items.reservations'), icon: icons.tickets, permission: 'VIEW_RESERVATION' },
+        { path: '/transport/tickets', label: t('navigation.items.tickets'), icon: icons.tickets, permission: 'VIEW_RESERVATION' },
+        { path: '/transport/scanner', label: t('navigation.items.scanner'), icon: icons.scanner, permission: 'SCAN_TICKET' },
+        { path: '/transport/payments', label: t('navigation.items.payments'), icon: icons.payments, permission: 'VIEW_PAYMENT' },
+        { path: '/transport/financial-reports', label: t('coachFinance.nav'), icon: icons.reports, permission: 'VIEW_PAYMENT' },
+        { path: '/transport/operations', label: t('operations.title'), icon: icons.operations, permission: 'VIEW_PAYMENT' },
+        { path: '/transport/cash-closure', label: t('managerWorkspace.cashClosureTitle'), icon: icons.payments, permission: 'APPROVE_DAILY_CASH_CLOSURE' },
+        { path: '/transport/parcels', label: t('navigation.items.parcels'), icon: icons.parcels, permission: 'VIEW_PARCEL' },
+      ].filter((item) => !item.permission || can(item.permission)),
+    },
+    {
+      id: 'super-auto',
+      title: t('superAdminNav.autoSales'),
+      collapsible: true,
+      items: [
+        { path: '/automobile', label: t('navigation.items.dashboard'), icon: icons.dashboard, end: true },
+        { path: '/automobile/vehicles', label: t('navigation.items.vehicles'), icon: icons.vehicles, permission: 'VIEW_VEHICLE' },
+        { path: '/automobile/templates', label: t('navigation.items.vehicleTemplates'), icon: icons.templates, permission: 'VIEW_VEHICLE' },
+        { path: '/automobile/inquiries', label: t('autosales.nav.inquiries'), icon: icons.inquiries, permission: 'VIEW_VEHICLE_INQUIRY' },
+        { path: '/automobile/reservations', label: t('autosales.nav.reservations'), icon: icons.tickets, permission: 'VIEW_RESERVATION' },
+        { path: '/automobile/payments', label: t('autosales.nav.payments'), icon: icons.payments, permission: 'VIEW_RESERVATION' },
+        { path: '/automobile/sales', label: t('autosales.nav.sales'), icon: icons.sales, permission: 'VIEW_RESERVATION' },
+        { path: '/automobile/agents', label: t('autosales.nav.agents'), icon: icons.users, permission: 'VIEW_USER' },
+      ].filter((item) => !item.permission || can(item.permission)),
+    },
+    {
+      id: 'super-construction',
+      title: t('superAdminNav.construction'),
+      collapsible: true,
+      items: [
+        { path: '/construction', label: t('navigation.items.dashboard'), icon: icons.dashboard, end: true },
+        { path: '/construction/projects', label: t('navigation.items.projects'), icon: icons.construction, permission: 'VIEW_PROJECT' },
+        { path: '/construction/templates', label: t('navigation.items.projectTemplates'), icon: icons.templates, permission: 'VIEW_PROJECT' },
+        { path: '/construction/customer-requests', label: t('navigation.items.customerRequests'), icon: icons.inquiries, permission: 'VIEW_CUSTOMER_REQUEST' },
+        { path: '/construction/quote-requests', label: t('navigation.items.quoteRequests'), icon: icons.reports, permission: 'VIEW_QUOTE_REQUEST' },
+      ].filter((item) => !item.permission || can(item.permission)),
+    },
+    {
+      id: 'super-account',
+      title: t('superAdminNav.account'),
+      standalone: { path: '/admin/account', icon: icons.account },
+      items: [],
+    },
+  ]
+}

@@ -14,7 +14,7 @@ export class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Uncaught error in component tree:', error, errorInfo)
+    if (import.meta.env.DEV) console.error('Uncaught error in component tree:', error, errorInfo)
   }
 
   handleReset = () => {
@@ -35,16 +35,11 @@ export class ErrorBoundary extends React.Component {
             <p>
               {t('errorBoundary.description')}
             </p>
-            {this.state.error?.message && (
-              <pre className="vanguard-error-boundary-details">
-                {this.state.error.message}
-              </pre>
-            )}
             <div className="vanguard-error-boundary-actions">
               <button
                 type="button"
                 className="vanguard-btn vanguard-btn--secondary vanguard-btn--md"
-                onClick={() => { window.location.href = '/admin' }}
+                onClick={() => { window.location.href = this.props.homePath || '/admin' }}
               >
                 <Home size={16} />
                 <span>{t('errorBoundary.home')}</span>

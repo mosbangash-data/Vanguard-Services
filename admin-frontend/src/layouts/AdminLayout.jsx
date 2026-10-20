@@ -38,6 +38,8 @@ import { hasPermission } from '../features/auth/permissions'
 import { useLanguage } from '../i18n/useLanguage'
 import { useTheme } from '../theme/useTheme'
 import { buildCoachServiceAdminNav } from '../features/admin/coach/coachAdminWorkflow.mjs'
+import { buildSuperAdminNavigation } from '../features/admin/superAdminNavigation.mjs'
+import { ErrorBoundary } from '../components/ui/ErrorBoundary'
 
 const PATH_KEYS = {
   '/admin': 'dashboard',
@@ -144,8 +146,24 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     })
   }, [isCoachServiceAdmin, user, t])
 
+  const superAdminNav = useMemo(() => {
+    if (!isSuperAdmin) return null
+    return buildSuperAdminNavigation({
+      t,
+      can: (permission) => hasPermission(user, permission),
+      icons: {
+        dashboard: LayoutDashboard, users: Users, departments: Building2, roles: ShieldCheck,
+        permissions: Key, notifications: Bell, audit: FileText, coach: Bus, agencies: Building2,
+        routes: Compass, calendar: Calendar, tickets: Ticket, scanner: QrCode, payments: CreditCard,
+        reports: FileSpreadsheet, operations: Wallet, parcels: Package, vehicles: CarFront,
+        templates: Layers, inquiries: FileSpreadsheet, sales: Shield, construction: HardHat, account: Settings,
+      },
+    })
+  }, [isSuperAdmin, user, t])
+
   // Navigation Items Definitions
   const navSections = useMemo(() => {
+    if (isSuperAdmin) return superAdminNav
     // The coach agent works from operational queues, not the department's
     // administrative CRUD catalog. Keep each destination on its real route.
     if (isCoachAgent) {
@@ -155,7 +173,6 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           { path: '/transport/reservations', labelKey: 'navigation.items.sellTicket', icon: UserRoundPlus, permission: 'CREATE_RESERVATION' },
           { path: '/transport/parcels', labelKey: 'navigation.items.parcels', icon: Package, permission: 'VIEW_PARCEL' },
           { path: '/transport/operations', labelKey: 'navigation.items.payments', icon: CreditCard, permission: 'VIEW_PAYMENT' },
-          { path: '/transport/financial-reports', labelKey: 'coachFinance.nav', icon: Wallet, permission: 'VIEW_PAYMENT' },
           { path: '/admin/account', labelKey: 'navigation.items.account', icon: Settings },
         ] },
       ]
@@ -341,7 +358,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         label: item.labelKey ? t(item.labelKey) : PATH_KEYS[item.path] ? (t(`navigation.items.${PATH_KEYS[item.path]}`) || item.label) : item.label,
       })),
     }))
-  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t, location.pathname, isCoachAgent, isCoachManager, isCoachServiceAdmin, coachAdminNav])
+  }, [customNavigation, pageTitleOverride, isSuperAdmin, userDept, user, t, location.pathname, isCoachAgent, isCoachManager, isCoachServiceAdmin, coachAdminNav, superAdminNav])
 
   useEffect(() => {
     const activeCollapsible = navSections.find((section) => section.collapsible && section.items.some((item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)))
@@ -357,11 +374,13 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
     if (currentPath.startsWith('/construction')) return t('navigation.sections.construction')
     if (currentPath === '/admin/audit') return t('navigation.items.audit')
     if (currentPath === '/admin/account') return t('navigation.items.account')
+    if (isSuperAdmin && currentPath === '/admin') return t('superAdminNav.dashboard')
+    if (isSuperAdmin && currentPath.startsWith('/admin/users')) return t('superAdminNav.users')
     return t('navigation.sections.admin')
   }
 
   return (
-      <div className={`app-shell vanguard-app-shell${isCoachAgent ? ' vanguard-agent-shell' : ''}${isCoachServiceAdmin ? ' vanguard-coach-admin-shell' : ''}`}>
+      <div className={`app-shell vanguard-app-shell${isCoachAgent ? ' vanguard-agent-shell' : ''}${isCoachServiceAdmin ? ' vanguard-coach-admin-shell' : ''}${isSuperAdmin ? ' vanguard-super-admin-shell' : ''}`}>
       {/* Mobile Backdrop Overlay */}
       {mobileOpen && (
         <div
@@ -404,7 +423,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
                   <span className="vanguard-nav-section-title-wrap"><StandaloneIcon size={16} /><span className="vanguard-nav-section-title">{section.title}</span></span>
                 </NavLink> : isCollapsible ? <button
                   type="button"
-                  className="vanguard-nav-section-header is-collapsible"
+                  className={`vanguard-nav-section-header is-collapsible${section.items.some((item) => location.pathname === item.path || (!item.end && location.pathname.startsWith(`${item.path}/`))) ? ' is-active' : ''}`}
                   aria-expanded={isExpanded}
                   aria-controls={`nav-section-${section.id}`}
                   onClick={() => toggleSection(section.id)}
@@ -454,7 +473,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         </nav>
 
         {/* Sidebar Footer User Card */}
-        {!isCoachAgent && !isCoachServiceAdmin && <div className="vanguard-sidebar-footer">
+        {!isCoachAgent && !isCoachServiceAdmin && !isSuperAdmin && <div className="vanguard-sidebar-footer">
           <Link to="/admin/account" className="vanguard-sidebar-user" onClick={() => setMobileOpen(false)}>
             <div className="vanguard-sidebar-avatar">
               {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
@@ -489,7 +508,7 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           </div>
 
           <div className="header-right vanguard-header-right">
-            {!isCoachAgent && !isCoachManager && !isCoachServiceAdmin && <>
+            {!isCoachAgent && !isCoachManager && !isCoachServiceAdmin && !isSuperAdmin && <>
             <label className="theme-selector">
               <span className="theme-selector-icon" aria-hidden="true">{resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}</span>
               <span className="sr-only">{t('layout.theme')}</span>
@@ -550,7 +569,12 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
         </header>
 
         <main className="app-main vanguard-app-main">
-          <Outlet />
+          <ErrorBoundary
+            key={location.pathname}
+            homePath={isSuperAdmin ? '/admin' : isCoachAgent ? '/transport/agent' : userDept === 'VANGUARD_COACH' ? '/transport' : userDept === 'AUTO_SALES' ? '/automobile' : '/construction'}
+          >
+            <Outlet />
+          </ErrorBoundary>
         </main>
         {isCoachManager && (
           <nav className="manager-mobile-nav" aria-label={t('navigation.sections.coach')}>

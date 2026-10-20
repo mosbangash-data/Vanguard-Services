@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Plus, RefreshCw, Search, X, Edit2, Trash2, KeyRound, AlertTriangle, CheckCircle2, Eye, Ticket, Printer } from 'lucide-react'
 import { hasPermission } from '../auth/permissions'
@@ -14,6 +14,7 @@ import { openParcelReceiptPrintWindow, renderParcelReceiptPrintWindow, PARCEL_RE
 import { api, uploadMedia } from '../../services/api'
 import { syncMediaRelations } from '../../utils/mediaSync'
 import { normalizeListResponse, getRelationValue } from '../../utils/apiResponse'
+import { apiErrorMessage } from '../../utils/apiErrorMessage.mjs'
 import {
   Button,
   StatusBadge,
@@ -27,10 +28,7 @@ import {
   Input,
 } from '../../components/ui'
 
-const errorMessage = (error, t) =>
-  error?.response?.data?.message ||
-  error?.message ||
-  t('resourceUi.operationFailed')
+const errorMessage = (error, t) => apiErrorMessage(error, t)
 
 const toList = (data) => normalizeListResponse(data)
 
@@ -83,6 +81,7 @@ export function ResourcePage({ resource }) {
   const pageTitle = getResourceTitle(t, resource)
   const singularLabel = getResourceSingular(t, resource)
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [viewTripModal, setViewTripModal] = useState(null)
   const isAgentTrips = user?.role === 'AGENT' && resource.endpoint === '/api/trips'
@@ -120,6 +119,16 @@ export function ResourcePage({ resource }) {
     }, 300)
     return () => clearTimeout(timer)
   }, [search])
+  useEffect(() => {
+    setServerError('')
+    setTicketActionError('')
+    setNotice('')
+  }, [resource.endpoint, location.pathname])
+  useEffect(() => {
+    if (!notice) return undefined
+    const timer = setTimeout(() => setNotice(''), 4000)
+    return () => clearTimeout(timer)
+  }, [notice])
   useEffect(() => { setPage(1) }, [debouncedSearch])
   useEffect(() => { setPage(1) }, [parcelStatusFilter, parcelPaymentFilter, parcelDestinationFilter, parcelFromFilter, parcelToFilter])
 
@@ -253,6 +262,10 @@ export function ResourcePage({ resource }) {
 
   // Mutations
   const mutation = useMutation({
+    onMutate: () => {
+      setServerError('')
+      setTicketActionError('')
+    },
     mutationFn: async ({ action, id, data }) => {
       const mediaConfig = resource.mediaConfig
       const pendingMedia = data?.__pendingMedia || []
@@ -339,7 +352,6 @@ export function ResourcePage({ resource }) {
       // Single targeted refetch of the active resource list (exactly 1 GET)
       query.refetch()
 
-      setTimeout(() => setNotice(''), 4000)
     },
     onError: (err) => {
       setServerError(errorMessage(err, t))

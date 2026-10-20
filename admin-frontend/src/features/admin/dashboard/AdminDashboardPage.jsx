@@ -31,6 +31,7 @@ import {
   ErrorState,
 } from '../../../components/ui'
 import { ChartCard } from '../../../components/dashboard/ChartCard'
+import { apiErrorMessage } from '../../../utils/apiErrorMessage.mjs'
 
 async function fetchDashboardOverview() {
   const response = await api.get('/api/dashboard/overview')
@@ -109,7 +110,7 @@ export function AdminDashboardPage() {
         />
         <ErrorState
           title="Impossible de charger le tableau de bord"
-          message={error?.response?.data?.message || 'Une erreur est survenue lors de la récupération des statistiques globales.'}
+          message={apiErrorMessage(error, t)}
           onRetry={() => refetch()}
         />
       </div>
@@ -469,7 +470,7 @@ export function AdminDashboardPage() {
           ) : salesReportQuery.isError ? (
             <ErrorState
               title="Impossible de charger le rapport des ventes"
-              message={salesReportQuery.error?.response?.data?.message || 'Une erreur est survenue lors du chargement du rapport.'}
+              message={apiErrorMessage(salesReportQuery.error, t)}
               onRetry={() => salesReportQuery.refetch()}
             />
           ) : (
