@@ -89,7 +89,14 @@ app.use(cors({
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '../public'), {
+  setHeaders: (res, filePath) => {
+    // These supplied .jpg files contain WebP data; serve their actual media type.
+    if (['Afrimoney.jpg', 'Mpesa.jpg'].includes(path.basename(filePath))) {
+      res.setHeader('Content-Type', 'image/webp');
+    }
+  },
+}));
 
 const clientDistDir = path.join(__dirname, '../client-frontend/dist');
 const adminDistDir = path.join(__dirname, '../admin-frontend/dist');

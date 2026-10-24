@@ -622,13 +622,14 @@ export default function Transport() {
                     <p className="mobile-payment-prompt">{t('transportPage.chooseNetwork')}</p>
                     <div className="mobile-network-grid" role="group" aria-label={t('transportPage.mobilePaymentNetwork')}>
                       {[
-                        { id: 'vodacom', label: 'M-Pesa', brand: 'network-mpesa' },
-                        { id: 'airtel', label: 'Airtel Money', brand: 'network-airtel' },
-                        { id: 'orange', label: 'Orange Money', brand: 'network-orange' },
-                        { id: 'africell', label: 'Afrimoney', brand: 'network-afrimoney' },
-                      ].map((network) => <button key={network.id} type="button" className={`mobile-network-card ${network.brand}${paymentNetwork === network.id ? ' is-selected' : ''}`} onClick={() => { setPaymentNetwork(network.id); setBookingError(null) }} aria-pressed={paymentNetwork === network.id}>
+                        { id: 'vodacom', label: 'M-Pesa', image: '/assets/Mobile%20money/Mpesa.jpg' },
+                        { id: 'airtel', label: 'Airtel Money', image: '/assets/Mobile%20money/Airtel%20money.jpeg' },
+                        { id: 'orange', label: 'Orange Money', image: '/assets/Mobile%20money/Orange%20money.jpeg' },
+                        { id: 'africell', label: 'Afrimoney', image: '/assets/Mobile%20money/Afrimoney.jpg' },
+                      ].map((network) => <button key={network.id} type="button" className={`mobile-network-card${paymentNetwork === network.id ? ' is-selected' : ''}`} onClick={() => { setPaymentNetwork(network.id); setBookingError(null) }} aria-pressed={paymentNetwork === network.id}>
+                        <img className="mobile-network-logo" src={network.image} alt="" />
                         <span className="mobile-network-wordmark">{network.label}</span>
-                        {paymentNetwork === network.id && <CheckCircle2 size={16} aria-label={t('transportPage.selected')} />}
+                        {paymentNetwork === network.id && <CheckCircle2 className="mobile-network-check" size={16} aria-label={t('transportPage.selected')} />}
                       </button>)}
                     </div>
                     <div className="form-group mobile-payment-phone">

@@ -567,9 +567,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
   gap: .3rem;
   min-width: 0;
-  min-height: 58px;
+  min-height: 102px;
   padding: .55rem .45rem;
   border: 1px solid var(--color-slate-200);
   border-radius: var(--radius-md);
@@ -579,6 +580,27 @@
   text-align: center;
   cursor: pointer;
   transition: border-color var(--transition-base), background-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.mobile-network-logo {
+  display: block;
+  width: min(100%, 128px);
+  height: 48px;
+  object-fit: contain;
+}
+
+.mobile-network-wordmark {
+  font-size: .8rem;
+}
+
+.mobile-network-check {
+  position: absolute;
+  top: .45rem;
+  right: .45rem;
+}
+
+.mobile-network-card {
+  position: relative;
 }
 
 .mobile-network-card.is-selected {
