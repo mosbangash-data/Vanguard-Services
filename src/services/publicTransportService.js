@@ -227,6 +227,8 @@ const getPublicTripSeats = async (tripId) => {
 
 const createPublicReservation = async (data) => {
   const { tripId, customerName, customerPhone, customerEmail, seatNumber } = data;
+  const paymentMethod = String(data.paymentMethod || 'CASH').toUpperCase();
+  if (!['CASH', 'MOBILE_MONEY'].includes(paymentMethod)) throw new AppError('Unsupported payment method', 400);
   const normalizedSeatNumber = seatNumber === undefined || seatNumber === null ? '' : String(seatNumber).trim();
 
   if (!tripId || !customerName || !customerPhone || !normalizedSeatNumber) {
@@ -295,19 +297,21 @@ const createPublicReservation = async (data) => {
         where: { departmentId: trip.schedule.departmentId },
         select: { currency: true },
       });
+      const currency = String(settings?.currency || '').toUpperCase();
+      if (!['USD', 'CDF'].includes(currency)) throw new AppError('Vanguard Coach currency is not configured for reservations', 409);
       const payment = await tx.payment.create({
         data: {
           reservationId: reservation.id,
           agencyId,
           amount: reservation.totalAmount,
-          currency: settings?.currency || 'USD',
-          channel: 'AGENCY',
-          method: 'CASH',
-          provider: 'AGENCY',
+          currency,
+          channel: paymentMethod === 'CASH' ? 'AGENCY' : 'ONLINE',
+          method: paymentMethod,
+          provider: paymentMethod === 'CASH' ? 'AGENCY' : 'MBIYOPAY',
           status: 'PENDING',
           reference: reservation.reservationCode,
-          idempotencyKey: `reservation:${reservation.id}:initial-cash`,
-          comment: 'Paiement en espèces à l’agence de départ',
+          idempotencyKey: `reservation:${reservation.id}:initial:${paymentMethod.toLowerCase()}`,
+          comment: paymentMethod === 'CASH' ? 'Paiement en espèces à l’agence de départ' : 'Paiement Mobile Money à initier',
         },
       });
 
@@ -361,6 +365,7 @@ const getPublicReservationByCode = async (code) => {
         select: {
           id: true,
           amount: true,
+          currency: true,
           method: true,
           status: true,
           reference: true,

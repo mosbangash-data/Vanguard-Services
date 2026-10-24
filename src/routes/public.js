@@ -45,6 +45,13 @@ router.post('/reservations', publicPostLimiter, validatePublicReservationCreate,
 
 // GET /api/public/reservations/:code
 router.get('/reservations/:code', publicController.getPublicReservationByCode);
+router.post('/reservations/:code/mobile-money', publicPostLimiter, (req, res, next) => {
+  const phone = String(req.body?.customerPhone || '').replace(/[\s()-]/g, '');
+  const network = String(req.body?.network || '').trim().toLowerCase();
+  if (!/^\+?243\d{9}$/.test(phone)) return res.status(400).json({ success: false, message: 'A valid DR Congo phone number is required.' });
+  if (!['vodacom', 'airtel', 'orange', 'africell'].includes(network)) return res.status(400).json({ success: false, message: 'A supported mobile network is required.' });
+  return next();
+}, publicController.initiatePublicReservationMobileMoney);
 
 // Parcel registration is reserved for authenticated agency staff.
 router.post('/parcels', (req, res, next) => next(new AppError('Parcel registration requires an authorized agency account', 403)));

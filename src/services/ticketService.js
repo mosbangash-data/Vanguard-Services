@@ -10,10 +10,17 @@ const VALIDATED_PAYMENT_STATUSES = ['VERIFIED', 'COMPLETED'];
 
 const buildTicketCode = () => `VG-${crypto.randomBytes(12).toString('hex').toUpperCase()}`;
 const buildSerialNumber = () => `SN-${Date.now()}-${crypto.randomInt(10000, 99999)}`;
-const hasValidatedPayment = (payments = []) => payments.some((payment) => payment.method === 'CASH' && VALIDATED_PAYMENT_STATUSES.includes(payment.status));
+const isValidatedPayment = (payment) => VALIDATED_PAYMENT_STATUSES.includes(payment.status)
+  && (payment.method === 'CASH' || (payment.method === 'MOBILE_MONEY' && payment.provider === 'MBIYOPAY'));
+const hasValidatedPayment = (payments = []) => payments.some(isValidatedPayment);
 const isReservationFullyPaid = (reservation) => {
-  const paidCents = (reservation.payments || []).filter((payment) => payment.method === 'CASH' && VALIDATED_PAYMENT_STATUSES.includes(payment.status))
+  const payments = reservation.payments || [];
+  const validated = payments.filter(isValidatedPayment);
+  if (validated.some((payment) => payment.currency !== validated[0]?.currency)) return false;
+  const paidCents = validated
     .reduce((sum, payment) => sum + Math.round(Number(payment.amount) * 100), 0);
+  const duePayments = payments.filter((payment) => payment.currency === validated[0]?.currency);
+  if (payments.length && duePayments.length !== payments.length) return false;
   return paidCents >= Math.round(Number(reservation.totalAmount) * 100);
 };
 
@@ -54,7 +61,7 @@ const ensureReservationReadyForTicket = (reservation) => {
   if (!hasValidatedPayment(reservation.payments)) {
     throw new AppError('Ticket can only be generated after a validated payment', 409);
   }
-  if (!isReservationFullyPaid(reservation)) throw new AppError('Ticket can only be generated after the full cash amount is validated', 409);
+  if (!isReservationFullyPaid(reservation)) throw new AppError('Ticket can only be generated after the full amount is validated', 409);
 };
 
 const getTicketByCode = async (ticketCode, currentUser = null) => {
@@ -696,8 +703,8 @@ const cancelTicketByCode = async (ticketCode, currentUser) => {
   return { ticket: updated };
 };
 
-const createTicketForReservationInTransaction = async (tx, reservationId, currentUser) => {
-  ensureCoachTicketAccess(currentUser);
+const createTicketForReservationInTransaction = async (tx, reservationId, currentUser, { verifiedProviderPayment = false } = {}) => {
+  if (!verifiedProviderPayment) ensureCoachTicketAccess(currentUser);
   if (!reservationId || typeof reservationId !== 'string' || !reservationId.trim()) {
     throw new AppError('Reservation ID is required', 400);
   }
@@ -711,7 +718,12 @@ const createTicketForReservationInTransaction = async (tx, reservationId, curren
     },
   });
   ensureCoachReservation(reservation);
-  await assertDepartmentIdForUser(currentUser, reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
+  if (verifiedProviderPayment) {
+    const department = await tx.department.findUnique({ where: { id: reservation.trip.schedule.departmentId }, select: { type: true } });
+    if (department?.type !== 'VANGUARD_COACH') throw new AppError('Ticket generation only supported for Vanguard Coach reservations', 403);
+  } else {
+    await assertDepartmentIdForUser(currentUser, reservation.trip.schedule.departmentId, 'VANGUARD_COACH');
+  }
   ensureReservationReadyForTicket(reservation);
 
   const existingTicket = reservation.tickets[0];
@@ -771,6 +783,11 @@ const createTicketForReservationInTransaction = async (tx, reservationId, curren
 const createTicketForReservation = async (reservationId, currentUser) => prisma.$transaction((tx) =>
   createTicketForReservationInTransaction(tx, reservationId, currentUser));
 
+const createTicketForMobilePaymentInTransaction = async (tx, reservationId) => {
+  const result = await createTicketForReservationInTransaction(tx, reservationId, null, { verifiedProviderPayment: true });
+  return result;
+};
+
 const notifyCustomerAboutTicket = async (ticket) => {
   // Placeholder for future delivery integration (WhatsApp, SMS, email).
   // Next delivery can implement a sendTicketToCustomer(ticket) hook here.
@@ -780,6 +797,7 @@ const notifyCustomerAboutTicket = async (ticket) => {
 module.exports = {
   createTicketForReservation,
   createTicketForReservationInTransaction,
+  createTicketForMobilePaymentInTransaction,
   getTicketByCode,
   getPublicTicketByCode,
   listTickets,

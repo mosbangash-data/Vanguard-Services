@@ -46,6 +46,16 @@ const payParcel = async (req, res, next) => {
   }
 };
 
+const initiateParcelMobileMoney = async (req, res, next) => {
+  try {
+    const paymentService = require('../services/mbiyoPayService');
+    const result = await paymentService.initiateParcelPayment(req.params.id, req.body, req.user);
+    res.status(202).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const changeStatus = async (req, res, next) => {
   try {
     const result = await parcelService.changeParcelStatus(req.params.id, req.body, req.user);
@@ -125,6 +135,7 @@ module.exports = {
   calculatePriceQuote,
   createParcel,
   payParcel,
+  initiateParcelMobileMoney,
   changeStatus,
   receiveParcel,
   collectParcel,

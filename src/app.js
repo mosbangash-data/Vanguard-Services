@@ -52,6 +52,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const adminMediaRoutes = require('./routes/adminMedia');
 const publicRoutes = require('./routes/public');
+const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 
@@ -142,6 +143,8 @@ const apiLimiter = rateLimit({
 });
 
 app.use('/api', apiLimiter);
+// MbiyoPay signature verification requires the exact unparsed request bytes.
+app.use('/api/webhooks', express.raw({ type: 'application/json', limit: '1mb' }), webhookRoutes);
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 

@@ -1,6 +1,6 @@
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_PUBLIC_PAYMENT_METHODS = ['CASH'];
+const ALLOWED_PUBLIC_PAYMENT_METHODS = ['CASH', 'MOBILE_MONEY'];
 
 const validatePublicReservationCreate = (req, res, next) => {
   const body = req.body;
@@ -13,6 +13,7 @@ const validatePublicReservationCreate = (req, res, next) => {
   const customerPhone = normalizeString(body.customerPhone);
   const seatNumber = normalizeString(body.seatNumber === undefined || body.seatNumber === null ? '' : String(body.seatNumber));
   const customerEmail = normalizeString(body.customerEmail);
+  const paymentMethod = normalizeString(body.paymentMethod || 'CASH').toUpperCase();
 
   if (!tripId) {
     return res.status(400).json({ success: false, message: 'tripId is required' });
@@ -29,6 +30,10 @@ const validatePublicReservationCreate = (req, res, next) => {
   if (customerEmail && !EMAIL_REGEX.test(customerEmail)) {
     return res.status(400).json({ success: false, message: 'customerEmail must be a valid email address' });
   }
+  if (!ALLOWED_PUBLIC_PAYMENT_METHODS.includes(paymentMethod)) {
+    return res.status(400).json({ success: false, message: 'Unsupported payment method.' });
+  }
+  req.body.paymentMethod = paymentMethod;
 
   return next();
 };
@@ -52,10 +57,10 @@ const validatePublicReservationPaymentCreate = (req, res, next) => {
   if (!method) {
     return res.status(400).json({ success: false, message: 'method is required' });
   }
-  if (!ALLOWED_PUBLIC_PAYMENT_METHODS.includes(method)) {
+  if (method !== 'CASH') {
     return res.status(400).json({
       success: false,
-      message: 'Only CASH is supported for public reservations.',
+      message: 'Public payment declarations are CASH-only; Mobile Money uses the dedicated provider flow.',
     });
   }
   if (

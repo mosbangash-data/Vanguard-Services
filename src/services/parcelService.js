@@ -129,7 +129,7 @@ const listParcels = async (query = {}, currentUser) => {
   if (query.destinationAgencyId) where.destinationAgencyId = String(query.destinationAgencyId).trim();
   if (query.paymentStatus) {
     if (!['PENDING', 'VERIFIED', 'COMPLETED'].includes(String(query.paymentStatus).toUpperCase())) throw new AppError('Invalid parcel payment status filter', 400);
-    where.payments = { some: { status: String(query.paymentStatus).toUpperCase(), method: 'CASH' } };
+    where.payments = { some: { status: String(query.paymentStatus).toUpperCase(), method: { in: ['CASH', 'MOBILE_MONEY'] } } };
   }
   if (query.createdFrom || query.createdTo) {
     const from = query.createdFrom ? new Date(query.createdFrom) : null;
@@ -184,7 +184,7 @@ const listParcels = async (query = {}, currentUser) => {
             pickedUpBy: { select: { id: true, firstName: true, lastName: true } },
           },
         },
-        payments: { where: { method: 'CASH' } },
+        payments: { where: { method: { in: ['CASH', 'MOBILE_MONEY'] } } },
       },
     }),
     prisma.parcel.count({ where }),
@@ -219,7 +219,7 @@ const getParcelById = async (id, currentUser) => {
           changedBy: { select: { id: true, firstName: true, lastName: true } },
         },
       },
-      payments: { where: { method: 'CASH' } },
+      payments: { where: { method: { in: ['CASH', 'MOBILE_MONEY'] } } },
     },
   });
 
@@ -236,10 +236,12 @@ const createParcel = async (data, currentUser) => {
   const pricingDimensions = resolvePricingDimensions(pricingBasis, data.weightKg, data.volumeM3);
   const manualPrice = resolveManualParcelPrice(data.amount, data.currency, dept.settings?.currency);
   const paymentTiming = String(data.paymentTiming || '').toUpperCase();
+  const paymentMethod = String(data.paymentMethod || 'CASH').toUpperCase();
+  if (!['CASH', 'MOBILE_MONEY'].includes(paymentMethod)) throw new AppError('Only CASH and MOBILE_MONEY payments are supported for parcels', 400);
   if (!['AT_DEPOSIT', 'AT_PICKUP'].includes(paymentTiming)) throw new AppError('A parcel payment timing is required', 400);
-  if (paymentTiming === 'AT_DEPOSIT' && data.cashCollected !== true) throw new AppError('Confirm that CASH was actually collected at deposit', 400);
-  if (paymentTiming === 'AT_PICKUP' && data.cashCollected === true) throw new AppError('Cash collected at deposit conflicts with payment due at pickup', 400);
-  if (data.paymentMethod && String(data.paymentMethod).toUpperCase() !== 'CASH') throw new AppError('Only CASH payments are supported for parcels', 400);
+  if (paymentMethod === 'CASH' && paymentTiming === 'AT_DEPOSIT' && data.cashCollected !== true) throw new AppError('Confirm that CASH was actually collected at deposit', 400);
+  if (paymentMethod === 'CASH' && paymentTiming === 'AT_PICKUP' && data.cashCollected === true) throw new AppError('Cash collected at deposit conflicts with payment due at pickup', 400);
+  if (paymentMethod === 'MOBILE_MONEY' && data.cashCollected === true) throw new AppError('Mobile Money cannot be marked as physically collected', 400);
   data.originAgencyId = resolveOriginAgencyId(data.originAgencyId, currentUser);
 
   if (data.originAgencyId) {
@@ -295,7 +297,7 @@ const createParcel = async (data, currentUser) => {
         amount: manualPrice.amount,
         currency: manualPrice.currency,
         paymentTiming,
-        status: initialStatus,
+        status: paymentMethod === 'MOBILE_MONEY' && paymentTiming === 'AT_DEPOSIT' ? 'PAYMENT_PENDING' : initialStatus,
         receivedByUserId: null,
         receivedAt: null,
       },
@@ -312,13 +314,15 @@ const createParcel = async (data, currentUser) => {
           agencyId: paymentTiming === 'AT_PICKUP' ? (created.destinationAgencyId || null) : (created.originAgencyId || null),
           amount: created.amount,
           currency: created.currency,
-          channel: 'AGENCY',
-          method: 'CASH',
-          status: paymentTiming === 'AT_DEPOSIT' ? 'VERIFIED' : 'PENDING',
-          provider: 'CASH',
-          comment: paymentTiming === 'AT_DEPOSIT' ? 'Cash collected at parcel deposit' : 'Cash due at parcel pickup',
-          validatedById: paymentTiming === 'AT_DEPOSIT' ? currentUser?.id : null,
-          validatedAt: paymentTiming === 'AT_DEPOSIT' ? new Date() : null,
+          channel: paymentMethod === 'CASH' ? 'AGENCY' : 'ONLINE',
+          method: paymentMethod,
+          status: paymentMethod === 'CASH' && paymentTiming === 'AT_DEPOSIT' ? 'VERIFIED' : 'PENDING',
+          provider: paymentMethod === 'CASH' ? 'CASH' : 'MBIYOPAY',
+          comment: paymentMethod === 'CASH'
+            ? (paymentTiming === 'AT_DEPOSIT' ? 'Cash collected at parcel deposit' : 'Cash due at parcel pickup')
+            : `MbiyoPay payment due ${paymentTiming === 'AT_DEPOSIT' ? 'at deposit' : 'at pickup'}`,
+          validatedById: paymentMethod === 'CASH' && paymentTiming === 'AT_DEPOSIT' ? currentUser?.id : null,
+          validatedAt: paymentMethod === 'CASH' && paymentTiming === 'AT_DEPOSIT' ? new Date() : null,
         },
       });
 
@@ -326,10 +330,10 @@ const createParcel = async (data, currentUser) => {
       data: {
         parcelId: created.id,
         previousStatus: null,
-        newStatus: initialStatus,
+        newStatus: created.status,
         changedByUserId: currentUser?.id || null,
         reason: 'Initial parcel registration and physical reception',
-        details: { action: 'REGISTERED', pricingBasis: pricingBasis || null, paymentMethod: 'CASH', paymentTiming, financialStatus: payment.status, paymentId: payment.id, agencyId: created.originAgencyId || null },
+        details: { action: 'REGISTERED', pricingBasis: pricingBasis || null, paymentMethod, paymentTiming, financialStatus: payment.status, paymentId: payment.id, agencyId: created.originAgencyId || null },
       },
     });
 
@@ -397,7 +401,7 @@ const changeParcelStatus = async (id, { newStatus, reason } = {}, currentUser, d
   assertCoachAccess(currentUser);
   if (!newStatus) throw new AppError('newStatus is required', 400);
   if (['PAYMENT_PENDING', 'PAID'].includes(newStatus)) {
-    throw new AppError('Parcel financial state is managed only by the CASH payment action', 400);
+    throw new AppError('Parcel financial state is managed only by its payment workflow', 400);
   }
   if (['COLLECTED', 'DELIVERED'].includes(newStatus) || (newStatus === 'ARRIVED_AT_AGENCY' && !dedicatedReceipt)) {
     throw new AppError('Parcel receipt and handover must use their dedicated confirmation actions', 400);
@@ -492,12 +496,14 @@ const collectParcel = async (id, pickupData = {}, currentUser) => {
     const parcelPayments = await tx.payment.findMany({ where: { parcelId: id } });
     const pendingPayments = parcelPayments.filter((payment) => payment.status === 'PENDING');
     const validatedPayments = parcelPayments.filter((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status));
-    if (parcelPayments.length !== 1 || parcelPayments[0].method !== 'CASH' || pendingPayments.length || validatedPayments.length !== 1) {
-      throw new AppError('Parcel must have exactly one confirmed CASH payment before pickup', 409);
+    const acceptedPayment = (payment) => payment.method === 'CASH'
+      || (payment.method === 'MOBILE_MONEY' && payment.provider === 'MBIYOPAY');
+    if (parcelPayments.length !== 1 || !acceptedPayment(parcelPayments[0]) || pendingPayments.length || validatedPayments.length !== 1) {
+      throw new AppError('Parcel must have exactly one confirmed payment before pickup', 409);
     }
     const collectedPayment = validatedPayments[0];
     if (Number(collectedPayment.amount).toFixed(2) !== Number(parcel.amount).toFixed(2) || collectedPayment.currency !== parcel.currency) {
-      throw new AppError('Confirmed CASH payment does not match the parcel amount', 409);
+      throw new AppError('Confirmed payment does not match the parcel amount', 409);
     }
 
     // Atomic update to ensure single pickup after payment confirmation.
@@ -602,7 +608,7 @@ const getParcelReceiptContext = async (id, currentUser, requestedFormat = 'a4') 
     include: {
       originAgency: true,
       destinationAgency: true,
-      payments: { where: { method: 'CASH', status: { in: ['VERIFIED', 'COMPLETED', 'PENDING'] } }, take: 1, orderBy: { createdAt: 'desc' } },
+      payments: { where: { method: { in: ['CASH', 'MOBILE_MONEY'] }, status: { in: ['VERIFIED', 'COMPLETED', 'PENDING', 'PROCESSING'] } }, take: 1, orderBy: { createdAt: 'desc' } },
       statusHistory: {
         where: { newStatus: 'ARRIVED_AT_AGENCY' },
         orderBy: { changedAt: 'desc' },

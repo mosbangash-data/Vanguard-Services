@@ -36,7 +36,8 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
   const [currency, setCurrency] = useState('USD')
   const [paymentTiming, setPaymentTiming] = useState('AT_DEPOSIT')
   const [cashCollected, setCashCollected] = useState(false)
-  const paymentMethod = 'CASH'
+  const [paymentMethod, setPaymentMethod] = useState('CASH')
+  const [paymentNetwork, setPaymentNetwork] = useState('vodacom')
 
   // API states
   const [agencies, setAgencies] = useState([])
@@ -106,6 +107,8 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
       setCurrency('USD')
       setPaymentTiming('AT_DEPOSIT')
       setCashCollected(false)
+      setPaymentMethod('CASH')
+      setPaymentNetwork('vodacom')
       setSubmitError('')
       setSuccessResult(null)
       setReceiptData(null)
@@ -132,7 +135,7 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
       setSubmitError(t('agentParcel.selectDestination'))
       return
     }
-    if (paymentTiming === 'AT_DEPOSIT' && !cashCollected) {
+    if (paymentMethod === 'CASH' && paymentTiming === 'AT_DEPOSIT' && !cashCollected) {
       setSubmitError(t('agentParcel.cashCollectedConfirm'))
       return
     }
@@ -179,6 +182,14 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
       const res = await api.post('/api/parcels', payload)
       const parcel = res?.data?.data?.parcel || res?.data?.parcel || res?.parcel || res?.data
       if (!parcel?.id || !parcel?.trackingCode) throw new Error(t('resourceUi.operationFailed'))
+      if (paymentMethod === 'MOBILE_MONEY' && paymentTiming === 'AT_DEPOSIT') {
+        try {
+          const initiation = await api.post(`/api/parcels/${encodeURIComponent(parcel.id)}/mobile-money`, { network: paymentNetwork, phoneNumber: senderPhone.trim() })
+          parcel.mobileMoneyPayment = initiation?.data?.data
+        } catch (paymentError) {
+          setSubmitError(paymentError?.response?.data?.message || t('agentParcel.mobileMoneyPending'))
+        }
+      }
       setSuccessResult(parcel)
       try {
         const receipt = await api.get(`/api/parcels/${encodeURIComponent(parcel.id)}/receipt`, { params: { format: receiptFormat } })
@@ -506,10 +517,15 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
             </h5>
             <div className="form-group" style={{ marginBottom: '0.75rem' }}>
               <label className="form-label" style={{ fontSize: '0.85rem' }}>{t('agentParcel.paymentMethod')} *</label>
-              <div className="form-control vanguard-fixed-payment-method" aria-label={t('agentParcel.paymentMethod')}>
-                {t('agentParcel.cash')}
-              </div>
+              <select className="form-control" value={paymentMethod} onChange={(event) => { setPaymentMethod(event.target.value); setCashCollected(false) }} aria-label={t('agentParcel.paymentMethod')}>
+                <option value="CASH">{t('agentParcel.cash')}</option>
+                {user?.permissions?.includes('VERIFY_PARCEL_PAYMENT') && <option value="MOBILE_MONEY">{t('agentParcel.mobileMoney')}</option>}
+              </select>
             </div>
+            {paymentMethod === 'MOBILE_MONEY' && <div className="form-group" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '.75rem' }}>
+              <label className="form-field"><span>{t('agentParcel.mobileNetwork')}</span><select className="form-control" value={paymentNetwork} onChange={(event) => setPaymentNetwork(event.target.value)}><option value="vodacom">Vodacom</option><option value="airtel">Airtel</option><option value="orange">Orange</option><option value="africell">Africell</option></select></label>
+              <label className="form-field"><span>{t('agentParcel.mobilePhone')}</span><input className="form-control" type="tel" value={senderPhone} readOnly aria-readonly="true" /></label>
+            </div>}
             <div className="form-group" style={{ marginBottom: '.75rem' }}>
               <label className="form-label" htmlFor="parcel-payment-timing">{t('agentParcel.paymentTiming')}</label>
               <select id="parcel-payment-timing" className="form-control" value={paymentTiming} onChange={(event) => { setPaymentTiming(event.target.value); setCashCollected(false) }}>
@@ -517,11 +533,11 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
                 <option value="AT_PICKUP">{t('agentParcel.payAtPickup')}</option>
               </select>
             </div>
-            {paymentTiming === 'AT_DEPOSIT' && <label style={{ display: 'flex', gap: '.5rem', alignItems: 'flex-start', marginBottom: '.75rem' }}>
+            {paymentMethod === 'CASH' && paymentTiming === 'AT_DEPOSIT' && <label style={{ display: 'flex', gap: '.5rem', alignItems: 'flex-start', marginBottom: '.75rem' }}>
               <input type="checkbox" checked={cashCollected} onChange={(event) => setCashCollected(event.target.checked)} />
               <span>{t('agentParcel.cashCollectedConfirm')}</span>
             </label>}
-            {paymentTiming === 'AT_PICKUP' && <p role="status">{t('agentParcel.paymentDueAtPickup')}</p>}
+            {paymentTiming === 'AT_PICKUP' && <p role="status">{paymentMethod === 'CASH' ? t('agentParcel.paymentDueAtPickup') : t('agentParcel.mobileMoneyDueAtPickup')}</p>}
             {paymentMethod === 'CASH' && (
               <div style={{ fontSize: '0.85rem', color: '#b45309', background: 'rgba(245, 158, 11, 0.1)', padding: '0.6rem 0.8rem', borderRadius: '6px', borderLeft: '3px solid #f59e0b' }}>
               {t('agentParcel.cashNotice')}

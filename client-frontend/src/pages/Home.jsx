@@ -23,19 +23,11 @@ import { SITE_CONTACT } from '../config/contact'
 export default function Home() {
   const { t } = useLanguage()
   const revealRef = useReveal()
-  const [settings, setSettings] = useState(null)
   const [popularTrips, setPopularTrips] = useState([])
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      try {
-        const result = await api.getWebsiteSettings()
-        if (!cancelled) setSettings(result?.settings || null)
-      } catch {
-        if (!cancelled) setSettings(null)
-      }
-
       try {
         const tripsRes = await api.searchTrips({ limit: 4 })
         if (!cancelled && tripsRes?.items?.length) {

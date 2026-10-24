@@ -51,6 +51,8 @@ export default function Transport() {
   const [booking, setBooking] = useState(null)
   const [bookingError, setBookingError] = useState(null)
   const [bookingLoading, setBookingLoading] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('CASH')
+  const [paymentNetwork, setPaymentNetwork] = useState('vodacom')
 
   // Consultation réservation
   const [lookupCode, setLookupCode] = useState('')
@@ -151,6 +153,7 @@ export default function Transport() {
         customerName: passenger.name,
         customerPhone: passenger.phone,
         customerEmail: passenger.email || null,
+        paymentMethod,
       })
       const resData = result?.reservation || null
       if (resData && result?.payment) {
@@ -158,6 +161,19 @@ export default function Transport() {
         resData.payment = result.payment
       }
       setBooking(resData)
+      if (paymentMethod === 'MOBILE_MONEY' && resData?.reservationCode) {
+        try {
+          const initiated = await api.initiateReservationMobileMoney(resData.reservationCode, {
+            customerPhone: passenger.phone,
+            network: paymentNetwork,
+          })
+          resData.mobileMoney = initiated
+          resData.payment = { ...resData.payment, status: initiated?.status || 'PROCESSING', providerReference: initiated?.reference }
+          setBooking({ ...resData })
+        } catch (paymentError) {
+          setBookingError(translateError(paymentError, t))
+        }
+      }
       setStep(5)
     } catch (err) {
       setBookingError(translateError(err, t))
@@ -574,6 +590,22 @@ export default function Transport() {
                     </span>
                   </div>
                 </div>
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label className="form-label" htmlFor="reservation-payment-method">{t('transportPage.paymentMethod')}</label>
+                  <select id="reservation-payment-method" className="form-input" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+                    <option value="CASH">{t('transportPage.paymentCash')}</option>
+                    <option value="MOBILE_MONEY">{t('transportPage.paymentMobileMoney')}</option>
+                  </select>
+                </div>
+                {paymentMethod === 'MOBILE_MONEY' && <div className="booking-form-grid">
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="reservation-network">{t('transportPage.paymentNetwork')}</label>
+                    <select id="reservation-network" className="form-input" value={paymentNetwork} onChange={(event) => setPaymentNetwork(event.target.value)}>
+                      <option value="vodacom">Vodacom</option><option value="airtel">Airtel</option><option value="orange">Orange</option><option value="africell">Africell</option>
+                    </select>
+                  </div>
+                  <p>{t('transportPage.paymentPhoneNotice')}: {passenger.phone}</p>
+                </div>}
                 {bookingError && <div className="notice notice-error">{bookingError}</div>}
                 <button
                   type="button"
@@ -600,10 +632,14 @@ export default function Transport() {
 
                 <div className="payment-section">
                   <h4>Montant à payer : {formatAmount(booking?.totalAmount, booking?.payment?.currency || 'USD')}</h4>
-                  <p>Mode de paiement : CASH — {booking?.payment?.status === 'VERIFIED' || booking?.payment?.status === 'COMPLETED' ? 'VALIDÉ' : 'EN ATTENTE'}</p>
+                  <p>{t('transportPage.paymentMethod')} : {booking?.payment?.method === 'MOBILE_MONEY' ? t('transportPage.paymentMobileMoney') : t('transportPage.paymentCash')} — {booking?.payment?.status === 'VERIFIED' || booking?.payment?.status === 'COMPLETED' ? t('transportPage.paymentValidated') : t('transportPage.paymentPending')}</p>
+                  {booking?.payment?.method === 'MOBILE_MONEY' && <p>{t('transportPage.paymentReference')}: {booking?.mobileMoney?.reference || booking?.payment?.providerReference || '—'}</p>}
+                  {booking?.payment?.method === 'MOBILE_MONEY' && booking?.mobileMoney?.checkoutUrl && <a className="btn btn-primary" href={booking.mobileMoney.checkoutUrl} target="_blank" rel="noreferrer">{t('transportPage.continuePayment')}</a>}
                   {booking?.payment?.status === 'VERIFIED' || booking?.payment?.status === 'COMPLETED'
                     ? <p>Votre paiement est validé. Votre billet est disponible.</p>
-                    : <p>Veuillez payer en espèces à l’agence de départ. Votre paiement sera vérifié par un agent Vanguard Services. Après validation, votre billet sera généré automatiquement.</p>}
+                    : booking?.payment?.method === 'MOBILE_MONEY'
+                      ? <p>{t('transportPage.mobileMoneyPendingNotice')}</p>
+                      : <p>Veuillez payer en espèces à l’agence de départ. Votre paiement sera vérifié par un agent Vanguard Services. Après validation, votre billet sera généré automatiquement.</p>}
                   {booking?.tickets?.[0] && <Link className="btn btn-primary" to={`/tickets/${booking.tickets[0].ticketCode}`}>Voir mon billet</Link>}
                 </div>
 

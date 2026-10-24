@@ -32,4 +32,10 @@ module.exports = {
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  mbiyoPayBaseUrl: process.env.MBIYOPAY_BASE_URL || '',
+  mbiyoPayApiKey: process.env.MBIYOPAY_API_KEY || '',
+  mbiyoPayWebhookSecret: process.env.MBIYOPAY_WEBHOOK_SECRET || '',
+  mbiyoPayWebhookSignatureEncoding: process.env.MBIYOPAY_WEBHOOK_SIGNATURE_ENCODING || '',
+  mbiyoPayCallbackUrl: process.env.MBIYOPAY_CALLBACK_URL || '',
+  mbiyoPayTimeoutMs: Math.min(Math.max(Number(process.env.MBIYOPAY_TIMEOUT_MS) || 12000, 1000), 30000),
 };

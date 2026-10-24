@@ -14,7 +14,10 @@ const classifyPayment = (payment) => {
   return { activity: parcel ? 'PARCEL' : 'TRANSPORT', anomaly: null };
 };
 const aggregatePayments = (payments, status = 'ALL', activity = 'ALL', currency = 'ALL') => {
-  const totals = { TRANSPORT: { USD: 0, CDF: 0 }, PARCEL: { USD: 0, CDF: 0 }, pending: { USD: 0, CDF: 0 } };
+  const totals = {
+    TRANSPORT: { USD: 0, CDF: 0 }, PARCEL: { USD: 0, CDF: 0 }, pending: { USD: 0, CDF: 0 },
+    mobileMoney: { TRANSPORT: { USD: 0, CDF: 0 }, PARCEL: { USD: 0, CDF: 0 }, pending: { USD: 0, CDF: 0 } },
+  };
   const anomalies = { ambiguousPayments: 0, unattachedPayments: 0, unsupportedCurrencyPayments: 0, refundCount: 0 };
   const included = new Set();
   let validatedPaymentCount = 0; let pendingPaymentCount = 0;
@@ -24,12 +27,15 @@ const aggregatePayments = (payments, status = 'ALL', activity = 'ALL', currency 
     if (activity !== 'ALL' && activity !== classification.activity) continue;
     if (currency !== 'ALL' && currency !== payment.currency) continue;
     if (payment.status === 'REFUNDED') { anomalies.refundCount++; continue; }
-    if (payment.status === 'PENDING' && ['ALL', 'PENDING'].includes(status)) {
-      add(totals.pending, payment.currency, payment.amount); pendingPaymentCount++; continue;
+    const isMobileMoney = payment.method === 'MOBILE_MONEY' && payment.provider === 'MBIYOPAY';
+    if (payment.method && payment.method !== 'CASH' && !isMobileMoney) continue;
+    const target = isMobileMoney ? totals.mobileMoney : totals;
+    if (['PENDING', 'PROCESSING'].includes(payment.status) && (status === 'ALL' || status === payment.status)) {
+      add(target.pending, payment.currency, payment.amount); pendingPaymentCount++; continue;
     }
     if (status === 'PENDING' || !PAID[classification.activity].includes(payment.status) || !payment.validatedAt) continue;
     if (included.has(payment.id)) continue;
-    included.add(payment.id); add(totals[classification.activity], payment.currency, payment.amount); validatedPaymentCount++;
+    included.add(payment.id); add(target[classification.activity], payment.currency, payment.amount); validatedPaymentCount++;
     if (!CURRENCIES.includes(payment.currency)) anomalies.unsupportedCurrencyPayments++;
   }
   return { totals, total: { USD: totals.TRANSPORT.USD + totals.PARCEL.USD, CDF: totals.TRANSPORT.CDF + totals.PARCEL.CDF }, anomalies, validatedPaymentCount, pendingPaymentCount };
@@ -73,10 +79,10 @@ async function getCoachFinancialReport(query, user) {
   const relationScopes = [];
   if (filters.activity !== 'PARCEL') relationScopes.push({ reservation: { trip: { schedule: { departmentId: department.id, ...(agencyId ? { agencyId } : {}) } } }, parcelId: null });
   if (filters.activity !== 'TRANSPORT') relationScopes.push({ parcel: { ...(agencyId ? { OR: [{ originAgencyId: agencyId }, { destinationAgencyId: agencyId }] } : { OR: [{ originAgency: { departmentId: department.id } }, { destinationAgency: { departmentId: department.id } }] }) }, reservationId: null });
-  const commonWhere = { channel: 'AGENCY', method: 'CASH', OR: relationScopes };
+  const commonWhere = { method: { in: ['CASH', 'MOBILE_MONEY'] }, OR: relationScopes };
   if (filters.currency !== 'ALL') commonWhere.currency = filters.currency;
   const payments = await prisma.payment.findMany({ where: commonWhere, select: { id: true, reservationId: true, parcelId: true, amount: true, currency: true, method: true, status: true, createdAt: true, validatedAt: true, agencyId: true } });
-  const reportPayments = payments.filter((payment) => payment.status === 'PENDING'
+  const reportPayments = payments.filter((payment) => ['PENDING', 'PROCESSING'].includes(payment.status)
     ? payment.createdAt >= start && payment.createdAt < end
     : payment.status === 'REFUNDED'
       ? payment.validatedAt && payment.validatedAt >= start && payment.validatedAt < end
@@ -85,6 +91,6 @@ async function getCoachFinancialReport(query, user) {
   const totals = aggregated.totals;
   const ticketWhere = { issuedAt: { gte: start, lt: end }, status: { not: 'CANCELLED' }, reservation: { trip: { schedule: { departmentId: department.id, ...(agencyId ? { agencyId } : {}) } } } };
   const tickets = filters.activity === 'PARCEL' ? 0 : await prisma.ticket.count({ where: ticketWhere });
-  return { filters: { ...filters, agencyId, timeZone, start: start.toISOString(), endExclusive: end.toISOString() }, totals: { transportCollected: money(totals.TRANSPORT), parcelCollected: money(totals.PARCEL), totalCollected: money(aggregated.total), pendingAmount: money(totals.pending), validatedPaymentCount: aggregated.validatedPaymentCount, pendingPaymentCount: aggregated.pendingPaymentCount, issuedTicketCount: tickets }, anomalies: { ...aggregated.anomalies, refundReconciliation: 'Refunds have no dedicated effective timestamp or cash movement record; refundCount is not a period-of-refund measure and net revenue cannot be calculated.' } };
+  return { filters: { ...filters, agencyId, timeZone, start: start.toISOString(), endExclusive: end.toISOString() }, totals: { transportCollected: money(totals.TRANSPORT), parcelCollected: money(totals.PARCEL), totalCollected: money(aggregated.total), pendingAmount: money(totals.pending), mobileMoney: { transportCollected: money(totals.mobileMoney.TRANSPORT), parcelCollected: money(totals.mobileMoney.PARCEL), totalCollected: money({ USD: totals.mobileMoney.TRANSPORT.USD + totals.mobileMoney.PARCEL.USD, CDF: totals.mobileMoney.TRANSPORT.CDF + totals.mobileMoney.PARCEL.CDF }), pendingAmount: money(totals.mobileMoney.pending) }, validatedPaymentCount: aggregated.validatedPaymentCount, pendingPaymentCount: aggregated.pendingPaymentCount, issuedTicketCount: tickets }, anomalies: { ...aggregated.anomalies, refundReconciliation: 'Refunds have no dedicated effective timestamp or cash movement record; refundCount is not a period-of-refund measure and net revenue cannot be calculated.' } };
 }
 module.exports = { getCoachFinancialReport, validateFilters, PAID, classifyPayment, aggregatePayments };

@@ -82,6 +82,9 @@ test('parcel payload uses quote price, selected pricing basis and deposit cash c
   assert.equal(pickup.cashCollected, false)
   assert.equal(pickup.weightKg, 2)
   assert.equal(pickup.volumeM3, 0)
+  const mobile = buildParcelCreatePayload({ paymentTiming: 'AT_DEPOSIT', paymentMethod: 'MOBILE_MONEY', cashCollected: false, pricingBasis: 'WEIGHT', weightKg: '2' }, { amount: '6.50', currency: 'USD' })
+  assert.equal(mobile.paymentMethod, 'MOBILE_MONEY')
+  assert.equal(mobile.cashCollected, false)
 })
 
 test('parcel creation validator accepts the actual contract and rejects missing fields or invalid prices', () => {
@@ -98,6 +101,7 @@ test('parcel creation validator accepts the actual contract and rejects missing 
     return { status, bodyOut, continued }
   }
   assert.equal(invoke(valid).continued, true)
+  assert.equal(invoke({ ...valid, paymentMethod: 'MOBILE_MONEY', cashCollected: false }).continued, true)
   assert.equal(invoke({ ...valid, amount: '0' }).status, 400)
   assert.equal(invoke({ ...valid, senderName: '' }).status, 400)
   assert.equal(invoke({ ...valid, destinationAgencyId: '', destinationCity: '' }).status, 400)

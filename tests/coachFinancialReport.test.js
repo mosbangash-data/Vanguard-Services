@@ -23,13 +23,17 @@ test('financial aggregation counts each validated transaction once and separates
     { id: 'amb', reservationId: 'r3', parcelId: 'c2', amount: '9', currency: 'USD', status: 'VERIFIED', validatedAt: new Date() },
     { id: 'orphan', reservationId: null, parcelId: null, amount: '9', currency: 'USD', status: 'VERIFIED', validatedAt: new Date() },
     { id: 'done', reservationId: 'r4', parcelId: null, amount: '8', currency: 'USD', status: 'COMPLETED', validatedAt: new Date() },
+    { id: 'mobile-cdf', reservationId: null, parcelId: 'c3', amount: '2500', currency: 'CDF', method: 'MOBILE_MONEY', provider: 'MBIYOPAY', status: 'VERIFIED', validatedAt: new Date() },
+    { id: 'mobile-pending', reservationId: 'r5', parcelId: null, amount: '4', currency: 'USD', method: 'MOBILE_MONEY', provider: 'MBIYOPAY', status: 'PROCESSING', createdAt: new Date() },
   ];
   const result = aggregatePayments([...payments, payments[0]]);
   assert.equal(result.totals.TRANSPORT.USD, 1234);
   assert.equal(result.totals.PARCEL.CDF, 100000);
   assert.equal(result.totals.pending.USD, 5000);
-  assert.equal(result.validatedPaymentCount, 2);
-  assert.equal(result.pendingPaymentCount, 1);
+  assert.equal(result.totals.mobileMoney.PARCEL.CDF, 250000);
+  assert.equal(result.totals.mobileMoney.pending.USD, 400);
+  assert.equal(result.validatedPaymentCount, 3);
+  assert.equal(result.pendingPaymentCount, 2);
   assert.equal(result.anomalies.ambiguousPayments, 1);
   assert.equal(result.anomalies.unattachedPayments, 1);
   assert.deepEqual(aggregatePayments(payments, 'PENDING', 'TRANSPORT', 'USD').totals.pending, { USD: 5000, CDF: 0 });
@@ -43,6 +47,6 @@ test('payment relation classification never assigns an ambiguous payment to eith
 
 test('business day range uses Africa/Kinshasa local midnight boundaries', () => {
   const range = businessDayRange('2026-10-16', 'Africa/Kinshasa');
-  assert.equal(range.start.toISOString(), '2026-10-15T22:00:00.000Z');
-  assert.equal(range.end.toISOString(), '2026-10-16T22:00:00.000Z');
+  assert.equal(range.start.toISOString(), '2026-10-15T23:00:00.000Z');
+  assert.equal(range.end.toISOString(), '2026-10-16T23:00:00.000Z');
 });

@@ -11,7 +11,6 @@ export default function Contact() {
   const { t } = useLanguage()
   const revealRef = useReveal()
 
-  const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [unavailable, setUnavailable] = useState(false)
 
@@ -20,15 +19,13 @@ export default function Contact() {
     ;(async () => {
       setLoading(true)
       try {
-        const result = await api.getWebsiteSettings()
+        await api.getWebsiteSettings()
         if (!cancelled) {
-          setSettings(result?.settings || null)
           setUnavailable(false)
         }
       } catch {
         if (!cancelled) {
           // Le backend public n'existe pas encore — on affiche l'indisponibilité proprement
-          setSettings(null)
           setUnavailable(true)
         }
       } finally {

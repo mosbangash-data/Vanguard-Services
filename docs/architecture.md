@@ -7,7 +7,7 @@ Vanguard Services est conçu comme une application web monolithique modulaire, a
 - couche de présentation : EJS + CSS premium + composants réutilisables
 - couche d'application : Express + contrôleurs + services
 - couche de persistance : PostgreSQL + Prisma
-- couche de sécurité : sessions, rôles, middleware, validation des entrées
+- couche de sécurité : jetons JWT, rôles, middleware, validation des entrées
 
 Cette architecture est adaptée à une équipe de développement moyenne, avec plusieurs départements, tout en restant simple à déployer, sécuriser et faire évoluer.
 
@@ -42,8 +42,8 @@ Cette architecture est adaptée à une équipe de développement moyenne, avec p
 
 ### Sécurité
 
-- sessions sécurisées avec `express-session`
-- mot de passe hashés avec `bcryptjs`
+- authentification par jeton JWT
+- mots de passe hachés avec `bcrypt`
 - `helmet` pour les en-têtes HTTP
 - `rate-limiting` pour limiter les attaques de force brute
 - rôles et permissions centralisés dans un middleware

@@ -86,6 +86,33 @@ test('POST /api/public/parcels — colis réservé aux comptes agence authentifi
   }, before, 'Rejected public parcel creation must not create partial records or trigger secondary mutations');
 });
 
+test('aucune route publique ne permet un paiement colis et les routes métier restent authentifiées', async () => {
+  const noPublicPaymentRoute = await request('POST', '/api/public/parcels/not-a-tracking-code/mobile-money', {
+    network: 'vodacom', phoneNumber: '+243812345678',
+  });
+  assert.equal(noPublicPaymentRoute.status, 404);
+  const staffPaymentRequiresLogin = await request('POST', '/api/parcels/nonexistent/mobile-money', {
+    network: 'vodacom', phoneNumber: '+243812345678',
+  });
+  assert.equal(staffPaymentRequiresLogin.status, 401);
+});
+
+test('GET /api/public/parcels/:trackingCode conserve le suivi public en lecture seule', async () => {
+  const trackingCode = `PKG-PUBLIC-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const parcel = await prisma.parcel.create({ data: {
+    trackingCode, senderName: 'Test sender', senderPhone: '+243812345678', recipientName: 'Test recipient',
+    recipientPhone: '+243812345679', originCity: 'Kinshasa', destinationCity: 'Matadi',
+    weightKg: '1.00', volumeM3: '0.01', amount: '10.00', currency: 'USD',
+  } });
+  try {
+    const response = await request('GET', `/api/public/parcels/${encodeURIComponent(trackingCode)}`);
+    assert.equal(response.status, 200);
+    assert.equal(response.data.data.parcel.trackingCode, trackingCode);
+  } finally {
+    await prisma.parcel.delete({ where: { id: parcel.id } });
+  }
+});
+
 test('GET /api/public/trips — recherche publique sans JWT', async () => {
   const res = await request('GET', '/api/public/trips');
   assert.equal(res.status, 200);

@@ -18,6 +18,13 @@ router.put('/:id', requirePermission('UPDATE_PARCEL'), parcelController.updatePa
 router.delete('/:id', requireRole('SUPER_ADMIN', 'SERVICE_ADMIN'), parcelController.deleteParcel);
 
 router.post('/:id/pay', requirePermission('VERIFY_PARCEL_PAYMENT'), parcelController.payParcel);
+router.post('/:id/mobile-money', requirePermission('VERIFY_PARCEL_PAYMENT'), (req, res, next) => {
+  const phone = String(req.body?.phoneNumber || '').replace(/[\s()-]/g, '');
+  const network = String(req.body?.network || '').trim().toLowerCase();
+  if (!/^\+?243\d{9}$/.test(phone)) return res.status(400).json({ success: false, message: 'A valid DR Congo phone number is required.' });
+  if (!['vodacom', 'airtel', 'orange', 'africell'].includes(network)) return res.status(400).json({ success: false, message: 'A supported mobile network is required.' });
+  return next();
+}, parcelController.initiateParcelMobileMoney);
 router.post('/:id/receive', requirePermission('RECEIVE_PARCEL'), parcelController.receiveParcel);
 router.patch('/:id/status', requirePermission('CHANGE_PARCEL_STATUS'), validateStatusChange, parcelController.changeStatus);
 router.post('/:id/collect', requirePermission('COLLECT_PARCEL'), validatePickup, parcelController.collectParcel);

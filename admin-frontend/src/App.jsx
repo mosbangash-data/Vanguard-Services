@@ -21,7 +21,6 @@ const NotificationsPage = lazy(() => import('./features/admin/notifications/Noti
 const AccountPage = lazy(() => import('./features/admin/account/AccountPage').then((m) => ({ default: m.AccountPage })))
 
 // Other Features & Resources
-const DashboardPage = lazy(() => import('./features/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const ProjectDetailPage = lazy(() => import('./features/construction/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage })))
 const ConstructionDashboardPage = lazy(() => import('./features/construction/ConstructionDashboardPage').then((m) => ({ default: m.ConstructionDashboardPage })))
 const ProjectListPage = lazy(() => import('./features/construction/ProjectListPage').then((m) => ({ default: m.ProjectListPage })))
@@ -112,7 +111,7 @@ function CoachAgentRoute() {
   return <AgentDashboard />
 }
 
-function renderDepartmentRoutes({ base, department, title, resources, DashboardComponent = DashboardPage }) {
+function renderDepartmentRoutes({ base, department, title, resources, DashboardComponent }) {
   return (
     <Route key={base} element={<DepartmentRoute department={department} />}>
       <Route element={<AppLayout title={title} navigation={resources} />}>

@@ -51,6 +51,16 @@ const getPublicReservationByCode = async (req, res, next) => {
   }
 };
 
+const initiatePublicReservationMobileMoney = async (req, res, next) => {
+  try {
+    const paymentService = require('../services/mbiyoPayService');
+    const result = await paymentService.initiatePublicReservationPayment(req.params.code, req.body);
+    res.status(202).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getPublicParcelByTrackingCode = async (req, res, next) => {
   try {
     const result = await publicTransportService.getPublicParcelByTrackingCode(req.params.trackingCode);
@@ -126,6 +136,7 @@ module.exports = {
   getPublicTripSeats,
   createPublicReservation,
   getPublicReservationByCode,
+  initiatePublicReservationMobileMoney,
   getPublicParcelByTrackingCode,
   listPublicProjects,
   getPublicProject,

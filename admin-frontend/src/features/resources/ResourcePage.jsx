@@ -199,6 +199,23 @@ export function ResourcePage({ resource }) {
     }
   }
 
+  const initiateParcelMobileMoney = async (parcelId) => {
+    const network = window.prompt(t('agentParcel.networkPrompt'), 'vodacom')?.trim().toLowerCase()
+    if (!network) return
+    const phoneNumber = window.prompt(t('agentParcel.mobilePhone'))?.trim()
+    if (!phoneNumber) return
+    setParcelActionId(parcelId)
+    setTicketActionError('')
+    try {
+      await api.post(`/api/parcels/${encodeURIComponent(parcelId)}/mobile-money`, { network, phoneNumber })
+      await query.refetch()
+    } catch (error) {
+      setTicketActionError(errorMessage(error, t))
+    } finally {
+      setParcelActionId(null)
+    }
+  }
+
   const transitionParcel = async (parcelId, newStatus) => {
     setParcelActionId(parcelId)
     setTicketActionError('')
@@ -682,7 +699,8 @@ export function ResourcePage({ resource }) {
                               <>
                                 {hasPermission(user, 'PRINT_PARCEL_RECEIPT') && <button type="button" className="table-action-btn view-btn" disabled={Boolean(parcelActionId)} onClick={() => viewParcelReceipt(item.id)}>{t('operations.receipt')}</button>}
                                 {PARCEL_NEXT_ACTION[item.status] && hasPermission(user, PARCEL_NEXT_ACTION[item.status].permission) && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId)} onClick={() => transitionParcel(item.id, PARCEL_NEXT_ACTION[item.status].status)}>{t(`agentParcel.${PARCEL_NEXT_ACTION[item.status].label}`)}</button>}
-                                {hasPermission(user, 'VERIFY_PARCEL_PAYMENT') && item.paymentTiming === 'AT_PICKUP' && item.status === 'READY_FOR_PICKUP' && !item.payments?.some((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status)) && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId)} onClick={() => payParcel(item.id)}>{parcelActionId === item.id ? t('operations.validating') : t('agentParcel.confirmCashCollected')}</button>}
+                                {hasPermission(user, 'VERIFY_PARCEL_PAYMENT') && item.paymentTiming === 'AT_PICKUP' && item.status === 'READY_FOR_PICKUP' && item.payments?.[0]?.method === 'CASH' && item.payments?.[0]?.status === 'PENDING' && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId)} onClick={() => payParcel(item.id)}>{parcelActionId === item.id ? t('operations.validating') : t('agentParcel.confirmCashCollected')}</button>}
+                                {hasPermission(user, 'VERIFY_PARCEL_PAYMENT') && item.payments?.[0]?.method === 'MOBILE_MONEY' && item.payments?.[0]?.status === 'PENDING' && ((item.paymentTiming === 'AT_DEPOSIT' && item.status === 'PAYMENT_PENDING') || (item.paymentTiming === 'AT_PICKUP' && item.status === 'READY_FOR_PICKUP')) && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId)} onClick={() => initiateParcelMobileMoney(item.id)}>{parcelActionId === item.id ? t('operations.validating') : t('agentParcel.initiateMobileMoney')}</button>}
                                 {hasPermission(user, 'COLLECT_PARCEL') && item.status === 'READY_FOR_PICKUP' && <button type="button" className="table-action-btn" disabled={Boolean(parcelActionId) || (item.paymentTiming === 'AT_PICKUP' && !item.payments?.some((payment) => ['VERIFIED', 'COMPLETED'].includes(payment.status)))} onClick={() => collectParcel(item.id)}>{t('parcel.confirmPickup')}</button>}
                               </>
                             ) : (

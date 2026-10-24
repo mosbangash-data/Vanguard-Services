@@ -1,30 +1,12 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Phone, Mail, MapPin, ShieldCheck, Clock } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageProvider'
-import { api } from '../api/client'
 import { SITE_CONTACT } from '../config/contact'
 
 const ADMIN_URL = import.meta.env.VITE_ADMIN_URL || '/login'
 
 export default function Footer() {
   const { t } = useLanguage()
-  const [settings, setSettings] = useState(null)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const result = await api.getWebsiteSettings()
-        if (!cancelled) setSettings(result?.settings || null)
-      } catch {
-        if (!cancelled) setSettings(null)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   return (
     <footer className="footer">
