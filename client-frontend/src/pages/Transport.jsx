@@ -52,7 +52,8 @@ export default function Transport() {
   const [bookingError, setBookingError] = useState(null)
   const [bookingLoading, setBookingLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('CASH')
-  const [paymentNetwork, setPaymentNetwork] = useState('vodacom')
+  const [paymentNetwork, setPaymentNetwork] = useState('')
+  const [paymentPhoneNumber, setPaymentPhoneNumber] = useState('')
 
   // Consultation réservation
   const [lookupCode, setLookupCode] = useState('')
@@ -144,6 +145,13 @@ export default function Transport() {
   }
 
   const handleConfirm = async () => {
+    if (paymentMethod === 'MOBILE_MONEY') {
+      const normalizedPaymentPhone = paymentPhoneNumber.replace(/[\s()-]/g, '')
+      if (!paymentNetwork || !/^\+?243\d{9}$/.test(normalizedPaymentPhone)) {
+        setBookingError(translateError({ message: !paymentNetwork ? 'payment network is required' : 'A valid payment phone number is required' }, t))
+        return
+      }
+    }
     setBookingLoading(true)
     setBookingError(null)
     try {
@@ -165,6 +173,7 @@ export default function Transport() {
         try {
           const initiated = await api.initiateReservationMobileMoney(resData.reservationCode, {
             customerPhone: passenger.phone,
+            paymentPhoneNumber: paymentPhoneNumber.replace(/[\s()-]/g, ''),
             network: paymentNetwork,
           })
           resData.mobileMoney = initiated
@@ -215,6 +224,8 @@ export default function Transport() {
 
   const getTripArrivalTime = (trip) =>
     trip.schedule?.returnTime || (trip.arrivalAt ? formatTime(new Date(trip.arrivalAt).toLocaleTimeString()) : '—')
+
+  const isPaymentPhoneValid = /^\+?243\d{9}$/.test(paymentPhoneNumber.replace(/[\s()-]/g, ''))
 
   return (
     <div ref={revealRef}>
@@ -590,30 +601,52 @@ export default function Transport() {
                     </span>
                   </div>
                 </div>
-                <div className="form-group" style={{ marginTop: '1rem' }}>
-                  <label className="form-label" htmlFor="reservation-payment-method">{t('transportPage.paymentMethod')}</label>
-                  <select id="reservation-payment-method" className="form-input" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-                    <option value="CASH">{t('transportPage.paymentCash')}</option>
-                    <option value="MOBILE_MONEY">{t('transportPage.paymentMobileMoney')}</option>
-                  </select>
-                </div>
-                {paymentMethod === 'MOBILE_MONEY' && <div className="booking-form-grid">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="reservation-network">{t('transportPage.paymentNetwork')}</label>
-                    <select id="reservation-network" className="form-input" value={paymentNetwork} onChange={(event) => setPaymentNetwork(event.target.value)}>
-                      <option value="vodacom">Vodacom</option><option value="airtel">Airtel</option><option value="orange">Orange</option><option value="africell">Africell</option>
-                    </select>
+                <section className="reservation-payment" aria-labelledby="reservation-payment-heading">
+                  <div className="reservation-payment-heading">
+                    <div>
+                      <span className="summary-label">{t('transportPage.paymentMethod')}</span>
+                      <h4 id="reservation-payment-heading">{paymentMethod === 'MOBILE_MONEY' ? t('transportPage.mobilePaymentTitle') : t('transportPage.paymentCash')}</h4>
+                    </div>
+                    <div className="reservation-payment-total">
+                      <span>{t('transportPage.amountDue')}</span>
+                      <strong>{selectedTrip.schedule?.price != null
+                        ? formatAmount(selectedTrip.schedule.price, selectedTrip.schedule?.currency)
+                        : formatAmount(selectedTrip.price, selectedTrip.currency)}</strong>
+                    </div>
                   </div>
-                  <p>{t('transportPage.paymentPhoneNotice')}: {passenger.phone}</p>
-                </div>}
+                  <div className="payment-method-switch" role="group" aria-label={t('transportPage.paymentMethod')}>
+                    <button type="button" className={paymentMethod === 'CASH' ? 'payment-method-option is-selected' : 'payment-method-option'} aria-pressed={paymentMethod === 'CASH'} onClick={() => { setPaymentMethod('CASH'); setBookingError(null) }}>{t('transportPage.paymentCash')}</button>
+                    <button type="button" className={paymentMethod === 'MOBILE_MONEY' ? 'payment-method-option is-selected' : 'payment-method-option'} aria-pressed={paymentMethod === 'MOBILE_MONEY'} onClick={() => { setPaymentMethod('MOBILE_MONEY'); setBookingError(null) }}>{t('transportPage.paymentMobileMoney')}</button>
+                  </div>
+                  {paymentMethod === 'MOBILE_MONEY' && <div className="mobile-payment-fields">
+                    <p className="mobile-payment-prompt">{t('transportPage.chooseNetwork')}</p>
+                    <div className="mobile-network-grid" role="group" aria-label={t('transportPage.mobilePaymentNetwork')}>
+                      {[
+                        { id: 'vodacom', label: 'M-Pesa', brand: 'network-mpesa' },
+                        { id: 'airtel', label: 'Airtel Money', brand: 'network-airtel' },
+                        { id: 'orange', label: 'Orange Money', brand: 'network-orange' },
+                        { id: 'africell', label: 'Afrimoney', brand: 'network-afrimoney' },
+                      ].map((network) => <button key={network.id} type="button" className={`mobile-network-card ${network.brand}${paymentNetwork === network.id ? ' is-selected' : ''}`} onClick={() => { setPaymentNetwork(network.id); setBookingError(null) }} aria-pressed={paymentNetwork === network.id}>
+                        <span className="mobile-network-wordmark">{network.label}</span>
+                        {paymentNetwork === network.id && <CheckCircle2 size={16} aria-label={t('transportPage.selected')} />}
+                      </button>)}
+                    </div>
+                    <div className="form-group mobile-payment-phone">
+                      <label className="form-label" htmlFor="reservation-payment-phone">{t('transportPage.mobilePaymentPhone')}</label>
+                      <input id="reservation-payment-phone" type="tel" inputMode="tel" autoComplete="tel" className="form-input" value={paymentPhoneNumber} onChange={(event) => { setPaymentPhoneNumber(event.target.value); setBookingError(null) }} placeholder={t('transportPage.paymentPhonePlaceholder')} required aria-invalid={paymentPhoneNumber.length > 0 && !isPaymentPhoneValid} aria-describedby="reservation-payment-phone-help" />
+                      <small id="reservation-payment-phone-help">{t('transportPage.paymentPhoneHelp')}</small>
+                      {paymentPhoneNumber && !isPaymentPhoneValid && <small className="field-error">{t('transportPage.paymentPhoneInvalid')}</small>}
+                    </div>
+                  </div>}
+                </section>
                 {bookingError && <div className="notice notice-error">{bookingError}</div>}
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={handleConfirm}
-                  disabled={bookingLoading}
+                  disabled={bookingLoading || (paymentMethod === 'MOBILE_MONEY' && (!paymentNetwork || !isPaymentPhoneValid))}
                 >
-                  {bookingLoading ? t('transportPage.bookingSending') : t('transportPage.confirm')}
+                  {bookingLoading ? t('transportPage.bookingSending') : paymentMethod === 'MOBILE_MONEY' ? t('transportPage.pay') : t('transportPage.confirm')}
                 </button>
               </div>
             )}
@@ -626,6 +659,7 @@ export default function Transport() {
                 </div>
                 <h3>{t('transportPage.confirmTitle')}</h3>
                 <p>{t('transportPage.confirmMessage')}</p>
+                {bookingError && <div className="notice notice-error" role="alert">{bookingError}</div>}
                 {booking?.reservationCode && (
                   <div className="confirmation-code">{booking.reservationCode}</div>
                 )}

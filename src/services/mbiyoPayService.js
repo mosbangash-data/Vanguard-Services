@@ -129,7 +129,9 @@ const initiateParcelPayment = async (parcelId, details = {}, currentUser) => {
 const initiatePublicReservationPayment = async (reservationCode, details = {}) => {
   const code = String(reservationCode || '').trim();
   const phone = String(details.customerPhone || '').replace(/[\s()-]/g, '');
-  if (!code || !phone) throw new AppError('Reservation code and customer phone are required', 400);
+  const paymentPhoneNumber = String(details.paymentPhoneNumber || '').replace(/[\s()-]/g, '');
+  if (!code || !phone || !paymentPhoneNumber) throw new AppError('Reservation code, customer phone and payment phone are required', 400);
+  if (!/^\+?243\d{9}$/.test(paymentPhoneNumber)) throw new AppError('A valid payment phone number is required', 400);
   const reservation = await prisma.reservation.findUnique({
     where: { reservationCode: code },
     include: { payments: true, trip: { include: { schedule: true } } },
@@ -150,7 +152,7 @@ const initiatePublicReservationPayment = async (reservationCode, details = {}) =
   if (reservation.payments.some((other) => other.id !== payment.id && isPaid(other))) {
     throw new AppError('Reservation balance has already been paid', 409);
   }
-  return initiatePayment(payment, { network: details.network, phoneNumber: reservation.customerPhone });
+  return initiatePayment(payment, { network: details.network, phoneNumber: paymentPhoneNumber });
 };
 
 const reconcileEvent = async (event) => {

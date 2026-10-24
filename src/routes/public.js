@@ -47,8 +47,10 @@ router.post('/reservations', publicPostLimiter, validatePublicReservationCreate,
 router.get('/reservations/:code', publicController.getPublicReservationByCode);
 router.post('/reservations/:code/mobile-money', publicPostLimiter, (req, res, next) => {
   const phone = String(req.body?.customerPhone || '').replace(/[\s()-]/g, '');
+  const paymentPhoneNumber = String(req.body?.paymentPhoneNumber || '').replace(/[\s()-]/g, '');
   const network = String(req.body?.network || '').trim().toLowerCase();
   if (!/^\+?243\d{9}$/.test(phone)) return res.status(400).json({ success: false, message: 'A valid DR Congo phone number is required.' });
+  if (!/^\+?243\d{9}$/.test(paymentPhoneNumber)) return res.status(400).json({ success: false, message: 'A valid payment phone number is required.' });
   if (!['vodacom', 'airtel', 'orange', 'africell'].includes(network)) return res.status(400).json({ success: false, message: 'A supported mobile network is required.' });
   return next();
 }, publicController.initiatePublicReservationMobileMoney);

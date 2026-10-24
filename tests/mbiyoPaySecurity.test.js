@@ -116,7 +116,7 @@ test('Agent can initiate Mobile Money only for an existing parcel payment in the
   }
 });
 
-test('public reservation Mobile Money uses only the phone verified against the existing booking', async () => {
+test('public reservation Mobile Money verifies the booking phone but sends the separately entered payment phone', async () => {
   const service = require('../src/services/mbiyoPayService');
   const { mbiyoPayProvider } = require('../src/services/payment');
   const oldFindReservation = prisma.reservation.findUnique;
@@ -142,10 +142,16 @@ test('public reservation Mobile Money uses only the phone verified against the e
     };
 
     await service.initiatePublicReservationPayment('RSV-A', {
-      customerPhone: '+243812345678', phoneNumber: '+243899999999', network: 'orange',
+      customerPhone: '+243812345678', paymentPhoneNumber: '+243899999999', network: 'orange',
     });
-    assert.equal(receivedContext.phoneNumber, '+243812345678');
+    assert.equal(receivedContext.phoneNumber, '+243899999999');
     assert.equal(receivedContext.reference, 'payment-a');
+    await assert.rejects(service.initiatePublicReservationPayment('RSV-A', {
+      customerPhone: '+243812345678', paymentPhoneNumber: '', network: 'orange',
+    }), { statusCode: 400 });
+    await assert.rejects(service.initiatePublicReservationPayment('RSV-A', {
+      customerPhone: '+243812345678', paymentPhoneNumber: 'not-a-phone', network: 'orange',
+    }), { statusCode: 400 });
   } finally {
     prisma.reservation.findUnique = oldFindReservation;
     prisma.department.findUnique = oldFindDepartment;

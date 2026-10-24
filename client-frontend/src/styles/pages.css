@@ -482,6 +482,139 @@
   padding: var(--space-6);
 }
 
+.reservation-payment {
+  margin-top: 1.5rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-lg);
+  background: var(--color-slate-50);
+}
+
+.reservation-payment-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.reservation-payment-heading h4 {
+  margin: .25rem 0 0;
+  color: var(--color-navy-800);
+  font: 750 1.15rem/1.3 var(--font-display);
+}
+
+.reservation-payment-total {
+  display: grid;
+  gap: .2rem;
+  text-align: right;
+}
+
+.reservation-payment-total span {
+  color: var(--color-slate-500);
+  font-size: .75rem;
+}
+
+.reservation-payment-total strong {
+  color: var(--color-primary);
+  font: 800 1.25rem/1.2 var(--font-display);
+}
+
+.payment-method-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+
+.payment-method-option {
+  min-height: 44px;
+  padding: .65rem .8rem;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  color: var(--color-navy-800);
+  font: 650 .9rem/1.3 var(--font-body);
+  cursor: pointer;
+}
+
+.payment-method-option.is-selected {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.mobile-payment-fields {
+  padding-top: .75rem;
+  border-top: 1px solid var(--color-slate-200);
+}
+
+.mobile-payment-prompt {
+  margin-bottom: .7rem;
+  color: var(--color-navy-800);
+  font-size: .9rem;
+  font-weight: 650;
+}
+
+.mobile-network-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .6rem;
+}
+
+.mobile-network-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .3rem;
+  min-width: 0;
+  min-height: 58px;
+  padding: .55rem .45rem;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  color: var(--color-navy-800);
+  font: 700 .82rem/1.2 var(--font-display);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-base), background-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.mobile-network-card.is-selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.mobile-network-card:focus-visible,
+.payment-method-option:focus-visible {
+  outline: 3px solid var(--color-primary-border);
+  outline-offset: 2px;
+}
+
+.mobile-payment-phone {
+  margin-top: 1rem;
+}
+
+.mobile-payment-phone small {
+  display: block;
+  margin-top: .35rem;
+  color: var(--color-slate-500);
+  font-size: .78rem;
+}
+
+.mobile-payment-phone .field-error {
+  color: var(--color-danger, #b42318);
+}
+
+@media (max-width: 560px) {
+  .reservation-payment-heading { align-items: flex-start; flex-direction: column; }
+  .reservation-payment-total { text-align: left; }
+  .mobile-network-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .payment-section h4 {
   font-family: var(--font-display);
   font-size: 1.25rem;

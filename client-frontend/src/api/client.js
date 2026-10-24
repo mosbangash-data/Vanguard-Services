@@ -154,6 +154,7 @@ export const api = {
   createReservation: (payload) =>
     apiClient.post('/api/public/reservations', payload).then(unwrap),
 
+  /** @param {{ customerPhone: string, paymentPhoneNumber: string, network: string }} payload */
   initiateReservationMobileMoney: (code, payload) =>
     apiClient.post(`/api/public/reservations/${encodeURIComponent(code)}/mobile-money`, payload).then(unwrap),
 
