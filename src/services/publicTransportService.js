@@ -297,8 +297,11 @@ const createPublicReservation = async (data) => {
         where: { departmentId: trip.schedule.departmentId },
         select: { currency: true },
       });
-      const currency = String(settings?.currency || '').toUpperCase();
-      if (!['USD', 'CDF'].includes(currency)) throw new AppError('Vanguard Coach currency is not configured for reservations', 409);
+      // Public trip listings and seat details already publish USD when the
+      // department has no settings row. Keep reservation payments consistent
+      // with that displayed currency while still rejecting invalid settings.
+      const currency = String(settings?.currency || 'USD').toUpperCase();
+      if (!['USD', 'CDF'].includes(currency)) throw new AppError('Vanguard Coach currency is not configured for reservations', 503);
       const payment = await tx.payment.create({
         data: {
           reservationId: reservation.id,
@@ -318,7 +321,16 @@ const createPublicReservation = async (data) => {
       return { reservation, payment };
     } catch (error) {
       if (error?.code === 'P2002') {
-        throw new AppError('Seat already reserved', 409);
+        const target = error.meta?.target;
+        const targetFields = Array.isArray(target) ? target.map(String) : [String(target || '')];
+        const isSeatConflict = (targetFields.includes('tripId') && targetFields.includes('seatNumber')) ||
+          targetFields.some((field) => field.includes('Reservation_active_trip_seat_key'));
+        throw new AppError(
+          isSeatConflict
+            ? 'This seat was just reserved. Please choose another seat.'
+            : 'This reservation conflicts with an existing record. Please refresh and try again.',
+          409,
+        );
       }
       throw error;
     }

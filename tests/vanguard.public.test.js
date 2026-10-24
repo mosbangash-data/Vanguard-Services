@@ -258,7 +258,8 @@ test('POST /api/public/reservations — double réservation concurrente', async 
   if (trips.length === 0) return;
 
   const trip = trips[0];
-  const seat = '2';
+  // Race for the last numbered seat so one request must lose the unique-seat claim.
+  const seat = String(trip.bus.seats);
 
   const payload = {
     tripId: trip.id,
@@ -274,6 +275,10 @@ test('POST /api/public/reservations — double réservation concurrente', async 
 
   const statuses = [res1.status, res2.status].sort();
   assert.deepEqual(statuses, [201, 409]);
+  const conflict = res1.status === 409 ? res1 : res2;
+  assert.equal(conflict.data.message, 'This seat was just reserved. Please choose another seat.');
+  assert.equal(JSON.stringify(conflict.data).includes(payload.customerPhone), false);
+  assert.equal(JSON.stringify(conflict.data).includes('stack'), false);
   const created = res1.status === 201 ? res1 : res2;
   assert.equal(created.data.data.payment.status, 'PENDING');
   const lookup = await request('GET', `/api/public/reservations/${created.data.data.reservation.reservationCode}`);
@@ -305,6 +310,7 @@ test('POST /api/public/reservations — crée le paiement CASH PENDING automatiq
   assert.equal(payment.method, 'CASH');
   assert.equal(payment.channel, 'AGENCY');
   assert.equal(Number(payment.amount), Number(reservation.totalAmount));
+  assert.equal(await prisma.ticket.count({ where: { reservationId: reservation.id } }), 0, 'a pending payment must not issue a ticket');
 });
 
 test('POST /api/public/reservations/:id/payments — création manuelle de paiement désactivée', async () => {
