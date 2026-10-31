@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import {
   Search,
   Bus,
@@ -18,23 +18,25 @@ import SectionHeader from '../components/SectionHeader'
 import { LoadingState } from '../components/StateView'
 import { api } from '../api/client'
 import { translateError } from '../utils/errors'
+import { fetchAllTrips } from '../utils/fetchAllTrips'
 
 const STEPS = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6']
 
-const formatDate = (date) => {
+const formatDate = (date, timeZone = 'Africa/Kinshasa') => {
   if (!date) return '—'
   const d = new Date(date)
   if (Number.isNaN(d.getTime())) return date
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+  return new Intl.DateTimeFormat('fr-FR', { timeZone, day: '2-digit', month: 'long', year: 'numeric' }).format(d)
 }
 
-const formatTime = (time) => time || '—'
+const formatTripTime = (date, timeZone) => date ? new Intl.DateTimeFormat('fr-FR', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(date)) : '—'
 
 const formatAmount = (amount, currency = 'USD') =>
   `${new Intl.NumberFormat('fr-FR').format(Number(amount))} ${currency}`
 
 export default function Transport() {
   const { t } = useLanguage()
+  const location = useLocation()
   const revealRef = useReveal()
 
   const [step, setStep] = useState(0)
@@ -66,19 +68,16 @@ export default function Transport() {
   const [parcelTrackingLoading, setParcelTrackingLoading] = useState(false)
   const [parcelTrackingError, setParcelTrackingError] = useState(null)
   const [parcelTrackingResult, setParcelTrackingResult] = useState(null)
+  const initialLoad = useRef(null)
 
   const searchTrips = async (filters = {}) => {
     setSearching(true)
     setSearchError(null)
     try {
-      const result = await api.searchTrips({
-        departure: filters.from || undefined,
-        arrival: filters.to || undefined,
-        date: filters.date || undefined,
-      })
-      setTrips(result?.items || [])
+      const collected = await fetchAllTrips(api.searchTrips, filters)
+      setTrips(collected)
       setStep(1)
-      return result?.items || []
+      return collected
     } catch (err) {
       setSearchError(translateError(err, t))
       setTrips([])
@@ -88,6 +87,22 @@ export default function Transport() {
       setSearching(false)
     }
   }
+
+  const searchTripsRef = useRef(searchTrips)
+
+  useEffect(() => {
+    if (!initialLoad.current) initialLoad.current = searchTripsRef.current()
+  }, [])
+
+  useEffect(() => {
+    const target = location.hash.slice(1)
+    if (!['reservation', 'horaires'].includes(target) || searching || (target === 'horaires' && step !== 1)) return
+    const frame = requestAnimationFrame(() => {
+      const element = document.getElementById(target)
+      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [location.hash, searching, step, trips.length])
 
   const handleParcelTrack = async (e) => {
     e.preventDefault()
@@ -220,10 +235,10 @@ export default function Transport() {
   }
 
   const getTripDepartureTime = (trip) =>
-    trip.schedule?.departureTime || (trip.departureAt ? formatTime(new Date(trip.departureAt).toLocaleTimeString()) : '—')
+    trip.schedule?.departureTime || formatTripTime(trip.departureAt, trip.schedule?.timeZone)
 
   const getTripArrivalTime = (trip) =>
-    trip.schedule?.returnTime || (trip.arrivalAt ? formatTime(new Date(trip.arrivalAt).toLocaleTimeString()) : '—')
+    formatTripTime(trip.arrivalAt, trip.schedule?.timeZone)
 
   const isPaymentPhoneValid = /^\+?243\d{9}$/.test(paymentPhoneNumber.replace(/[\s()-]/g, ''))
 
@@ -245,7 +260,7 @@ export default function Transport() {
       </section>
 
       {/* ===== RECHERCHE / RÉSERVATION ===== */}
-      <section className="section">
+      <section className="section" id="reservation">
         <div className="container">
           <div className="booking-card reveal">
             <div className="booking-steps">
@@ -325,7 +340,7 @@ export default function Transport() {
 
             {/* ÉTAPE 1 : Résultats */}
             {step === 1 && (
-              <div className="booking-results">
+                <div className="booking-results" id="horaires">
                 <div className="booking-results-header">
                   <h3>{t('transportPage.resultsTitle')}</h3>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>
@@ -368,6 +383,7 @@ export default function Transport() {
                           </div>
                         </div>
                         <div className="trip-card-meta">
+                          <span className="trip-card-date">{formatDate(trip.departureAt, trip.schedule?.timeZone)}</span>
                           <span className="trip-card-price">{getTripPrice(trip)}</span>
                           <span className="trip-card-seats">
                             <Bus size={14} aria-hidden="true" />

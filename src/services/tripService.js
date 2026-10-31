@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('./auditService');
 const { requireCoachAdmin, requireCoachOperational, getUserAgencyId, assertAgencyAccess, assertDepartmentIdForUser } = require('./departmentAccessService');
+const { agencyLocalDateTimeToUtc } = require('../utils/agencyLocalDateTime');
 
 const normalizePage = (value) => {
   const parsed = Number(value);
@@ -24,18 +25,14 @@ const parseTimeToMinutes = (value) => {
   return hours * 60 + minutes;
 };
 
-const buildDepartureAtFromDateAndSchedule = (dateValue, schedule) => {
+const buildDepartureAtFromDateAndSchedule = (dateValue, schedule, timeZone) => {
   if (!schedule || !schedule.departureTime) return null;
   const timeMinutes = parseTimeToMinutes(schedule.departureTime);
   if (timeMinutes === null) return null;
 
-  const baseDate = new Date(dateValue);
-  if (Number.isNaN(baseDate.getTime())) return null;
-
-  baseDate.setHours(0, 0, 0, 0);
-  const timestamp = new Date(baseDate);
-  timestamp.setHours(Math.floor(timeMinutes / 60), timeMinutes % 60, 0, 0);
-  return timestamp;
+  const [hours, minutes] = schedule.departureTime.split(':').map(Number);
+  if (hours > 23 || minutes > 59) return null;
+  try { return agencyLocalDateTimeToUtc(dateValue, schedule.departureTime, timeZone); } catch { return null; }
 };
 
 const listTrips = async (query = {}, currentUser) => {
@@ -136,7 +133,7 @@ const createTrip = async (data, currentUser) => {
 
   const schedule = await prisma.schedule.findUnique({
     where: { id: scheduleId },
-    include: { route: true, bus: true },
+    include: { route: true, bus: true, agency: { select: { timeZone: true } } },
   });
   if (!schedule) throw new AppError('Schedule not found', 404);
   if (schedule.status !== 'ACTIVE') throw new AppError('Schedule is not active', 409);
@@ -148,13 +145,13 @@ const createTrip = async (data, currentUser) => {
 
   let departureAt = null;
   if (data?.date) {
-    departureAt = buildDepartureAtFromDateAndSchedule(data.date, schedule);
+    departureAt = buildDepartureAtFromDateAndSchedule(data.date, schedule, schedule.agency?.timeZone || 'Africa/Kinshasa');
   } else if (data?.departureAt) {
     const raw = new Date(data.departureAt);
     if (!Number.isNaN(raw.getTime())) {
       // Use the date portion of departureAt combined with schedule's departureTime
       const datePart = raw.toISOString().slice(0, 10);
-      departureAt = buildDepartureAtFromDateAndSchedule(datePart, schedule) || raw;
+      departureAt = buildDepartureAtFromDateAndSchedule(datePart, schedule, schedule.agency?.timeZone || 'Africa/Kinshasa') || raw;
     }
   }
 
@@ -162,7 +159,10 @@ const createTrip = async (data, currentUser) => {
     throw new AppError('Valid date is required; the schedule departure time will be applied automatically', 400);
   }
 
-  let arrivalAt = data?.arrivalAt ? new Date(data.arrivalAt) : null;
+  // Trip creation is scheduled from the selected agency-local date and the
+  // schedule's departure time; derive arrival from the route duration so the
+  // admin browser/server time zones cannot shift the occurrence.
+  let arrivalAt = data?.date ? null : (data?.arrivalAt ? new Date(data.arrivalAt) : null);
   if (!arrivalAt || Number.isNaN(arrivalAt.getTime())) {
     const durationHours = Number(schedule.route.durationHours) || 2;
     arrivalAt = new Date(departureAt.getTime() + durationHours * 60 * 60 * 1000);

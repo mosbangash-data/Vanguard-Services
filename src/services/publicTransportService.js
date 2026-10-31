@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const { AppError } = require('../middleware/errorHandler');
+const { cityMatchesSearch } = require('../utils/normalizeCitySearch');
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -81,21 +82,15 @@ const listPublicTrips = async (query = {}) => {
     departureAt: { gt: now },
   };
 
-  if (departure) {
-    where.schedule.route.departureCity = { contains: departure, mode: 'insensitive' };
-  }
-  if (arrival) {
-    where.schedule.route.arrivalCity = { contains: arrival, mode: 'insensitive' };
-  }
   if (dateRange) {
     where.departureAt = { ...dateRange, gt: now };
   }
 
-  const [items, total] = await Promise.all([
+  const hasCityFilter = Boolean(departure || arrival);
+  const [queriedItems, queriedTotal] = await Promise.all([
     prisma.trip.findMany({
       where,
-      skip,
-      take: limit,
+      ...(hasCityFilter ? {} : { skip, take: limit }),
       orderBy: { departureAt: 'asc' },
       include: {
         schedule: {
@@ -109,14 +104,22 @@ const listPublicTrips = async (query = {}) => {
                 name: true,
                 city: true,
                 phone: true,
+                timeZone: true,
               },
             },
           },
         },
       },
     }),
-    prisma.trip.count({ where }),
+    hasCityFilter ? Promise.resolve(null) : prisma.trip.count({ where }),
   ]);
+
+  const matchingItems = hasCityFilter ? queriedItems.filter((trip) =>
+    cityMatchesSearch(trip.schedule?.route?.departureCity, departure) &&
+    cityMatchesSearch(trip.schedule?.route?.arrivalCity, arrival)
+  ) : queriedItems;
+  const items = hasCityFilter ? matchingItems.slice(skip, skip + limit) : matchingItems;
+  const total = hasCityFilter ? matchingItems.length : queriedTotal;
 
   // Calculer les sièges disponibles pour chaque trajet
   const tripsWithAvailability = await Promise.all(
@@ -145,6 +148,7 @@ const listPublicTrips = async (query = {}) => {
           returnTime: trip.schedule?.returnTime,
           price: trip.schedule?.price,
           currency,
+          timeZone: trip.schedule?.agency?.timeZone || 'Africa/Kinshasa',
         },
         bus: {
           brand: bus?.brand,

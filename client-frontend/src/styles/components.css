@@ -1101,3 +1101,28 @@
     pointer-events: auto;
   }
 }
+
+/* Public navigation refinements */
+.navbar-nav { flex: 1; justify-content: center; }
+.navbar-about { position: relative; }
+.navbar-about-trigger { border: 0; background: transparent; cursor: pointer; }
+.navbar-about-menu { position: absolute; top: calc(100% + 12px); left: 0; z-index: 120; width: 270px; padding: 8px; border: 1px solid var(--color-slate-200); border-radius: 12px; background: #fff; box-shadow: var(--shadow-lg); }
+.navbar-about-link { display: block; padding: 12px 14px; border-radius: 8px; color: var(--color-navy-800); font-weight: 600; }
+.navbar-about-link + .navbar-about-link { border-top: 1px solid var(--color-slate-100); }
+.navbar-about-link:hover { color: var(--color-primary); background: var(--color-slate-50); }
+.navbar-burger { display: none; }
+.navbar-mobile { visibility: hidden; }
+.navbar-mobile-open { visibility: visible; }
+.navbar-mobile-group { padding: 12px 0; border-bottom: 1px solid var(--color-slate-200); }
+.navbar-mobile-group > span { display: block; padding: 4px 0 8px; color: var(--color-slate-500); font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.navbar-mobile-group .navbar-mobile-link { padding-left: 12px; border: 0; }
+.section[id], #reservation, #horaires { scroll-margin-top: 92px; }
+@media (max-width: 860px) {
+  .navbar-inner { height: 68px; }
+  .navbar-nav, .navbar-desktop-actions { display: none; }
+  .navbar-burger { display: inline-flex; align-items: center; gap: 7px; padding: 10px 12px; border: 1px solid var(--color-slate-200); border-radius: 9px; font-weight: 700; }
+  .navbar-mobile { top: 68px; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+}
+@media (min-width: 861px) {
+  .navbar-mobile { display: none; }
+}

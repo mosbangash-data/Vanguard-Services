@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Bus,
@@ -17,30 +16,11 @@ import {
 } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageProvider'
 import { useReveal } from '../hooks/useReveal'
-import { api } from '../api/client'
 import { SITE_CONTACT } from '../config/contact'
 
 export default function Home() {
   const { t } = useLanguage()
   const revealRef = useReveal()
-  const [popularTrips, setPopularTrips] = useState([])
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const tripsRes = await api.searchTrips({ limit: 4 })
-        if (!cancelled && tripsRes?.items?.length) {
-          setPopularTrips(tripsRes.items.slice(0, 3))
-        }
-      } catch {
-        // Fallback statique
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   return (
     <div ref={revealRef}>
@@ -66,13 +46,13 @@ export default function Home() {
             {t('hero.subtitle')}
           </p>
           <div className="hero-actions reveal reveal-delay-3">
-            <a href="#services" className="btn btn-primary btn-lg">
+            <Link to="/transport#reservation" className="btn btn-primary btn-lg">
               {t('hero.ctaPrimary')}
               <ArrowRight size={18} aria-hidden="true" />
-            </a>
-            <a href="#how-it-works" className="btn btn-outline btn-lg">
+            </Link>
+            <Link to="/transport#horaires" className="btn btn-outline btn-lg">
               {t('hero.ctaSecondary')}
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -84,24 +64,9 @@ export default function Home() {
               <span>{t('hero.routesTitle')}</span>
             </div>
             <div className="hero-routes-list">
-              {popularTrips.length > 0 ? (
-                popularTrips.map((trip, idx) => (
-                  <span key={trip.id || idx} className="hero-route-item">
-                    <span>
-                      {trip.route?.departureCity || 'Goma'} ↔ {trip.route?.arrivalCity || 'Dar es Salaam'}
-                    </span>
-                    {idx < popularTrips.length - 1 && <span className="hero-route-sep">|</span>}
-                  </span>
-                ))
-              ) : (
-                <>
-                  <span className="hero-route-item">{t('hero.route1')}</span>
-                  <span className="hero-route-sep">|</span>
-                  <span className="hero-route-item">{t('hero.route2')}</span>
-                  <span className="hero-route-sep">|</span>
-                  <span className="hero-route-item">{t('hero.route3')}</span>
-                </>
-              )}
+              <span className="hero-route-item">Goma - Dar Es Salaam</span>
+              <span className="hero-route-sep">|</span>
+              <span className="hero-route-item">Bukavu - Dar Es Salaam</span>
             </div>
           </div>
         </div>
