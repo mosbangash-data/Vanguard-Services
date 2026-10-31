@@ -84,7 +84,7 @@ export default function Ticket() {
 
       <article className={`ticket-printable ticket--${printFormat}`} aria-label="Billet de voyage Vanguard Coach">
         <header className="ticket-print-header">
-          <img src="/assets/transport/logo.jpeg" alt="Logo Vanguard Services" />
+          <img src="/assets/transport/logo.png" alt="Logo Vanguard Services" />
           <div><strong>VANGUARD COACH</strong></div>
           <span className={`ticket-payment-status ${ticket?.status === 'VALID' && paid ? 'is-paid' : 'is-pending'}`}>{ticketStatus}</span>
         </header>
