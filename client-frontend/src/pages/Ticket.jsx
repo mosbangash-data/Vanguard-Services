@@ -54,9 +54,23 @@ export default function Ticket() {
     return () => { active = false }
   }, [ticket?.qrCode])
 
-  const formatDate = (date) => date
-    ? new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
-    : '—'
+  const pad2 = (n) => String(n).padStart(2, '0')
+  const formatTravelDate = (dateVal) => {
+    if (!dateVal) return '—'
+    const d = new Date(dateVal)
+    if (isNaN(d.getTime())) return '—'
+    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`
+  }
+  const formatDateTime = (dateVal) => {
+    if (!dateVal) return '—'
+    const d = new Date(dateVal)
+    if (isNaN(d.getTime())) return '—'
+    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+  }
+  const busLabel = schedule?.bus?.plateNumber || (schedule?.bus?.brand ? `${schedule.bus.brand} ${schedule.bus.model || ''}`.trim() : '')
+  const currency = reservation?.payments?.[0]?.currency || 'USD'
+  const travelDateFormatted = formatTravelDate(trip?.departureAt)
+  const issuedDateFormatted = formatDateTime(ticket?.issuedAt || ticket?.createdAt)
 
   if (loading) return <LoadingState />
   if (error) return <ErrorState message={translateError(error, t)} onRetry={execute} />
@@ -83,41 +97,93 @@ export default function Ticket() {
       </div>
 
       <article className={`ticket-printable ticket--${printFormat}`} aria-label="Billet de voyage Vanguard Coach">
-        <header className="ticket-print-header">
-          <img src="/assets/transport/logo.png" alt="Logo Vanguard Services" />
-          <div><strong>VANGUARD COACH</strong></div>
-          <span className={`ticket-payment-status ${ticket?.status === 'VALID' && paid ? 'is-paid' : 'is-pending'}`}>{ticketStatus}</span>
+        {/* Logo Vanguard Coach */}
+        <header className="ticket-logo-header">
+          <img src="/assets/transport/logo.png" alt="Vanguard Coach" className="ticket-logo-img" />
         </header>
 
-        <section className="ticket-print-route">
-          <div><span>DÉPART : </span><strong>{route?.departureCity || '—'}</strong></div>
-          <span className="ticket-route-arrow" aria-hidden="true">→</span>
-          <div><span>DESTINATION : </span><strong>{route?.arrivalCity || '—'}</strong></div>
-        </section>
-        <section className="ticket-print-times">
-          <div><span>DATE DU VOYAGE : </span><strong>{formatDate(trip?.departureAt)}</strong></div>
-          <div><span>DÉPART : </span><strong>{schedule?.departureTime || '—'}</strong></div>
-        </section>
+        <div className="ticket-dashed-divider"></div>
 
-        {(reservation?.customerName || reservation?.customerPhone) && <section className="ticket-print-passenger">
-          <span>PASSAGER : </span><strong>{reservation?.customerName || '—'}</strong>
-          {reservation?.customerPhone && <small>{reservation.customerPhone}</small>}
-        </section>}
+        {/* Bannière Billet de Transport */}
+        <div className="ticket-title-banner">BILLET DE TRANSPORT</div>
+        <div className="ticket-number">N° {ticket.ticketCode}</div>
 
-        <section className="ticket-print-details">
-          <div><span>SIÈGE : </span><strong>{reservation?.seatNumber || '—'}</strong></div>
-          <div><span>BILLET : </span><strong>{ticket.ticketCode}</strong></div>
+        <div className="ticket-dashed-divider"></div>
+
+        {/* Section Trajet */}
+        <section className="ticket-route-section" aria-label="Trajet">
+          <div className="ticket-city ticket-city--departure">{route?.departureCity || '—'}</div>
+          <div className="ticket-route-arrow" aria-hidden="true">&#9660;</div>
+          <div className="ticket-city ticket-city--arrival">{route?.arrivalCity || '—'}</div>
         </section>
 
-        <section className="ticket-print-qr" aria-label="QR code du billet">
+        <div className="ticket-dashed-divider"></div>
+
+        {/* Détails du voyage */}
+        <section className="ticket-details-table" aria-label="Détails du voyage">
+          <div className="ticket-detail-row">
+            <span className="ticket-detail-label">Date</span>
+            <span className="ticket-detail-value">{travelDateFormatted}</span>
+          </div>
+          <div className="ticket-detail-row">
+            <span className="ticket-detail-label">Départ</span>
+            <span className="ticket-detail-value">{schedule?.departureTime || '—'}</span>
+          </div>
+          <div className="ticket-detail-row">
+            <span className="ticket-detail-label">Siège</span>
+            <span className="ticket-detail-value">{reservation?.seatNumber || '—'}</span>
+          </div>
+          {busLabel && (
+            <div className="ticket-detail-row">
+              <span className="ticket-detail-label">Bus</span>
+              <span className="ticket-detail-value">{busLabel}</span>
+            </div>
+          )}
+          {ticket.class && (
+            <div className="ticket-detail-row">
+              <span className="ticket-detail-label">Classe</span>
+              <span className="ticket-detail-value">{ticket.class}</span>
+            </div>
+          )}
+          <div className="ticket-passenger-block">
+            <span className="ticket-detail-label">Passager</span>
+            <div className="ticket-passenger-name">{reservation?.customerName || '—'}</div>
+            {reservation?.customerPhone && (
+              <div className="ticket-passenger-phone">{reservation.customerPhone}</div>
+            )}
+          </div>
+        </section>
+
+        {/* Cadre Prix */}
+        <section className="ticket-price-box" aria-label="Prix du billet">
+          <span className="ticket-price-label">PRIX</span>
+          <span className="ticket-price-value">{reservation?.totalAmount != null ? reservation.totalAmount : '—'} {currency}</span>
+        </section>
+
+        {/* Instruction QR */}
+        <div className="ticket-qr-instruction">SCANNEZ À L'EMBARQUEMENT</div>
+
+        {/* QR Code */}
+        <div className="ticket-qr" role="img" aria-label="QR code du billet">
           {qrImage ? <img src={qrImage} alt={`QR code pour ${ticket.ticketCode}`} /> : <span>QR indisponible</span>}
-          <small>Présentez ce code à l’agent au départ</small>
-        </section>
+        </div>
 
-        <footer className="ticket-print-footer">
-          {ticket.issuedAt && <span>ÉMIS LE {formatDate(ticket.issuedAt)}</span>}
-          <strong>{ticketStatus}</strong>
-          {schedule?.bus?.plateNumber && <span>{schedule.bus.plateNumber}</span>}
+        {/* Mentions légales / consignes */}
+        <div className="ticket-notes">
+          <div>Présentez ce billet au contrôleur.</div>
+          <div>Non remboursable · Non échangeable</div>
+          <div>Bagages sous la responsabilité du voyageur</div>
+        </div>
+
+        <div className="ticket-dashed-divider"></div>
+
+        {/* Pied de billet */}
+        <footer className="ticket-footer">
+          <div>Merci de voyager avec</div>
+          <div className="ticket-footer-brand">VANGUARD COACH</div>
+          {issuedDateFormatted !== '—' && (
+            <div className="ticket-footer-issued">Émis le {issuedDateFormatted}</div>
+          )}
         </footer>
       </article>
     </main>

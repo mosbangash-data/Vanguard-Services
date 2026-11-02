@@ -13,58 +13,259 @@
   gap: 12px;
 }
 .ticket-print-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ticket-print-controls label { font-size: 12px; font-weight: 700; color: #34445c; }
+.ticket-print-controls label { font-size: 12px; font-weight: 700; color: #111; }
 .ticket-print-controls select { min-height: 38px; padding: 0 8px; border: 1px solid #cbd4df; border-radius: 6px; background: #fff; color: #14243b; }
 .ticket-print-controls small { flex-basis: 100%; color: #56657a; font-size: 11px; text-align: right; }
 .ticket-print-error { max-width: 520px; margin: 0 auto 12px; color: #a32929; font-size: 13px; }
 
 .ticket-back { color: #34445c; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+
+/* Conteneur du billet */
 .ticket-printable {
-  width: min(100%, 420px);
+  width: 80mm;
+  min-height: 160mm;
   margin: 0 auto;
-  padding: 22px 24px 18px;
-  background: #fff;
-  color: #14243b;
-  border: 1px solid #d8e0ea;
-  border-radius: 12px;
-  box-shadow: 0 12px 32px #1d355712;
-  font-family: Arial, sans-serif;
+  padding: 5mm 4mm;
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #d8e0e8;
+  border-radius: 3mm;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12);
+  line-height: 1.2;
+  font-family: Arial, Helvetica, "Segoe UI", sans-serif;
 }
-.ticket-print-header { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 2px solid #14243b; }
-.ticket-print-header img { display: block; width: 82px; height: auto; max-height: 54px; object-fit: contain; }
-.ticket-print-header div { display: grid; gap: 2px; }
-.ticket-print-header div strong { font-size: 15px; letter-spacing: .09em; }
-.ticket-print-header div span { font-size: 11px; font-weight: 700; letter-spacing: .2em; color: #a77722; }
-.ticket-payment-status { margin-left: auto; padding: 5px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
-.ticket-payment-status.is-paid { color: #17633a; background: #e5f5eb; }
-.ticket-payment-status.is-pending { color: #805812; background: #fff4d7; }
-.ticket-print-route { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 20px 0 12px; }
-.ticket-print-route div { display: grid; gap: 5px; min-width: 0; }
-.ticket-print-route div:last-child { text-align: right; }
-.ticket-print-route div span, .ticket-print-times span, .ticket-print-passenger > span, .ticket-print-details span { color: #6b7788; font-size: 9px; font-weight: 700; letter-spacing: .1em; }
-.ticket-print-route div strong { font-size: 18px; text-transform: uppercase; overflow-wrap: anywhere; }
-.ticket-route-arrow { color: #b0812b; font-size: 21px; }
-.ticket-print-times { display: flex; gap: 28px; padding: 0 0 15px; border-bottom: 1px dashed #cbd4df; }
-.ticket-print-times div, .ticket-print-passenger, .ticket-print-details div { display: grid; gap: 5px; }
-.ticket-print-times strong { font-size: 12px; }
-.ticket-print-passenger { padding: 15px 0; border-bottom: 1px dashed #cbd4df; }
-.ticket-print-passenger strong { font-size: 16px; text-transform: uppercase; }
-.ticket-print-passenger small { color: #56657a; }
-.ticket-print-details { display: grid; grid-template-columns: .55fr 1fr; gap: 13px 20px; padding: 15px 0; }
-.ticket-print-details div:last-child { grid-column: 1 / -1; }
-.ticket-print-details strong { font-size: 12px; overflow-wrap: anywhere; }
-.ticket-print-qr { display: grid; justify-items: center; gap: 7px; padding: 10px 0 14px; }
-.ticket-print-qr img { display: block; width: 176px; height: 176px; image-rendering: pixelated; }
-.ticket-print-qr small { color: #56657a; font-size: 10px; text-align: center; }
-.ticket-print-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; padding-top: 11px; border-top: 1px solid #d8e0ea; color: #56657a; font-size: 9px; }
-.ticket-print-footer strong { width: 100%; color: #17633a; text-align: center; letter-spacing: .12em; font-size: 11px; }
+
+/* En-tête : Logo Vanguard Coach */
+.ticket-logo-header {
+  text-align: center;
+  padding: 1mm 0;
+}
+.ticket-logo-img {
+  display: block;
+  width: 100%;
+  max-width: 60mm;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+/* Séparateurs pointillés */
+.ticket-dashed-divider {
+  border: 0;
+  border-top: 1.5px dashed #000000;
+  margin: 2.5mm 0;
+  width: 100%;
+  height: 0;
+}
+
+/* Bannière titre & Numéro */
+.ticket-title-banner {
+  background: #000000;
+  color: #ffffff;
+  text-align: center;
+  font-weight: 900;
+  font-size: 11pt;
+  letter-spacing: 0.06em;
+  padding: 1.6mm 1mm;
+  text-transform: uppercase;
+  margin: 0;
+  line-height: 1.2;
+}
+.ticket-number {
+  text-align: center;
+  font-weight: 800;
+  font-size: 10.5pt;
+  letter-spacing: 0.04em;
+  margin: 1.5mm 0 0;
+  text-transform: uppercase;
+  color: #000000;
+}
+
+/* Section Trajet */
+.ticket-route-section {
+  text-align: center;
+  padding: 0.5mm 0;
+}
+.ticket-city {
+  font-size: 13.5pt;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: #000000;
+  overflow-wrap: anywhere;
+}
+.ticket-route-arrow {
+  font-size: 9pt;
+  text-align: center;
+  line-height: 1;
+  margin: 1.2mm 0;
+  color: #000000;
+}
+
+/* Tableau des détails */
+.ticket-details-table {
+  margin: 1.5mm 0;
+}
+.ticket-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 1.5mm 0;
+  font-size: 9.5pt;
+  line-height: 1.2;
+}
+.ticket-detail-label {
+  font-weight: 500;
+  color: #000000;
+}
+.ticket-detail-value {
+  font-weight: 800;
+  color: #000000;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.ticket-passenger-block {
+  margin-top: 2mm;
+}
+.ticket-passenger-name {
+  font-size: 11pt;
+  font-weight: 900;
+  text-align: right;
+  text-transform: uppercase;
+  margin-top: 0.8mm;
+  line-height: 1.15;
+  color: #000000;
+  overflow-wrap: anywhere;
+}
+.ticket-passenger-phone {
+  font-size: 8pt;
+  text-align: right;
+  color: #333333;
+  margin-top: 0.5mm;
+}
+
+/* Encadré Prix */
+.ticket-price-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 2px solid #000000;
+  padding: 1.8mm 3mm;
+  margin: 3mm 0 2mm;
+  background: #ffffff;
+}
+.ticket-price-label {
+  font-size: 11pt;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: #000000;
+}
+.ticket-price-value {
+  font-size: 13pt;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #000000;
+  text-align: right;
+}
+
+/* Instruction au-dessus du QR */
+.ticket-qr-instruction {
+  text-align: center;
+  font-size: 8pt;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 2.2mm 0 1.2mm;
+  text-transform: uppercase;
+  color: #000000;
+}
+
+/* QR Code */
+.ticket-qr {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0.5mm auto 2.5mm;
+}
+.ticket-qr img {
+  display: block;
+  width: 38mm;
+  height: 38mm;
+  image-rendering: pixelated;
+}
+
+/* Consignes & Mentions */
+.ticket-notes {
+  text-align: center;
+  font-size: 6.8pt;
+  line-height: 1.35;
+  margin: 1.8mm 0 1.2mm;
+  font-weight: 500;
+  color: #000000;
+}
+
+/* Pied de billet */
+.ticket-footer {
+  text-align: center;
+  font-size: 7.2pt;
+  line-height: 1.3;
+  margin-top: 1.2mm;
+  color: #000000;
+}
+.ticket-footer-brand {
+  font-size: 9.5pt;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  margin: 0.5mm 0;
+  text-transform: uppercase;
+  color: #000000;
+}
+.ticket-footer-issued {
+  font-size: 6.5pt;
+  margin-top: 0.5mm;
+  color: #222222;
+}
+
+/* Formats spécifiques sur écran */
+.ticket-printable.ticket--58mm {
+  width: 58mm;
+  padding: 3mm 2.5mm;
+}
+.ticket-printable.ticket--58mm .ticket-logo-img { max-width: 44mm; }
+.ticket-printable.ticket--58mm .ticket-title-banner { font-size: 9.5pt; padding: 1.2mm 0.8mm; }
+.ticket-printable.ticket--58mm .ticket-number { font-size: 9pt; }
+.ticket-printable.ticket--58mm .ticket-city { font-size: 11pt; }
+.ticket-printable.ticket--58mm .ticket-detail-row { font-size: 8pt; margin: 1.2mm 0; }
+.ticket-printable.ticket--58mm .ticket-passenger-name { font-size: 9pt; }
+.ticket-printable.ticket--58mm .ticket-price-box { padding: 1.5mm 2mm; margin: 2mm 0 1.5mm; }
+.ticket-printable.ticket--58mm .ticket-price-label { font-size: 9.5pt; }
+.ticket-printable.ticket--58mm .ticket-price-value { font-size: 10.5pt; }
+.ticket-printable.ticket--58mm .ticket-qr-instruction { font-size: 7pt; }
+.ticket-printable.ticket--58mm .ticket-qr img { width: 30mm; height: 30mm; }
+.ticket-printable.ticket--58mm .ticket-notes { font-size: 5.8pt; }
+.ticket-printable.ticket--58mm .ticket-footer { font-size: 6.2pt; }
+.ticket-printable.ticket--58mm .ticket-footer-brand { font-size: 8pt; }
+
+.ticket-printable.ticket--110mm {
+  width: 110mm;
+  padding: 6mm 5mm;
+}
+.ticket-printable.ticket--110mm .ticket-logo-img { max-width: 72mm; }
+.ticket-printable.ticket--110mm .ticket-qr img { width: 44mm; height: 44mm; }
+
+.ticket-printable.ticket--a4 {
+  width: 90mm;
+  margin: 10mm auto;
+  padding: 6mm 5mm;
+  border: 1px dashed #777777;
+}
 
 @media (max-width: 480px) {
   .ticket-page { padding: 18px 10px 36px; }
   .ticket-page-actions { align-items: stretch; flex-direction: column-reverse; }
   .ticket-page-actions .btn { justify-content: center; }
-  .ticket-printable { padding: 18px 16px 15px; }
-  .ticket-print-route div strong { font-size: 15px; }
+  .ticket-printable { max-width: 100%; }
 }
 
 @page { size: auto; margin: 3mm; }
@@ -76,20 +277,69 @@
 .ticket-printable.ticket--80mm { page: ticket80; }
 .ticket-printable.ticket--110mm { page: ticket110; }
 .ticket-printable.ticket--a4 { page: ticketA4; }
+
 @media print {
-  html, body, #root { min-width: 0 !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  html, body, #root {
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   body * { visibility: hidden !important; }
   .ticket-printable, .ticket-printable * { visibility: visible !important; }
-  .ticket-page { position: absolute !important; inset: 0 auto auto 0 !important; width: 100% !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; background: #fff !important; }
+  .ticket-page {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
   .ticket-page-actions { display: none !important; }
-  .ticket-printable { width: 74mm !important; max-width: 74mm !important; margin: 0 !important; padding: 3mm 2mm !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; break-inside: avoid !important; page-break-inside: avoid !important; }
-  body[data-ticket-format="58mm"] .ticket-printable { width: 54mm !important; max-width: 54mm !important; }
-  body[data-ticket-format="80mm"] .ticket-printable { width: 74mm !important; max-width: 74mm !important; }
-  body[data-ticket-format="110mm"] .ticket-printable { width: 102mm !important; max-width: 102mm !important; }
-  body[data-ticket-format="a4"] .ticket-printable { width: 170mm !important; max-width: 170mm !important; min-height: 95mm !important; margin: 22mm auto !important; padding: 12mm !important; border: 1px solid #d8e0ea !important; }
-  .ticket-print-header div strong { font-size: 12px; }
-  .ticket-print-route div strong { font-size: 14px; }
-  .ticket-print-qr img { width: 34mm; height: 34mm; }
-  body[data-ticket-format="110mm"] .ticket-print-qr img { width: 40mm; height: 40mm; }
-  body[data-ticket-format="a4"] .ticket-print-qr img { width: 42mm; height: 42mm; }
+  .ticket-printable {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 4mm 3mm !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  body[data-ticket-format="58mm"] .ticket-printable {
+    page: ticket58;
+    width: 54mm !important;
+    max-width: 54mm !important;
+    padding: 2mm 1.5mm !important;
+  }
+  body[data-ticket-format="80mm"] .ticket-printable {
+    page: ticket80;
+    width: 74mm !important;
+    max-width: 74mm !important;
+    padding: 3mm 2mm !important;
+  }
+  body[data-ticket-format="110mm"] .ticket-printable {
+    page: ticket110;
+    width: 102mm !important;
+    max-width: 102mm !important;
+    padding: 5mm 4mm !important;
+  }
+  body[data-ticket-format="a4"] .ticket-printable {
+    page: ticketA4;
+    width: 85mm !important;
+    max-width: 85mm !important;
+    margin: 15mm auto !important;
+    padding: 6mm 5mm !important;
+    border: 1px dashed #000000 !important;
+  }
+  .ticket-qr, .ticket-qr img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
+
