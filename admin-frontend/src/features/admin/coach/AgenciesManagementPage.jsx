@@ -132,7 +132,7 @@ export function AgenciesManagementPage() {
       setFormState(null)
     },
     onError: (err) => {
-      setServerError(err?.response?.data?.message || 'Erreur lors de l’enregistrement de l’agence.')
+      setServerError(err?.response?.data?.message || t('agencyUi.saveFailed'))
     },
   })
 
@@ -145,7 +145,7 @@ export function AgenciesManagementPage() {
       queryClient.invalidateQueries({ queryKey: ['coach-agencies'] })
     },
     onError: (err) => {
-      setServerError(err?.response?.data?.message || 'Impossible de modifier le statut de l’agence.')
+      setServerError(err?.response?.data?.message || t('agencyUi.statusFailed'))
     },
   })
 
@@ -158,7 +158,7 @@ export function AgenciesManagementPage() {
       setDeletingAgency(null)
     },
     onError: (err) => {
-      setServerError(err?.response?.data?.message || 'Impossible de supprimer cette agence.')
+      setServerError(err?.response?.data?.message || t('agencyUi.deleteFailed'))
     },
   })
 
@@ -196,7 +196,7 @@ export function AgenciesManagementPage() {
   const handleFormSubmit = (e) => {
     e.preventDefault()
     if (!formState.values.name || !formState.values.code) {
-      setServerError('Le nom et le code de l’agence sont obligatoires.')
+      setServerError(t('agencyUi.requiredFields'))
       return
     }
     saveMutation.mutate(formState.values)

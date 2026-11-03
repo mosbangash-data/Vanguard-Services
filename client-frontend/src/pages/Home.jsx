@@ -30,7 +30,7 @@ export default function Home() {
           className="hero-bg"
           style={{ backgroundImage: 'url(/assets/hero/hero-main.jpg)' }}
           role="img"
-          aria-label="Vanguard Services — Transport, Construction et Vente automobile"
+          aria-label={t('hero.imageDescription')}
         />
         <div className="hero-overlay" />
         <div className="container hero-content">
@@ -64,9 +64,9 @@ export default function Home() {
               <span>{t('hero.routesTitle')}</span>
             </div>
             <div className="hero-routes-list">
-              <span className="hero-route-item">Goma - Dar Es Salaam</span>
+              <span className="hero-route-item">{t('hero.route1')}</span>
               <span className="hero-route-sep">|</span>
-              <span className="hero-route-item">Bukavu - Dar Es Salaam</span>
+              <span className="hero-route-item">{t('hero.route3')}</span>
             </div>
           </div>
         </div>

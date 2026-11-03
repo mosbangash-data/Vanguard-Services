@@ -18,7 +18,7 @@ const formatDate = (value, lang) => {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', {
+  return date.toLocaleDateString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -28,7 +28,7 @@ const formatDate = (value, lang) => {
 const formatMoney = (amount, currency, lang) => {
   const value = Number(amount ?? 0)
   const targetCurrency = currency || 'USD'
-  return new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
+  return new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
     style: 'currency',
     currency: targetCurrency,
     maximumFractionDigits: 2,
@@ -535,17 +535,17 @@ export function AutoSalesPaymentPage() {
           <p className="autosales-eyebrow">VANGUARD SERVICES · AUTOSALES</p>
           <h1>{t('autosalesCommercial.payments.title')}</h1>
         </div>
-        {canCreatePayment && <button type="button" className="button" onClick={() => setShowCreate((current) => !current)}>Enregistrer un paiement</button>}
+        {canCreatePayment && <button type="button" className="button" onClick={() => setShowCreate((current) => !current)}>{t('autoAgentUi.recordPayment')}</button>}
         <Link className="button secondary" to="/automobile">{t('autosalesCommercial.back')}</Link>
       </div>
 
-      {showCreate && canCreatePayment && <div className="card"><h2>Enregistrer un paiement de réservation</h2><div className="vehicle-form-grid">
-        <label><span>Réservation</span><select value={paymentForm.reservationId} onChange={(event) => setPaymentForm((current) => ({ ...current, reservationId: event.target.value }))}><option value="">Sélectionner une réservation</option>{(reservationsQuery.data || []).filter((reservation) => ['PENDING', 'CONFIRMED'].includes(reservation.status)).map((reservation) => <option key={reservation.id} value={reservation.id}>{reservation.reservationCode} · {reservation.customerName} · {reservation.vehicle?.brand} {reservation.vehicle?.model}</option>)}</select></label>
-        <label><span>Montant</span><input type="number" min="0.01" step="0.01" value={paymentForm.amount} onChange={(event) => setPaymentForm((current) => ({ ...current, amount: event.target.value }))} /></label>
-        <label><span>Mode de paiement</span><input value={paymentForm.method} onChange={(event) => setPaymentForm((current) => ({ ...current, method: event.target.value.toUpperCase() }))} /></label>
-        <label><span>Référence</span><input value={paymentForm.reference} onChange={(event) => setPaymentForm((current) => ({ ...current, reference: event.target.value }))} /></label>
-        <label><span>Note</span><input value={paymentForm.comment} onChange={(event) => setPaymentForm((current) => ({ ...current, comment: event.target.value }))} /></label>
-        <div className="button-row full-width"><button type="button" className="button" disabled={createMutation.isPending || !paymentForm.reservationId || !paymentForm.amount} onClick={() => createMutation.mutate()}>Enregistrer en attente de validation</button>{createMutation.isError && <span className="error">{createMutation.error?.response?.data?.message || 'Échec de l’enregistrement.'}</span>}</div>
+      {showCreate && canCreatePayment && <div className="card"><h2>{t('autoAgentUi.paymentReservationTitle')}</h2><div className="vehicle-form-grid">
+        <label><span>{t('autoAgentUi.reservation')}</span><select value={paymentForm.reservationId} onChange={(event) => setPaymentForm((current) => ({ ...current, reservationId: event.target.value }))}><option value="">{t('autoAgentUi.selectReservation')}</option>{(reservationsQuery.data || []).filter((reservation) => ['PENDING', 'CONFIRMED'].includes(reservation.status)).map((reservation) => <option key={reservation.id} value={reservation.id}>{reservation.reservationCode} · {reservation.customerName} · {reservation.vehicle?.brand} {reservation.vehicle?.model}</option>)}</select></label>
+        <label><span>{t('autoAgentUi.amount')}</span><input type="number" min="0.01" step="0.01" value={paymentForm.amount} onChange={(event) => setPaymentForm((current) => ({ ...current, amount: event.target.value }))} /></label>
+        <label><span>{t('autoAgentUi.paymentMethod')}</span><input value={paymentForm.method} onChange={(event) => setPaymentForm((current) => ({ ...current, method: event.target.value.toUpperCase() }))} /></label>
+        <label><span>{t('autoAgentUi.reference')}</span><input value={paymentForm.reference} onChange={(event) => setPaymentForm((current) => ({ ...current, reference: event.target.value }))} /></label>
+        <label><span>{t('autoAgentUi.note')}</span><input value={paymentForm.comment} onChange={(event) => setPaymentForm((current) => ({ ...current, comment: event.target.value }))} /></label>
+        <div className="button-row full-width"><button type="button" className="button" disabled={createMutation.isPending || !paymentForm.reservationId || !paymentForm.amount} onClick={() => createMutation.mutate()}>{t('autoAgentUi.pendingValidation')}</button>{createMutation.isError && <span className="error">{createMutation.error?.response?.data?.message || t('autoAgentUi.saveFailed')}</span>}</div>
       </div></div>}
 
       <div className="card vehicle-toolbar">
@@ -648,12 +648,12 @@ export function AutoSalesSalesPage() {
                 <tr>
                   <th>{t('autosalesCommercial.vehicle')}</th>
                   <th>{t('autosalesCommercial.customer')}</th>
-                  <th>Montant de vente</th>
-                  <th>Paiements encaissés</th>
-                  <th>Solde</th>
+                  <th>{t('autoAgentUi.amount')}</th>
+                  <th>{t('autoAgentUi.collectedPayments')}</th>
+                  <th>{t('autoAgentUi.balance')}</th>
                   <th>{t('autosalesCommercial.agent')}</th>
                   <th>{t('autosalesCommercial.status')}</th>
-                  <th>Date de clôture</th>
+                  <th>{t('autoAgentUi.closureDate')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -682,7 +682,7 @@ export function AutoSalesSalesPage() {
             </table>
             <div className="button-row" style={{ justifyContent: 'space-between', padding: 12 }}>
               <span>{total} vente(s) · page {page}</span>
-              <div className="button-row"><button className="button secondary sm" disabled={page <= 1} onClick={() => setPage((value) => Math.max(value - 1, 1))}>Précédent</button><button className="button secondary sm" disabled={page * pageSize >= total} onClick={() => setPage((value) => value + 1)}>Suivant</button></div>
+              <div className="button-row"><button className="button secondary sm" disabled={page <= 1} onClick={() => setPage((value) => Math.max(value - 1, 1))}>{t('autoAgentUi.previous')}</button><button className="button secondary sm" disabled={page * pageSize >= total} onClick={() => setPage((value) => value + 1)}>{t('autoAgentUi.next')}</button></div>
             </div>
           </div>
         )}

@@ -21,12 +21,12 @@ const businessDateToday = () => {
 }
 
 const displayDate = (value, lang) => value
-  ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'medium', timeZone: 'Africa/Kinshasa' }).format(new Date(`${String(value).slice(0, 10)}T12:00:00Z`))
+  ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { dateStyle: 'medium', timeZone: 'Africa/Kinshasa' }).format(new Date(`${String(value).slice(0, 10)}T12:00:00Z`))
   : '—'
 
 const amountDisplay = (value, currency, lang) => {
   try {
-    return new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value))
+    return new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value))
   } catch {
     return `${value} ${currency}`
   }

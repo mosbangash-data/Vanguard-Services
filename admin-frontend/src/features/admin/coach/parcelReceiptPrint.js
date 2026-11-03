@@ -33,7 +33,7 @@ export function renderParcelReceiptPrintWindow(printWindow, data, format, langua
     RETURNED: translate('agentParcel.receiptReturned'),
     CANCELLED: translate('agentParcel.receiptCancelled'),
   }
-  const dateLocale = language === 'en' ? 'en-US' : 'fr-FR'
+  const dateLocale = language === 'en' ? 'en-US' : language === 'sw' ? 'sw-TZ' : 'fr-FR'
   const createdAt = data.createdAt ? new Date(data.createdAt).toLocaleString(dateLocale) : '—'
   const labels = {
     created: translate('agentParcel.receiptCreated'),

@@ -22,20 +22,19 @@ import { fetchAllTrips } from '../utils/fetchAllTrips'
 
 const STEPS = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6']
 
-const formatDate = (date, timeZone = 'Africa/Kinshasa') => {
+const formatDate = (date, timeZone = 'Africa/Kinshasa', locale = 'fr-FR') => {
   if (!date) return '—'
   const d = new Date(date)
   if (Number.isNaN(d.getTime())) return date
-  return new Intl.DateTimeFormat('fr-FR', { timeZone, day: '2-digit', month: 'long', year: 'numeric' }).format(d)
+  return new Intl.DateTimeFormat(locale, { timeZone, day: '2-digit', month: 'long', year: 'numeric' }).format(d)
 }
 
-const formatTripTime = (date, timeZone) => date ? new Intl.DateTimeFormat('fr-FR', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(date)) : '—'
-
-const formatAmount = (amount, currency = 'USD') =>
-  `${new Intl.NumberFormat('fr-FR').format(Number(amount))} ${currency}`
+const formatTripTime = (date, timeZone, locale = 'fr-FR') => date ? new Intl.DateTimeFormat(locale, { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(date)) : '—'
 
 export default function Transport() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
+  const numberLocale = language === 'sw' ? 'sw-TZ' : language === 'fr' ? 'fr-FR' : 'en-US'
+  const formatAmount = (amount, currency = 'USD') => `${new Intl.NumberFormat(numberLocale).format(Number(amount))} ${currency}`
   const location = useLocation()
   const revealRef = useReveal()
 
@@ -235,10 +234,10 @@ export default function Transport() {
   }
 
   const getTripDepartureTime = (trip) =>
-    trip.schedule?.departureTime || formatTripTime(trip.departureAt, trip.schedule?.timeZone)
+    trip.schedule?.departureTime || formatTripTime(trip.departureAt, trip.schedule?.timeZone, numberLocale)
 
   const getTripArrivalTime = (trip) =>
-    formatTripTime(trip.arrivalAt, trip.schedule?.timeZone)
+    formatTripTime(trip.arrivalAt, trip.schedule?.timeZone, numberLocale)
 
   const isPaymentPhoneValid = /^\+?243\d{9}$/.test(paymentPhoneNumber.replace(/[\s()-]/g, ''))
 
@@ -682,16 +681,16 @@ export default function Transport() {
                 )}
 
                 <div className="payment-section">
-                  <h4>Montant à payer : {formatAmount(booking?.totalAmount, booking?.payment?.currency || 'USD')}</h4>
+                  <h4>{t('transportPage.amountDue')} : {formatAmount(booking?.totalAmount, booking?.payment?.currency || 'USD')}</h4>
                   <p>{t('transportPage.paymentMethod')} : {booking?.payment?.method === 'MOBILE_MONEY' ? t('transportPage.paymentMobileMoney') : t('transportPage.paymentCash')} — {booking?.payment?.status === 'VERIFIED' || booking?.payment?.status === 'COMPLETED' ? t('transportPage.paymentValidated') : t('transportPage.paymentPending')}</p>
                   {booking?.payment?.method === 'MOBILE_MONEY' && <p>{t('transportPage.paymentReference')}: {booking?.mobileMoney?.reference || booking?.payment?.providerReference || '—'}</p>}
                   {booking?.payment?.method === 'MOBILE_MONEY' && booking?.mobileMoney?.checkoutUrl && <a className="btn btn-primary" href={booking.mobileMoney.checkoutUrl} target="_blank" rel="noreferrer">{t('transportPage.continuePayment')}</a>}
                   {booking?.payment?.status === 'VERIFIED' || booking?.payment?.status === 'COMPLETED'
-                    ? <p>Votre paiement est validé. Votre billet est disponible.</p>
+                    ? <p>{t('transportPage.paymentConfirmedTicketReady')}</p>
                     : booking?.payment?.method === 'MOBILE_MONEY'
                       ? <p>{t('transportPage.mobileMoneyPendingNotice')}</p>
-                      : <p>Veuillez payer en espèces à l’agence de départ. Votre paiement sera vérifié par un agent Vanguard Services. Après validation, votre billet sera généré automatiquement.</p>}
-                  {booking?.tickets?.[0] && <Link className="btn btn-primary" to={`/tickets/${booking.tickets[0].ticketCode}`}>Voir mon billet</Link>}
+                      : <p>{t('transportPage.cashPaymentNotice')}</p>}
+                  {booking?.tickets?.[0] && <Link className="btn btn-primary" to={`/tickets/${booking.tickets[0].ticketCode}`}>{t('transportPage.seeTicket')}</Link>}
                 </div>
 
                 <Link to="/" className="btn btn-outline">
@@ -793,7 +792,7 @@ export default function Transport() {
                   </span>
                 </div>
                 {lookupResult.tickets?.[0] && (
-                  <Link className="btn btn-primary" to={`/tickets/${lookupResult.tickets[0].ticketCode}`}>Voir mon billet</Link>
+                  <Link className="btn btn-primary" to={`/tickets/${lookupResult.tickets[0].ticketCode}`}>{t('transportPage.seeTicket')}</Link>
                 )}
               </div>
             )}
@@ -812,10 +811,10 @@ export default function Transport() {
           </form>
           {parcelTrackingError && <div className="notice notice-error"><Info size={18} aria-hidden="true" /><span>{parcelTrackingError}</span></div>}
           {parcelTrackingResult && <div className="reservation-result"><h4>{t('transportPage.parcelTrackTitle')}</h4><div className="summary-grid">
-            <div className="summary-item"><span className="summary-label">Tracking code</span><span className="summary-value">{parcelTrackingResult.trackingCode}</span></div>
-            <div className="summary-item"><span className="summary-label">Status</span><span className="summary-value"><span className="badge badge-gold">{parcelTrackingResult.status}</span></span></div>
-            <div className="summary-item"><span className="summary-label">Origin</span><span className="summary-value">{parcelTrackingResult.originAgency?.name || parcelTrackingResult.originCity}</span></div>
-            <div className="summary-item"><span className="summary-label">Destination</span><span className="summary-value">{parcelTrackingResult.destinationAgency?.name || parcelTrackingResult.destinationCity}</span></div>
+            <div className="summary-item"><span className="summary-label">{t('transportPage.trackingCode')}</span><span className="summary-value">{parcelTrackingResult.trackingCode}</span></div>
+            <div className="summary-item"><span className="summary-label">{t('transportPage.reservationStatus')}</span><span className="summary-value"><span className="badge badge-gold">{language === 'sw' ? (t(`transportPage.parcelStatuses.${parcelTrackingResult.status}`) === `transportPage.parcelStatuses.${parcelTrackingResult.status}` ? parcelTrackingResult.status : t(`transportPage.parcelStatuses.${parcelTrackingResult.status}`)) : parcelTrackingResult.status}</span></span></div>
+            <div className="summary-item"><span className="summary-label">{t('transportPage.origin')}</span><span className="summary-value">{parcelTrackingResult.originAgency?.name || parcelTrackingResult.originCity}</span></div>
+            <div className="summary-item"><span className="summary-label">{t('transportPage.destination')}</span><span className="summary-value">{parcelTrackingResult.destinationAgency?.name || parcelTrackingResult.destinationCity}</span></div>
           </div></div>}
         </div>
       </div></section>

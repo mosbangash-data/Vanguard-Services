@@ -64,7 +64,7 @@ const formatDate = (val, includeTime = false, lang = 'fr') => {
   try {
     const d = new Date(val)
     if (isNaN(d.getTime())) return String(val)
-    return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', {
+    return d.toLocaleDateString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -164,7 +164,7 @@ export function ResourcePage({ resource }) {
     setPrintingTicketId(ticketCode)
     setTicketActionError('')
     try {
-      await printTicketDocument(ticketCode, ticketPrintFormat)
+      await printTicketDocument(ticketCode, ticketPrintFormat, lang)
     } catch {
       setTicketActionError(t('ticket.printFailed'))
     } finally {
@@ -427,7 +427,7 @@ export function ResourcePage({ resource }) {
     {
       key: 'time',
       label: t('trips.time'),
-      render: (trip) => trip.schedule?.departureTime || (trip.departureAt ? new Date(trip.departureAt).toLocaleTimeString(lang === 'en' ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'),
+      render: (trip) => trip.schedule?.departureTime || (trip.departureAt ? new Date(trip.departureAt).toLocaleTimeString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'),
     },
     {
       key: 'bus',
@@ -952,7 +952,7 @@ export function ResourcePage({ resource }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>{t('trips.time')} :</span>
-                <strong>{viewTripModal.schedule?.departureTime || (viewTripModal.departureAt ? new Date(viewTripModal.departureAt).toLocaleTimeString(lang === 'en' ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—')}</strong>
+                <strong>{viewTripModal.schedule?.departureTime || (viewTripModal.departureAt ? new Date(viewTripModal.departureAt).toLocaleTimeString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—')}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>{t('trips.bus')} :</span>

@@ -24,7 +24,7 @@ const toPage = (payload) => {
 const formatDate = (value, lang) => {
   if (!value) return '—'
   try {
-    return new Date(value).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', {
+    return new Date(value).toLocaleDateString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

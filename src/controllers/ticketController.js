@@ -1,5 +1,6 @@
 const QRCode = require('qrcode');
 const ticketService = require('../services/ticketService');
+const { getTicketPrintMessages } = require('../i18n/ticketPrint');
 
 const buildQrSvg = (value) => QRCode.toString(value, {
   type: 'svg',
@@ -84,6 +85,7 @@ const renderTicketPrint = async (req, res, next) => {
   try {
     res.set('Cache-Control', 'private, no-store');
     const printFormat = ['58mm', '80mm', '110mm', 'a4'].includes(req.query.format) ? req.query.format : '80mm';
+    const messages = getTicketPrintMessages(req.query.lang);
     const { ticket, currency } = await ticketService.getTicketPrintContext(req.params.ticketCode, req.user?.id || null, req.user, { format: printFormat });
 
     const route = ticket.reservation.trip.schedule.route;
@@ -114,12 +116,13 @@ const renderTicketPrint = async (req, res, next) => {
     };
 
     res.render('pages/ticket-print', {
-      title: `Billet ${ticket.ticketCode}`,
+      title: `${messages.title} ${ticket.ticketCode}`,
       ticket: printableTicket,
       printType: 'print',
       appName: 'Vanguard Coach',
       currency,
       printFormat,
+      messages,
     });
   } catch (err) {
     next(err);
@@ -130,6 +133,7 @@ const renderPublicTicketPrint = async (req, res, next) => {
   try {
     res.set('Cache-Control', 'private, no-store');
     const printFormat = ['58mm', '80mm', '110mm', 'a4'].includes(req.query.format) ? req.query.format : '80mm';
+    const messages = getTicketPrintMessages(req.query.lang);
     const { ticket, currency } = await ticketService.getTicketPrintContext(req.params.ticketCode, req.user?.id || null, req.user, { format: printFormat });
     const route = ticket.reservation.trip.schedule.route;
     const trip = ticket.reservation.trip;
@@ -159,12 +163,13 @@ const renderPublicTicketPrint = async (req, res, next) => {
     };
 
     res.render('pages/ticket-print', {
-      title: `Billet ${ticket.ticketCode}`,
+      title: `${messages.title} ${ticket.ticketCode}`,
       ticket: printableTicket,
       printType: 'print',
       appName: 'Vanguard Coach',
       currency,
       printFormat,
+      messages,
     });
   } catch (err) {
     next(err);

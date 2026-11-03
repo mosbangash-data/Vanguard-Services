@@ -11,12 +11,12 @@ import { ChartCard } from '../../../components/dashboard/ChartCard'
 
 const fetchDashboard = async () => (await api.get('/api/dashboard/autosales')).data?.data
 const statuses = (source, order) => order.map((status) => ({ status, count: source?.[status] || 0 }))
-const formatNumber = (value, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR').format(value || 0)
-const formatDate = (value, lang) => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'medium' }).format(new Date(value)) : '—'
+const formatNumber = (value, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR').format(value || 0)
+const formatDate = (value, lang) => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { dateStyle: 'medium' }).format(new Date(value)) : '—'
 const money = (values, lang) => {
   const entries = Object.entries(values || {})
   if (!entries.length) return '—'
-  return entries.map(([currency, amount]) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(amount || 0))).join(' · ')
+  return entries.map(([currency, amount]) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(amount || 0))).join(' · ')
 }
 const localizedStatus = (status, t) => {
   const translated = t(`status.${String(status || '').toLowerCase()}`)

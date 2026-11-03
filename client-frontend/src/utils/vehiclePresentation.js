@@ -7,7 +7,7 @@ export function formatVehiclePrice(price, currency, language, t) {
   }
 
   const currencyCode = currency || 'USD'
-  const locale = language === 'fr' ? 'fr-FR' : 'en-US'
+  const locale = language === 'sw' ? 'sw-TZ' : language === 'fr' ? 'fr-FR' : 'en-US'
   try {
     return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(amount)
   } catch {

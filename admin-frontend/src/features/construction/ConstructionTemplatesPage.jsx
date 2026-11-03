@@ -38,14 +38,14 @@ const toList = (data) => data?.items || data?.data?.items || data?.data || data 
 const formatMoney = (amount, lang = 'fr') => {
   const num = Number(amount || 0)
   if (!Number.isFinite(num)) return '0'
-  return `$ ${new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
+  return `$ ${new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
     maximumFractionDigits: 0,
   }).format(num)}`
 }
 
 export function ConstructionTemplatesPage() {
   const { user } = useAuth()
-  const { lang } = useLanguage()
+  const { lang, t } = useLanguage()
   const queryClient = useQueryClient()
 
   const [search, setSearch] = useState('')
@@ -99,7 +99,7 @@ export function ConstructionTemplatesPage() {
       setEditingTemplate(null)
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Erreur lors de l’enregistrement du projet template.')
+      setFormError(err?.response?.data?.message || t('construction.projectTemplatesPage.saveFailed'))
     },
   })
 
@@ -157,8 +157,8 @@ export function ConstructionTemplatesPage() {
       <div className="page vanguard-construction-templates-page">
         <PageHeader
           eyebrow="VANGUARD SERVICES · CONSTRUCTION"
-          title="Projets Templates"
-          subtitle="Chargement du catalogue des projets modèles..."
+          title={t('construction.projectTemplatesPage.title')}
+          subtitle={t('construction.projectTemplatesPage.loading')}
         />
         <LoadingState type="cards" cardCount={3} />
       </div>
@@ -170,12 +170,12 @@ export function ConstructionTemplatesPage() {
       <div className="page vanguard-construction-templates-page">
         <PageHeader
           eyebrow="VANGUARD SERVICES · CONSTRUCTION"
-          title="Projets Templates"
-          subtitle="Modèles de construction préconfigurés pour standardiser les estimations."
+          title={t('construction.projectTemplatesPage.title')}
+          subtitle={t('construction.projectTemplatesPage.subtitle')}
         />
         <ErrorState
-          title="Erreur de chargement des templates"
-          message={error?.response?.data?.message || 'Impossible de récupérer les templates de projets.'}
+          title={t('construction.projectTemplatesPage.errorTitle')}
+          message={error?.response?.data?.message || t('construction.projectTemplatesPage.errorMessage')}
           onRetry={() => refetch()}
         />
       </div>
@@ -186,8 +186,8 @@ export function ConstructionTemplatesPage() {
     <div className="page vanguard-construction-templates-page">
       <PageHeader
         eyebrow="VANGUARD SERVICES · CONSTRUCTION"
-        title="Projets Templates"
-        subtitle="Catalogue des 5 projets modèles types (villas, immeubles, rénovations) pour devis rapides."
+        title={t('construction.projectTemplatesPage.title')}
+        subtitle={t('construction.projectTemplatesPage.catalogSubtitle')}
         actions={
           <div style={{ display: 'flex', gap: '10px' }}>
             <Button
@@ -206,7 +206,7 @@ export function ConstructionTemplatesPage() {
                 icon={Plus}
                 onClick={handleOpenCreate}
               >
-                Nouveau Projet Template
+                {t('construction.projectTemplatesPage.create')}
               </Button>
             )}
           </div>
@@ -217,16 +217,16 @@ export function ConstructionTemplatesPage() {
         <SearchBar
           value={search}
           onChange={(val) => setSearch(val)}
-          placeholder="Rechercher par nom de projet, localisation..."
+          placeholder={t('construction.projectTemplatesPage.search')}
         />
       </FilterBar>
 
       {templatesList.length === 0 ? (
         <EmptyState
-          title="Aucun projet template"
-          description="Créez votre premier modèle de projet de construction pour accélérer vos chiffrages."
+          title={t('construction.projectTemplatesPage.emptyTitle')}
+          description={t('construction.projectTemplatesPage.emptyDescription')}
           icon={Layers}
-          actionLabel={canManage ? "Créer un projet template" : undefined}
+          actionLabel={canManage ? t('construction.projectTemplatesPage.createFirst') : undefined}
           onAction={handleOpenCreate}
           actionIcon={Plus}
         />
@@ -245,10 +245,10 @@ export function ConstructionTemplatesPage() {
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', color: '#EA580C' }}>
                   <HardHat size={36} />
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Projet Modèle</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{t('construction.projects.template')}</span>
                 </div>
                 <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
-                  <StatusBadge label="Template" variant="success" dot={false} />
+                  <StatusBadge label={t('construction.projectTemplatesPage.template')} variant="success" dot={false} />
                 </div>
               </div>
 
@@ -280,7 +280,7 @@ export function ConstructionTemplatesPage() {
                             },
                             { divider: true },
                             {
-                              label: 'Supprimer',
+                              label: t('construction.projectTemplatesPage.delete'),
                               icon: Trash2,
                               variant: 'danger',
                               onClick: () => setDeletingTemplate(tpl),
@@ -299,7 +299,7 @@ export function ConstructionTemplatesPage() {
                   alignItems: 'center',
                   justifyContent: 'space-between'
                 }}>
-                  <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>Budget estimé</span>
+                  <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600}}>{t('construction.projectTemplatesPage.estimatedBudget')}</span>
                   <strong style={{ fontSize: '1.05rem', color: '#EA580C' }}>
                     {formatMoney(tpl.budget, lang)}
                   </strong>
@@ -315,8 +315,8 @@ export function ConstructionTemplatesPage() {
         <Modal
           isOpen={isFormOpen}
           onClose={() => setIsFormOpen(false)}
-          title={editingTemplate ? 'Modifier le projet template' : 'Nouveau projet template'}
-          subtitle="Configurez le modèle de construction standard pour les estimations."
+          title={editingTemplate ? t('construction.projectTemplatesPage.editTitle') : t('construction.projectTemplatesPage.createTitle')}
+          subtitle={t('construction.projectTemplatesPage.configureSubtitle')}
           size="md"
         >
           <form onSubmit={handleFormSubmit}>
@@ -334,50 +334,50 @@ export function ConstructionTemplatesPage() {
               </div>
             )}
 
-            <FormField label="Titre du projet modèle" required>
+            <FormField label={t('construction.projectTemplatesPage.projectTitle')} required>
               <Input
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Ex: Villa Contemporaine R+1 (4 chambres)"
+                placeholder={t('construction.projectTemplatesPage.titlePlaceholder')}
                 required
               />
             </FormField>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <FormField label="Localisation de référence">
+              <FormField label={t('construction.projectTemplatesPage.location')}>
                 <Input
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Ex: Kinshasa, Gombe"
+                  placeholder={t('construction.projectTemplatesPage.locationPlaceholder')}
                 />
               </FormField>
 
-              <FormField label="Budget indicatif (USD)" required>
+              <FormField label={t('construction.projectTemplatesPage.budget')} required>
                 <Input
                   type="number"
                   value={formData.budget}
                   onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                  placeholder="Ex: 120000"
+                  placeholder={t('construction.projectTemplatesPage.budgetPlaceholder')}
                   required
                 />
               </FormField>
             </div>
 
-            <FormField label="Description & Spécifications du modèle">
+            <FormField label={t('construction.projectTemplatesPage.description')}>
               <Textarea
                 rows={3}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Superficie au sol, nombre de pièces, finitions prévues, durée moyenne..."
+                placeholder={t('construction.projectTemplatesPage.descriptionPlaceholder')}
               />
             </FormField>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
               <Button variant="secondary" onClick={() => setIsFormOpen(false)} disabled={saveMutation.isPending}>
-                Annuler
+                {t('construction.projectTemplatesPage.cancel')}
               </Button>
               <Button type="submit" variant="primary" loading={saveMutation.isPending}>
-                {editingTemplate ? 'Enregistrer les modifications' : 'Créer le template'}
+                {editingTemplate ? t('construction.projectTemplatesPage.save') : t('construction.projectTemplatesPage.createButton')}
               </Button>
             </div>
           </form>
@@ -390,26 +390,26 @@ export function ConstructionTemplatesPage() {
           isOpen={Boolean(selectedTemplate)}
           onClose={() => setSelectedTemplate(null)}
           title={selectedTemplate.title}
-          subtitle={`Fiche Template #${selectedTemplate.id}`}
+          subtitle={t('construction.projectTemplatesPage.detailSubtitle', { id: selectedTemplate.id })}
           size="md"
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Budget estimé</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('construction.quoteRequests.budgetRange')}</span>
                 <div style={{ marginTop: '2px', fontWeight: 700, fontSize: '1.1rem', color: '#EA580C' }}>
                   {formatMoney(selectedTemplate.budget, lang)}
                 </div>
               </div>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Localisation</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('construction.projects.location')}</span>
                 <div style={{ marginTop: '2px', fontWeight: 600, color: '#0F172A' }}>{selectedTemplate.location || '—'}</div>
               </div>
             </div>
 
             {selectedTemplate.description && (
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Description</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('construction.projects.fields.description')}</span>
                 <p style={{ marginTop: '4px', fontSize: '0.875rem', color: '#334155', lineHeight: 1.5 }}>
                   {selectedTemplate.description}
                 </p>
@@ -418,7 +418,7 @@ export function ConstructionTemplatesPage() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
               <Button variant="secondary" onClick={() => setSelectedTemplate(null)}>
-                Fermer
+                {t('construction.projectTemplatesPage.close')}
               </Button>
             </div>
           </div>
@@ -431,9 +431,9 @@ export function ConstructionTemplatesPage() {
           isOpen={Boolean(deletingTemplate)}
           onClose={() => setDeletingTemplate(null)}
           onConfirm={() => deleteMutation.mutate(deletingTemplate.id)}
-          title="Supprimer ce projet template ?"
-          message={`Êtes-vous sûr de vouloir supprimer ${deletingTemplate.title} ?`}
-          confirmText="Supprimer définitivement"
+          title={t('construction.projectTemplatesPage.deleteTitle')}
+          message={t('construction.projectTemplatesPage.deleteMessage', { title: deletingTemplate.title })}
+          confirmText={t('construction.projectTemplatesPage.deletePermanently')}
           loading={deleteMutation.isPending}
           variant="danger"
         />

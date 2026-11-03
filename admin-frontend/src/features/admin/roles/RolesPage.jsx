@@ -486,10 +486,10 @@ export function RolesPage() {
                     value={createForm.name}
                     onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
                   >
-                    <option value="AGENT">AGENT</option>
-                    <option value="MANAGER">MANAGER</option>
-                    <option value="SERVICE_ADMIN">SERVICE_ADMIN</option>
-                    <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                    <option value="AGENT">{t('roleUi.roleLabels.AGENT')}</option>
+                    <option value="MANAGER">{t('roleUi.roleLabels.MANAGER')}</option>
+                    <option value="SERVICE_ADMIN">{t('roleUi.roleLabels.SERVICE_ADMIN')}</option>
+                    <option value="SUPER_ADMIN">{t('roleUi.roleLabels.SUPER_ADMIN')}</option>
                   </select>
                 </div>
                 <div className="form-group">

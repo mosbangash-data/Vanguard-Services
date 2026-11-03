@@ -7,14 +7,15 @@ import { LoadingState, ErrorState } from '../components/StateView'
 import { translateError } from '../utils/errors'
 import { MediaGallery } from '../components/media/MediaGallery'
 
-const formatBudget = (budget) => {
+const formatBudget = (budget, language) => {
   if (budget == null) return null
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(Number(budget))
+  const locale = language === 'sw' ? 'sw-TZ' : language === 'fr' ? 'fr-FR' : 'en-US'
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(Number(budget))
 }
 
 export default function ProjectDetail() {
   const { id } = useParams()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { data, loading, error, execute } = useFetch(() => api.getPublicProject(id), { deps: [id] })
 
   const project = data?.project
@@ -49,16 +50,16 @@ export default function ProjectDetail() {
             {project.createdAt && (
               <span className="project-detail-meta-item">
                 <Calendar size={16} aria-hidden="true" />
-                {new Date(project.createdAt).toLocaleDateString('fr-FR', {
+                {new Date(project.createdAt).toLocaleDateString(language === 'sw' ? 'sw-TZ' : language === 'fr' ? 'fr-FR' : 'en-US', {
                   day: '2-digit',
                   month: 'long',
                   year: 'numeric',
                 })}
               </span>
             )}
-            {formatBudget(project.budget) && (
+            {formatBudget(project.budget, language) && (
               <span className="project-detail-meta-item">
-                <span className="project-detail-budget">{formatBudget(project.budget)}</span>
+                <span className="project-detail-budget">{formatBudget(project.budget, language)}</span>
               </span>
             )}
           </div>

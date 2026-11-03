@@ -117,7 +117,7 @@ export function DepartmentsPage() {
     e.preventDefault()
     setFormError('')
     if (!createForm.name || !createForm.type) {
-      setFormError('Le type et le nom sont obligatoires.')
+      setFormError(t('departmentUi.requiredFields'))
       return
     }
     createDeptMutation.mutate(createForm)

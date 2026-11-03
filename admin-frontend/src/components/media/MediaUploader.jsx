@@ -521,7 +521,7 @@ export function MediaUploader({
 
                       <button
                         type="button"
-                        title="Retirer cette photo"
+                        title={t('mediaUi.removePhoto')}
                         onClick={() => handleRemovePending(pending.id)}
                         disabled={disabled || isUploading}
                         style={{

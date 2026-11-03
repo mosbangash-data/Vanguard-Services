@@ -508,6 +508,13 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
           </div>
 
           <div className="header-right vanguard-header-right">
+            <div className="language-selector" aria-label={t('layout.language')}>
+              <button type="button" className={`lang-btn ${lang === 'fr' ? 'active' : ''}`} aria-label="Français" title="Français" aria-pressed={lang === 'fr'} onClick={() => setLang('fr')}>FR</button>
+              <span className="lang-divider">|</span>
+              <button type="button" className={`lang-btn ${lang === 'en' ? 'active' : ''}`} aria-label="English" title="English" aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button>
+              <span className="lang-divider">|</span>
+              <button type="button" className={`lang-btn ${lang === 'sw' ? 'active' : ''}`} aria-label="Kiswahili" title="Kiswahili" aria-pressed={lang === 'sw'} onClick={() => setLang('sw')}>SW</button>
+            </div>
             {!isCoachAgent && !isCoachManager && !isCoachServiceAdmin && !isSuperAdmin && <>
             <label className="theme-selector">
               <span className="theme-selector-icon" aria-hidden="true">{resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}</span>
@@ -518,25 +525,6 @@ export function AdminLayout({ customNavigation, pageTitleOverride }) {
                 <option value="system">{t('layout.themeSystem')}</option>
               </select>
             </label>
-            {/* Language Switcher */}
-            <div className="language-selector" aria-label={t('layout.language')}>
-              <button
-                type="button"
-                className={`lang-btn ${lang === 'fr' ? 'active' : ''}`}
-                onClick={() => setLang('fr')}
-              >
-                FR
-              </button>
-              <span className="lang-divider">|</span>
-              <button
-                type="button"
-                className={`lang-btn ${lang === 'en' ? 'active' : ''}`}
-                onClick={() => setLang('en')}
-              >
-                EN
-              </button>
-            </div>
-
             {/* User Profile Pill & Dropdown */}
             <div className="vanguard-header-user-wrap">
               <Link to="/admin/account" className="vanguard-header-user-btn" title={t('layout.manageAccount')}>

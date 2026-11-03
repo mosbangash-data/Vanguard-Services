@@ -79,24 +79,24 @@ export default function Ticket() {
   return (
     <main className="ticket-page">
       <div className="ticket-page-actions">
-        <Link to="/transport" className="ticket-back"><ArrowLeft size={16} /> Retour aux réservations</Link>
+          <Link to="/transport" className="ticket-back"><ArrowLeft size={16} /> {t('ticket.backToReservations')}</Link>
         <div className="ticket-print-controls">
-          <label htmlFor="ticket-print-format">Format</label>
+          <label htmlFor="ticket-print-format">{t('ticket.formatLabel')}</label>
           <select id="ticket-print-format" value={printFormat} onChange={(event) => setPrintFormat(event.target.value)}>
-            <option value="58mm">Thermique 58 mm</option>
-            <option value="80mm">Thermique 80 mm</option>
-            <option value="110mm">Thermique 110 mm</option>
+            <option value="58mm">{t('ticket.thermal58')}</option>
+            <option value="80mm">{t('ticket.thermal80')}</option>
+            <option value="110mm">{t('ticket.thermal110')}</option>
             <option value="a4">A4</option>
           </select>
           <button type="button" className="btn btn-primary" onClick={printTicket}>
-            <Printer size={18} /> Imprimer le billet
+            <Printer size={18} /> {t('ticket.print')}
           </button>
-          <small>Utilisez le service d’impression de l’appareil pour une imprimante Bluetooth ou intégrée.</small>
+          <small>{t('ticket.printHelp')}</small>
         </div>
         {printError && <p role="alert" className="ticket-print-error">{printError}</p>}
       </div>
 
-      <article className={`ticket-printable ticket--${printFormat}`} aria-label="Billet de voyage Vanguard Coach">
+      <article className={`ticket-printable ticket--${printFormat}`} aria-label={t('ticket.documentAria')}>
         {/* Logo Vanguard Coach */}
         <header className="ticket-logo-header">
           <img src="/assets/transport/logo.png" alt="Vanguard Coach" className="ticket-logo-img" />
@@ -105,13 +105,13 @@ export default function Ticket() {
         <div className="ticket-dashed-divider"></div>
 
         {/* Bannière Billet de Transport */}
-        <div className="ticket-title-banner">BILLET DE TRANSPORT</div>
+        <div className="ticket-title-banner">{t('ticket.title')}</div>
         <div className="ticket-number">N° {ticket.ticketCode}</div>
 
         <div className="ticket-dashed-divider"></div>
 
         {/* Section Trajet */}
-        <section className="ticket-route-section" aria-label="Trajet">
+        <section className="ticket-route-section" aria-label={t('ticket.route')}>
           <div className="ticket-city ticket-city--departure">{route?.departureCity || '—'}</div>
           <div className="ticket-route-arrow" aria-hidden="true">&#9660;</div>
           <div className="ticket-city ticket-city--arrival">{route?.arrivalCity || '—'}</div>
@@ -120,33 +120,33 @@ export default function Ticket() {
         <div className="ticket-dashed-divider"></div>
 
         {/* Détails du voyage */}
-        <section className="ticket-details-table" aria-label="Détails du voyage">
+        <section className="ticket-details-table" aria-label={t('ticket.journeyAria')}>
           <div className="ticket-detail-row">
-            <span className="ticket-detail-label">Date</span>
+            <span className="ticket-detail-label">{t('ticket.date')}</span>
             <span className="ticket-detail-value">{travelDateFormatted}</span>
           </div>
           <div className="ticket-detail-row">
-            <span className="ticket-detail-label">Départ</span>
+            <span className="ticket-detail-label">{t('ticket.departureTime')}</span>
             <span className="ticket-detail-value">{schedule?.departureTime || '—'}</span>
           </div>
           <div className="ticket-detail-row">
-            <span className="ticket-detail-label">Siège</span>
+            <span className="ticket-detail-label">{t('ticket.seat')}</span>
             <span className="ticket-detail-value">{reservation?.seatNumber || '—'}</span>
           </div>
           {busLabel && (
             <div className="ticket-detail-row">
-              <span className="ticket-detail-label">Bus</span>
+              <span className="ticket-detail-label">{t('ticket.bus')}</span>
               <span className="ticket-detail-value">{busLabel}</span>
             </div>
           )}
           {ticket.class && (
             <div className="ticket-detail-row">
-              <span className="ticket-detail-label">Classe</span>
+              <span className="ticket-detail-label">{t('ticket.ticketClass')}</span>
               <span className="ticket-detail-value">{ticket.class}</span>
             </div>
           )}
           <div className="ticket-passenger-block">
-            <span className="ticket-detail-label">Passager</span>
+            <span className="ticket-detail-label">{t('ticket.passenger')}</span>
             <div className="ticket-passenger-name">{reservation?.customerName || '—'}</div>
             {reservation?.customerPhone && (
               <div className="ticket-passenger-phone">{reservation.customerPhone}</div>
@@ -156,33 +156,33 @@ export default function Ticket() {
 
         {/* Cadre Prix */}
         <section className="ticket-price-box" aria-label="Prix du billet">
-          <span className="ticket-price-label">PRIX</span>
+          <span className="ticket-price-label">{t('ticket.priceLabel')}</span>
           <span className="ticket-price-value">{reservation?.totalAmount != null ? reservation.totalAmount : '—'} {currency}</span>
         </section>
 
         {/* Instruction QR */}
-        <div className="ticket-qr-instruction">SCANNEZ À L'EMBARQUEMENT</div>
+        <div className="ticket-qr-instruction">{t('ticket.scanBoarding')}</div>
 
         {/* QR Code */}
-        <div className="ticket-qr" role="img" aria-label="QR code du billet">
-          {qrImage ? <img src={qrImage} alt={`QR code pour ${ticket.ticketCode}`} /> : <span>QR indisponible</span>}
+        <div className="ticket-qr" role="img" aria-label={t('ticket.qrCode')}>
+          {qrImage ? <img src={qrImage} alt={`${t('ticket.qrCode')} ${ticket.ticketCode}`} /> : <span>{t('ticket.qrUnavailable')}</span>}
         </div>
 
         {/* Mentions légales / consignes */}
         <div className="ticket-notes">
-          <div>Présentez ce billet au contrôleur.</div>
-          <div>Non remboursable · Non échangeable</div>
-          <div>Bagages sous la responsabilité du voyageur</div>
+          <div>{t('ticket.presentToInspector')}</div>
+          <div>{t('ticket.nonRefundable')}</div>
+          <div>{t('ticket.baggageNote')}</div>
         </div>
 
         <div className="ticket-dashed-divider"></div>
 
         {/* Pied de billet */}
         <footer className="ticket-footer">
-          <div>Merci de voyager avec</div>
+          <div>{t('ticket.thankTravelingWith')}</div>
           <div className="ticket-footer-brand">VANGUARD COACH</div>
           {issuedDateFormatted !== '—' && (
-            <div className="ticket-footer-issued">Émis le {issuedDateFormatted}</div>
+            <div className="ticket-footer-issued">{t('ticket.issuedOn')} {issuedDateFormatted}</div>
           )}
         </footer>
       </article>

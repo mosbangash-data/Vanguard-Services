@@ -339,9 +339,9 @@ export const resourceGroups = {
           type: 'select',
           required: true,
           optionsUrl: '/api/trips',
-          optionsMapper: (item) => ({
+          optionsMapper: (item, { lang = 'fr', t } = {}) => ({
             value: item.id,
-            label: `${item.schedule?.route ? `${item.schedule.route.departureCity} → ${item.schedule.route.arrivalCity}` : 'Voyage'} • ${new Date(item.departureAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
+            label: `${item.schedule?.route ? `${item.schedule.route.departureCity} → ${item.schedule.route.arrivalCity}` : t?.('trips.trip') || 'Trip'} • ${new Date(item.departureAt).toLocaleString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
           }),
           placeholder: 'Choisir le voyage',
         },

@@ -69,11 +69,11 @@ const formatMoney = (value, currency = 'USD', locale = 'fr') => {
   if (!Number.isFinite(num)) return '0'
   const normalized = currency === 'CDF' ? 'CDF' : 'USD'
   if (normalized === 'CDF') {
-    return `${new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'fr-FR', {
+    return `${new Intl.NumberFormat(locale === 'en' ? 'en-US' : locale === 'sw' ? 'sw-TZ' : 'fr-FR', {
       maximumFractionDigits: 0,
     }).format(num)} CDF`
   }
-  return `$ ${new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'fr-FR', {
+  return `$ ${new Intl.NumberFormat(locale === 'en' ? 'en-US' : locale === 'sw' ? 'sw-TZ' : 'fr-FR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(num)}`
@@ -82,7 +82,7 @@ const formatMoney = (value, currency = 'USD', locale = 'fr') => {
 const formatDate = (value, locale = 'fr') => {
   if (!value) return '—'
   try {
-    return new Date(value).toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR')
+    return new Date(value).toLocaleDateString(locale === 'en' ? 'en-US' : locale === 'sw' ? 'sw-TZ' : 'fr-FR')
   } catch {
     return '—'
   }
@@ -90,7 +90,7 @@ const formatDate = (value, locale = 'fr') => {
 
 export function VehicleManagementPage() {
   const { user } = useAuth()
-  const { lang } = useLanguage()
+  const { lang, t } = useLanguage()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
@@ -175,14 +175,14 @@ export function VehicleManagementPage() {
 
       const refreshResult = await vehiclesQuery.refetch()
       if (refreshResult.error) {
-        setServerError('Véhicule et photos enregistrés, mais le rechargement du véhicule a échoué. Réessayez le chargement de la liste.')
+        setServerError(t('autosales.vehiclesPage.reloadFailed'))
         return
       }
       setServerError('')
       setFormState(null)
     },
     onError: (err) => {
-      setServerError(err?.response?.data?.message || 'Erreur lors de l’enregistrement du véhicule.')
+      setServerError(err?.response?.data?.message || t('autosales.vehiclesPage.errors.saveFailed'))
     },
   })
 
@@ -195,7 +195,7 @@ export function VehicleManagementPage() {
       setDeletingVehicle(null)
     },
     onError: (err) => {
-      setServerError(err?.response?.data?.message || 'Impossible de supprimer ce véhicule.')
+      setServerError(err?.response?.data?.message || t('autosales.vehiclesPage.errors.deleteFailed'))
     },
   })
 
@@ -208,7 +208,7 @@ export function VehicleManagementPage() {
       setStatusChangingVehicle(null)
     },
     onError: (err) => {
-      setServerError(err?.response?.data?.message || 'Impossible de changer le statut.')
+      setServerError(err?.response?.data?.message || t('autosales.vehiclesPage.errors.statusFailed'))
     },
   })
 
@@ -275,11 +275,11 @@ export function VehicleManagementPage() {
   const handleFormSubmit = (e) => {
     e.preventDefault()
     if (!formState.values.brand || !formState.values.model || !formState.values.price) {
-      setServerError('La marque, le modèle et le prix sont obligatoires.')
+      setServerError(t('autosales.vehiclesPage.errors.requiredFields'))
       return
     }
     if (formState.mode === 'create' && !departmentQuery.data?.id) {
-      setServerError(departmentQuery.error?.response?.data?.message || 'Le département AUTO_SALES est indisponible.')
+      setServerError(departmentQuery.error?.response?.data?.message || t('autosales.vehiclesPage.departmentUnavailable'))
       return
     }
 
@@ -357,7 +357,7 @@ export function VehicleManagementPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           style={{ width: 'auto', minWidth: '160px' }}
         >
-          <option value="ALL">Tous les statuts</option>
+          <option value="ALL">{t('autosales.vehiclesPage.allStatuses')}</option>
           {STATUS_OPTIONS.map((st) => (
             <option key={st} value={st}>
               {st === 'AVAILABLE' ? 'Disponible' : st === 'RESERVED' ? 'Réservé' : st === 'SOLD' ? 'Vendu' : 'En maintenance'}
@@ -369,7 +369,7 @@ export function VehicleManagementPage() {
           onChange={(e) => setCurrencyFilter(e.target.value)}
           style={{ width: 'auto', minWidth: '140px' }}
         >
-          <option value="ALL">Toutes devises</option>
+          <option value="ALL">{t('autosales.vehiclesPage.allCurrencies')}</option>
           <option value="USD">USD ($)</option>
           <option value="CDF">CDF</option>
         </Select>
@@ -390,11 +390,11 @@ export function VehicleManagementPage() {
       )}
 
       {vehiclesQuery.isPending ? (
-        <LoadingState message="Chargement des véhicules..." />
+        <LoadingState message={t('autosales.vehiclesPage.loadingVehicles')} />
       ) : vehiclesQuery.isError ? (
         <ErrorState
           title="Erreur de chargement du catalogue"
-          message={vehiclesQuery.error?.response?.data?.message || 'Impossible de récupérer les véhicules.'}
+          message={vehiclesQuery.error?.response?.data?.message || t('autosales.vehiclesPage.loadFailed')}
           onRetry={() => vehiclesQuery.refetch()}
         />
       ) : filteredVehicles.length === 0 ? (
@@ -412,12 +412,12 @@ export function VehicleManagementPage() {
             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Véhicule</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Année</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Prix</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Transmission / Carburant</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Statut</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('autosales.vehiclesPage.title')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('autosales.vehiclesPage.year')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('autosales.vehiclesPage.price')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('autosales.vehiclesPage.transmissionFuel')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>{t('autosales.vehiclesPage.status')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>{t('autosales.vehiclesPage.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -442,7 +442,7 @@ export function VehicleManagementPage() {
                               {vehicle.brand} {vehicle.model}
                             </strong>
                             <div style={{ fontSize: '0.78rem', color: '#64748B' }}>
-                              {vehicle.color ? `${vehicle.color} · ` : ''}{vehicle.mileage ? `${vehicle.mileage.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} km` : '0 km'}
+                              {vehicle.color ? `${vehicle.color} · ` : ''}{vehicle.mileage ? `${vehicle.mileage.toLocaleString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR')} km` : '0 km'}
                             </div>
                           </div>
                         </div>
@@ -583,8 +583,8 @@ export function VehicleManagementPage() {
                   value={formState.values.transmission}
                   onChange={(e) => setFormState({ ...formState, values: { ...formState.values, transmission: e.target.value } })}
                 >
-                  <option value="Automatique">Automatique</option>
-                  <option value="Manuelle">Manuelle</option>
+                  <option value="Automatique">{t('autosales.vehiclesPage.automatic')}</option>
+                  <option value="Manuelle">{t('autosales.vehiclesPage.manual')}</option>
                 </Select>
               </FormField>
 
@@ -593,10 +593,10 @@ export function VehicleManagementPage() {
                   value={formState.values.fuelType}
                   onChange={(e) => setFormState({ ...formState, values: { ...formState.values, fuelType: e.target.value } })}
                 >
-                  <option value="Essence">Essence</option>
-                  <option value="Diesel">Diesel</option>
-                  <option value="Hybride">Hybride</option>
-                  <option value="Électrique">Électrique</option>
+                  <option value="Essence">{t('autosales.vehiclesPage.gasoline')}</option>
+                  <option value="Diesel">{t('autosales.vehiclesPage.diesel')}</option>
+                  <option value="Hybride">{t('autosales.vehiclesPage.hybrid')}</option>
+                  <option value="Électrique">{t('autosales.vehiclesPage.electric')}</option>
                 </Select>
               </FormField>
 
@@ -689,7 +689,7 @@ export function VehicleManagementPage() {
           onClose={() => setDeletingVehicle(null)}
           onConfirm={() => deleteMutation.mutate(deletingVehicle.id)}
           title="Supprimer ce véhicule ?"
-          message={`Êtes-vous sûr de vouloir supprimer ${deletingVehicle.brand} ${deletingVehicle.model} du stock ?`}
+          message={t('autosales.vehiclesPage.confirmDeleteStock', { brand: deletingVehicle.brand, model: deletingVehicle.model })}
           confirmText="Supprimer définitivement"
           loading={deleteMutation.isPending}
           variant="danger"
@@ -746,7 +746,7 @@ export function VehicleDetailPage() {
       refetch()
       return true
     } catch (err) {
-      setUploadError(err.response?.data?.message || 'Erreur lors de l’envoi de la photo.')
+      setUploadError(err.response?.data?.message || t('autosales.vehiclesPage.errors.photoUploadFailed'))
       return false
     } finally {
       setUploading(false)
@@ -760,7 +760,7 @@ export function VehicleDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'] })
       refetch()
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la mise à jour')
+      alert(err.response?.data?.message || t('autosales.vehiclesPage.errors.photoUpdateFailed'))
     }
   }
 
@@ -772,14 +772,14 @@ export function VehicleDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['autosales-vehicles'] })
       refetch()
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la suppression')
+      alert(err.response?.data?.message || t('autosales.vehiclesPage.errors.deleteFailed'))
     }
   }
 
   if (isPending) {
     return (
       <div className="page vanguard-vehicle-detail-page">
-        <LoadingState message="Chargement des détails du véhicule..." />
+        <LoadingState message={t('autosales.vehiclesPage.loadingDetail')} />
       </div>
     )
   }
@@ -789,7 +789,7 @@ export function VehicleDetailPage() {
       <div className="page vanguard-vehicle-detail-page">
         <ErrorState
           title="Véhicule introuvable"
-          message={error?.response?.data?.message || 'Impossible de charger la fiche du véhicule.'}
+          message={error?.response?.data?.message || t('autosales.vehiclesPage.detailLoadFailed')}
           onRetry={() => refetch()}
         />
       </div>
@@ -832,7 +832,7 @@ export function VehicleDetailPage() {
           </div>
           <CardContent>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-              <span style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 600 }}>Prix de vente</span>
+              <span style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 600 }}>{t('autosales.vehiclesPage.salePrice')}</span>
               <strong style={{ fontSize: '1.4rem', color: '#0F172A', fontWeight: 800 }}>
                 {formatMoney(vehicle.price, vehicle.currency, lang)}
               </strong>
@@ -843,41 +843,41 @@ export function VehicleDetailPage() {
         {/* Technical Specs */}
         <Card>
           <CardHeader>
-            <CardTitle>Caractéristiques Techniques</CardTitle>
+            <CardTitle>{t('autosales.vehiclesPage.technicalFeatures')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Année</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.year')}</span>
                 <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>{vehicle.year || '—'}</div>
               </div>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Kilométrage</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.mileage')}</span>
                 <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
-                  {vehicle.mileage != null ? `${vehicle.mileage.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} km` : '—'}
+                  {vehicle.mileage != null ? `${vehicle.mileage.toLocaleString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR')} km` : '—'}
                 </div>
               </div>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Transmission</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.transmission')}</span>
                 <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>{vehicle.transmission || '—'}</div>
               </div>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Carburant</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.fuelType')}</span>
                 <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>{vehicle.fuelType || '—'}</div>
               </div>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Couleur</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.color')}</span>
                 <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>{vehicle.color || '—'}</div>
               </div>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Enregistré le</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.recordedAt')}</span>
                 <div style={{ fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>{formatDate(vehicle.createdAt, lang)}</div>
               </div>
             </div>
 
             {vehicle.description && (
               <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Description</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.description')}</span>
                 <p style={{ margin: '6px 0 0', fontSize: '0.875rem', color: '#334155', lineHeight: 1.5 }}>
                   {vehicle.description}
                 </p>

@@ -43,7 +43,7 @@ export function AuditLogsPage() {
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
     try {
-      return new Date(dateStr).toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR', {
+      return new Date(dateStr).toLocaleString(lang === 'en' ? 'en-GB' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
         dateStyle: 'short',
         timeStyle: 'medium',
       })

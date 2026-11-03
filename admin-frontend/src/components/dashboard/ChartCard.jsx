@@ -4,7 +4,7 @@ export function ChartCard({ title, description, data = [], emptyMessage, classNa
   const { lang, t } = useLanguage()
   const rows = data.filter((item) => Number.isFinite(Number(item.value)) && Number(item.value) >= 0)
   const max = Math.max(...rows.map((item) => Number(item.value)), 0)
-  const number = new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR')
+  const number = new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR')
 
   return (
     <section className={`vanguard-chart-card ${className}`} aria-label={title}>

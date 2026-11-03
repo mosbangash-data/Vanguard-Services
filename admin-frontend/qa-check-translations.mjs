@@ -28,13 +28,16 @@ const walk = (dir, files = []) => {
 
 const files = walk('./src')
 const usage = new Map() // key -> Set(files)
-const re = /\bt\(\s*'([^'`$]+?)'\s*\)/g
+// Match literal keys written with single, double, or template quotes. Dynamic
+// expressions are intentionally excluded because their keys need separate review.
+const re = /\bt\(\s*(['"\x60])([^'"\x60$]+)\1\s*\)/g
 for (const file of files) {
   const src = fs.readFileSync(file, 'utf8')
   let m
   while ((m = re.exec(src))) {
-    if (!usage.has(m[1])) usage.set(m[1], new Set())
-    usage.get(m[1]).add(file.replace(/\\/g, '/'))
+    const key = m[2]
+    if (!usage.has(key)) usage.set(key, new Set())
+    usage.get(key).add(file.replace(/\\/g, '/'))
   }
 }
 
@@ -53,7 +56,7 @@ for (const [key, where] of [...usage].sort()) {
 const constructionProblems = problems.filter((p) => p.where.some((w) => w.includes('/construction/') || w.includes('layouts/') || w.includes('resourceConfig')))
 
 if (problems.length === 0) {
-  console.log('KEY CHECK: OK — every t() key used in source resolves in FR and EN.')
+  console.log(`KEY CHECK: OK — every t() key used in source resolves in ${Object.keys(translations).join(', ').toUpperCase()}.`)
 } else {
   console.log(`KEY CHECK: ${problems.length} problem(s):`)
   for (const p of problems) console.log(`  [${p.lang}] ${p.kind} ${p.key}  <- ${p.where.join(', ')}`)

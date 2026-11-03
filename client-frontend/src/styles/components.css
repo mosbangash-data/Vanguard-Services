@@ -191,6 +191,16 @@
   background: var(--color-primary-light);
 }
 
+.lang-switcher select {
+  max-width: 7.5rem;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
 .navbar-agent {
   display: inline-flex;
   align-items: center;

@@ -26,7 +26,7 @@ export function PublicTicketPage() {
 					<p><strong>{t('publicUi.passenger')}:</strong> {reservation?.customerName || '—'}</p>
 					<p><strong>{t('publicUi.seat')}:</strong> {reservation?.seatNumber || '—'}</p>
 					<p><strong>{t('publicUi.route')}:</strong> {route ? `${route.departureCity || '—'} → ${route.arrivalCity || '—'}` : '—'}</p>
-					<p><strong>{t('publicUi.departure')}:</strong> {trip?.departureAt ? new Date(trip.departureAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') : '—'}</p>
+					<p><strong>{t('publicUi.departure')}:</strong> {trip?.departureAt ? new Date(trip.departureAt).toLocaleString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR') : '—'}</p>
 				</section>
 			)}
 		</main>

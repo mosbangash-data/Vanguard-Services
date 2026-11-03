@@ -11,8 +11,8 @@ import { ErrorState } from '../../../components/ui/ErrorState'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 
-const money = (amount, currency = 'USD', lang = 'fr') => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Number(amount || 0))
-const dateTime = (value, lang = 'fr') => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—'
+const money = (amount, currency = 'USD', lang = 'fr') => new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Number(amount || 0))
+const dateTime = (value, lang = 'fr') => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—'
 const dashboardErrorMessage = (error, t) => {
   if (error?.code === 'INVALID_DASHBOARD_RESPONSE') return t('managerWorkspaceErrors.invalidResponse')
   const status = error?.response?.status
@@ -97,7 +97,7 @@ export function ManagerDashboard() {
       ? { id: 'scanner', label: t('managerWorkspace.openScanner'), to: '/transport/scanner', icon: QrCode }
       : { id: 'tickets', label: t('managerWorkspace.openTickets'), to: '/transport/tickets', icon: QrCode }),
   ].filter(Boolean)
-  const todayLabel = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'full' }).format(new Date())
+  const todayLabel = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { dateStyle: 'full' }).format(new Date())
   const activityLabel = (item) => {
     if (!item.eventKey) return item.label
     const params = { ...(item.params || {}) }

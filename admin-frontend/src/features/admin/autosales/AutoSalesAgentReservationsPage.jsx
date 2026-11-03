@@ -12,13 +12,13 @@ const formatDate = (value, lang) => {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', {
+  return date.toLocaleDateString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   })
 }
-const formatMoney = (amount, currency, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
+const formatMoney = (amount, currency, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
   style: 'currency',
   currency: currency || 'USD',
   maximumFractionDigits: 2,

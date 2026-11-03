@@ -8,7 +8,7 @@ import { ErrorState, LoadingState, StatusBadge } from '../../../components/ui'
 import { printTicket } from './ticketPrint'
 
 const formatDate = (value, lang) => value
-  ? new Date(value).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+  ? new Date(value).toLocaleString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
   : '—'
 
 export function TicketDetailPage() {
@@ -48,7 +48,7 @@ export function TicketDetailPage() {
           if (printing) return
           setPrinting(true)
           setPrintError('')
-          try { await printTicket(ticket.ticketCode, format) } catch { setPrintError(t('ticket.printFailed')) } finally { setPrinting(false) }
+          try { await printTicket(ticket.ticketCode, format, lang) } catch { setPrintError(t('ticket.printFailed')) } finally { setPrinting(false) }
         }} disabled={printing}><Printer size={16} />{printing ? t('ticket.printing') : t('ticket.print')}</button>
       </div>
       {printError && <p className="alert alert-danger" role="alert">{printError}</p>}

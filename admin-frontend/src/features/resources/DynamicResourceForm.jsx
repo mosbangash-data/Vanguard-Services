@@ -29,14 +29,14 @@ const getFieldHelper = (field, t) => {
 
 // Relational select field that loads options asynchronously only when optionsUrl is provided
 function RelationalSelectField({ field, value, onChange, disabled, hasError, inputId, optionsParams = {}, optionsReady = true }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const { data: remoteOptions = [], isLoading, isError } = useQuery({
-    queryKey: ['resource-options', field.optionsUrl, optionsParams],
+    queryKey: ['resource-options', field.optionsUrl, optionsParams, lang],
     queryFn: async () => {
       const response = await api.get(field.optionsUrl, { params: { limit: 100, ...optionsParams } })
       const raw = toOptionsList(unwrapApiResponse(response))
       if (typeof field.optionsMapper === 'function') {
-        return raw.map((item) => ({ ...field.optionsMapper(item), source: item }))
+        return raw.map((item) => ({ ...field.optionsMapper(item, { lang, t }), source: item }))
       }
       return raw.map((item) => ({
         value: item.id || item.code || item.value,

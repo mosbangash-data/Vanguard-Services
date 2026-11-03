@@ -61,9 +61,9 @@ function LoginPageContent() {
               <p className="login-showcase-copy">{t('welcomeSubtitle')}</p>
             </div>
             <div className="login-showcase-services" aria-hidden="true">
-              <span>Coach</span>
-              <span>Construction</span>
-              <span>Automobile</span>
+              <span>{t('adminHome.servicesItems.coach')}</span>
+              <span>{t('adminHome.servicesItems.construction')}</span>
+              <span>{t('adminHome.servicesItems.automobile')}</span>
             </div>
           </div>
         </section>
@@ -75,6 +75,8 @@ function LoginPageContent() {
               <button type="button" className={`lang-btn ${lang === 'fr' ? 'active' : ''}`} onClick={() => setLang('fr')}>FR</button>
               <span className="lang-divider">|</span>
               <button type="button" className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
+              <span className="lang-divider">|</span>
+              <button type="button" className={`lang-btn ${lang === 'sw' ? 'active' : ''}`} aria-label="Kiswahili" title="Kiswahili" onClick={() => setLang('sw')}>SW</button>
             </div>
           </div>
 

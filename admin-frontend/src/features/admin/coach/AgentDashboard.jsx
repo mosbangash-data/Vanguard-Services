@@ -16,9 +16,9 @@ const errorMessage = (error, t) => {
   if (error?.response?.status === 403) return t('agent.accessDenied')
   return t('agent.workspaceError')
 }
-const dateTime = (value, lang) => new Date(value).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-const time = (value, lang) => new Date(value).toLocaleTimeString(lang === 'en' ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })
-const money = (value, currency, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency: currency || 'USD' }).format(Number(value || 0))
+const dateTime = (value, lang) => new Date(value).toLocaleString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+const time = (value, lang) => new Date(value).toLocaleTimeString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })
+const money = (value, currency, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { style: 'currency', currency: currency || 'USD' }).format(Number(value || 0))
 const route = (item) => item?.trip?.schedule?.route ? `${item.trip.schedule.route.departureCity} -> ${item.trip.schedule.route.arrivalCity}` : '-'
 
 export function AgentOverview({ data, user }) {
@@ -63,12 +63,12 @@ export function AgentReservations({ reservations, lang, user }) {
   const [printingTicketCode, setPrintingTicketCode] = useState(null)
   const term = search.trim().toLowerCase()
   const visible = reservations.filter((item) => !term || [item.reservationCode, item.customerName, item.customerPhone].some((value) => String(value || '').toLowerCase().includes(term)))
-  const printTicket = async (ticketCode) => {
+  const printTicket = async (ticketCode, format = printFormat, language = lang) => {
     if (printingTicketCode) return
     setPrintingTicketCode(ticketCode)
     try {
       setTicketError(null)
-      await printTicketDocument(ticketCode, printFormat)
+      await printTicketDocument(ticketCode, format, language)
     } catch (error) {
       setTicketError(errorMessage(error, t))
     } finally {
@@ -76,7 +76,7 @@ export function AgentReservations({ reservations, lang, user }) {
     }
   }
   return <section className="dashboard-panel agent-section"><div className="section-heading"><div><h2>{t('agent.reservations')}</h2><p>{t('agent.reservationWork')}</p></div><div className="agent-header-actions"><label>{t('operations.printFormat')} <select value={printFormat} onChange={(event) => setPrintFormat(event.target.value)}><option value="a4">A4</option><option value="58mm">58 mm</option><option value="80mm">80 mm</option><option value="110mm">110 mm</option></select></label><Link to="/transport/reservations" className="button secondary sm">{t('agent.openManagement')}</Link></div></div><div className="agent-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('agent.reservationSearchPlaceholder')} aria-label={t('agent.searchReservationLabel')} /></div>{ticketError && <div className="alert alert-danger" role="alert">{ticketError}</div>}
-    {!visible.length ? <EmptyState title={reservations.length ? t('agent.noResults') : t('agent.noReservations')} description={reservations.length ? t('agent.noReservationMatches') : t('agent.backendNoReservations')} /> : <div className="table-responsive"><table className="data-table"><thead><tr><th>{t('agent.reservations')}</th><th>{t('agent.client')}</th><th>{t('agent.trip')}</th><th>{t('agent.seat')}</th><th>{t('agent.amount')}</th><th>{t('agent.payment')}</th><th>{t('agent.actions')}</th></tr></thead><tbody>{visible.slice(0, 50).map((item) => { const ticketCode = item.tickets?.[0]?.ticketCode; return <tr key={item.id}><td><strong>{item.reservationCode}</strong><br /><small>{dateTime(item.createdAt, lang)}</small></td><td>{item.customerName}<br /><small>{item.customerPhone}</small></td><td>{route(item)}<br /><small>{item.trip?.departureAt ? dateTime(item.trip.departureAt, lang) : '-'}</small></td><td>{item.seatNumber}</td><td>{money(item.totalAmount, item.currency, lang)}</td><td><StatusBadge status={item.payments?.[0]?.status || 'PENDING'} /></td><td className="agent-inline-actions"><Link to="/transport/reservations" className="button secondary sm">{t('agent.view')}</Link>{hasPermission(user, 'VIEW_PAYMENT') && <Link to="/transport/operations" className="button secondary sm">{t('agent.paymentAction')}</Link>}{ticketCode && <><Link to={`/transport/tickets/${encodeURIComponent(ticketCode)}`} className="button secondary sm">{t('ticket.view')}</Link><button type="button" className="button secondary sm" disabled={Boolean(printingTicketCode)} onClick={() => printTicket(ticketCode)}>{printingTicketCode === ticketCode ? t('ticket.printing') : t('ticket.print')}</button></>}</td></tr> })}</tbody></table></div>}
+    {!visible.length ? <EmptyState title={reservations.length ? t('agent.noResults') : t('agent.noReservations')} description={reservations.length ? t('agent.noReservationMatches') : t('agent.backendNoReservations')} /> : <div className="table-responsive"><table className="data-table"><thead><tr><th>{t('agent.reservations')}</th><th>{t('agent.client')}</th><th>{t('agent.trip')}</th><th>{t('agent.seat')}</th><th>{t('agent.amount')}</th><th>{t('agent.payment')}</th><th>{t('agent.actions')}</th></tr></thead><tbody>{visible.slice(0, 50).map((item) => { const ticketCode = item.tickets?.[0]?.ticketCode; return <tr key={item.id}><td><strong>{item.reservationCode}</strong><br /><small>{dateTime(item.createdAt, lang)}</small></td><td>{item.customerName}<br /><small>{item.customerPhone}</small></td><td>{route(item)}<br /><small>{item.trip?.departureAt ? dateTime(item.trip.departureAt, lang) : '-'}</small></td><td>{item.seatNumber}</td><td>{money(item.totalAmount, item.currency, lang)}</td><td><StatusBadge status={item.payments?.[0]?.status || 'PENDING'} /></td><td className="agent-inline-actions"><Link to="/transport/reservations" className="button secondary sm">{t('agent.view')}</Link>{hasPermission(user, 'VIEW_PAYMENT') && <Link to="/transport/operations" className="button secondary sm">{t('agent.paymentAction')}</Link>}{ticketCode && <><Link to={`/transport/tickets/${encodeURIComponent(ticketCode)}`} className="button secondary sm">{t('ticket.view')}</Link><button type="button" className="button secondary sm" disabled={Boolean(printingTicketCode)} onClick={() => printTicket(ticketCode, '80mm', lang)}>{printingTicketCode === ticketCode ? t('ticket.printing') : t('ticket.print')}</button></>}</td></tr> })}</tbody></table></div>}
   </section>
 }
 
@@ -126,7 +126,7 @@ export function AgentDashboard() {
   return <section className="page agent-workspace agent-command">
     <header className="agent-command__hero">
       <div className="agent-command__identity"><span>{t('agent.todayDesk')}</span><h1>{t('agent.greetingShort')} <strong>{user.firstName} {user.lastName}</strong></h1><p>{user.agency?.name || user.agency?.code || t('agent.agencyUnavailable')}</p></div>
-      <div className="agent-command__hero-side"><time>{new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${selectedDate}T12:00:00`))}</time>{reservationAllowed && <Link to="/transport/reservations" className="agent-command__primary">{t('agent.newReservation')} <ArrowUpRight size={17} /></Link>}</div>
+      <div className="agent-command__hero-side"><time>{new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${selectedDate}T12:00:00`))}</time>{reservationAllowed && <Link to="/transport/reservations" className="agent-command__primary">{t('agent.newReservation')} <ArrowUpRight size={17} /></Link>}</div>
     </header>
     <section className="agent-command__panel agent-command__overview"><div className="agent-command__heading"><div><span>{t('agent.overview')}</span><h2>{t('agent.agencyActivity')}</h2></div></div><div className="agent-command__action-list">
       {hasPermission(user, 'VIEW_RESERVATION') && <Link to="/transport/tickets" className="agent-command__action"><Ticket size={17} />{t('agent.shortcutSoldTicket')}<ArrowUpRight size={15} /></Link>}
@@ -146,7 +146,7 @@ export function AgentDashboard() {
       </section>
       <section className="agent-command__panel agent-command__revenue"><div className="agent-command__heading"><div><span>{t('agent.personalPerformance')}</span><h2>{t('agent.revenueHistory')}</h2></div><label className="agent-command__date"><CalendarDays size={15} /><span className="sr-only">{t('agent.selectDay')}</span><input type="date" value={selectedDate} max={localDate()} onChange={(event) => { if (event.target.value) setSelectedDate(event.target.value) }} /></label></div>
         <div className="agent-command__chart" role="img" aria-label={t('agent.revenueHistory')}>
-          {daily.revenueHistory.map((day) => { const amount = Number(day.currencies?.[primaryCurrency] || 0); const max = Math.max(...daily.revenueHistory.map((item) => Number(item.currencies?.[primaryCurrency] || 0)), 1); return <div className="agent-command__bar-column" key={day.date}><strong>{amount ? money(amount, primaryCurrency, lang) : ''}</strong><div><span style={{ height: `${Math.max((amount / max) * 100, amount ? 6 : 2)}%` }} /></div><small>{new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { weekday: 'short' }).format(new Date(`${day.date}T12:00:00`))}</small></div> })}
+          {daily.revenueHistory.map((day) => { const amount = Number(day.currencies?.[primaryCurrency] || 0); const max = Math.max(...daily.revenueHistory.map((item) => Number(item.currencies?.[primaryCurrency] || 0)), 1); return <div className="agent-command__bar-column" key={day.date}><strong>{amount ? money(amount, primaryCurrency, lang) : ''}</strong><div><span style={{ height: `${Math.max((amount / max) * 100, amount ? 6 : 2)}%` }} /></div><small>{new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { weekday: 'short' }).format(new Date(`${day.date}T12:00:00`))}</small></div> })}
         </div>
         <p className="agent-command__chart-note">{currencies.length ? t('agent.chartCurrency', { currency: primaryCurrency }) : t('agent.noRevenueHistory')}</p>
       </section>

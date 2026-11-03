@@ -41,7 +41,7 @@ async function fetchDashboardOverview() {
 const formatNumber = (value, lang = 'fr') => {
   const numeric = Number(value || 0)
   if (!Number.isFinite(numeric)) return '0'
-  return new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR').format(numeric)
+  return new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR').format(numeric)
 }
 
 const formatMoney = (value, currency, lang = 'fr') => {
@@ -49,13 +49,13 @@ const formatMoney = (value, currency, lang = 'fr') => {
   if (!Number.isFinite(numeric)) return '0'
 
   if (currency === 'CDF') {
-    return `${new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
+    return `${new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
       maximumFractionDigits: 0,
       minimumFractionDigits: 0,
     }).format(numeric)} CDF`
   }
 
-  return `$ ${new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
+  return `$ ${new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(numeric)}`
@@ -92,8 +92,8 @@ export function AdminDashboardPage() {
       <div className="page vanguard-dashboard-page">
         <PageHeader
           eyebrow="VANGUARD SERVICES · SUPER ADMIN"
-          title="Tableau de bord Global"
-          subtitle="Chargement des indicateurs de performance de la plateforme..."
+          title={t('adminDashboardUi.loadingTitle')}
+          subtitle={t('adminDashboardUi.loadingSubtitle')}
         />
         <LoadingState type="cards" cardCount={4} />
       </div>
@@ -105,11 +105,11 @@ export function AdminDashboardPage() {
       <div className="page vanguard-dashboard-page">
         <PageHeader
           eyebrow="VANGUARD SERVICES · SUPER ADMIN"
-          title="Tableau de bord Global"
-          subtitle="Supervision consolidée de l’ensemble des départements Vanguard Services."
+          title={t('adminDashboardUi.title')}
+          subtitle={t('adminDashboardUi.consolidatedSubtitle')}
         />
         <ErrorState
-          title="Impossible de charger le tableau de bord"
+          title={t('dashboard.errorTitle')}
           message={apiErrorMessage(error, t)}
           onRetry={() => refetch()}
         />
@@ -128,8 +128,8 @@ export function AdminDashboardPage() {
     <div className="page vanguard-dashboard-page">
       <PageHeader
         eyebrow="VANGUARD SERVICES · SUPER ADMIN"
-        title="Tableau de bord Global"
-        subtitle="Supervision consolidée et indicateurs clés de tous les départements Vanguard."
+        title={t('adminDashboardUi.title')}
+        subtitle={t('adminDashboardUi.subtitle')}
         actions={
           <Button
             variant="secondary"
@@ -138,7 +138,7 @@ export function AdminDashboardPage() {
             loading={isFetching}
             onClick={() => refetch()}
           >
-            Actualiser
+            {t('adminDashboardUi.refresh')}
           </Button>
         }
       />
@@ -146,32 +146,32 @@ export function AdminDashboardPage() {
       {/* 1. Global Performance Metrics (Essential KPIs) */}
       <div className="vanguard-stats-grid">
         <StatCard
-          title="Agents Actifs"
+          title={t('adminDashboardUi.activeAgents')}
           value={formatNumber(global.activeAgents, lang)}
-          subtitle="Tous départements"
+          subtitle={t('adminDashboardUi.allDepartments')}
           icon={Users}
           accent="primary"
           onClick={() => navigate('/admin/users')}
         />
         <StatCard
-          title="Administrateurs"
+          title={t('adminDashboardUi.administrators')}
           value={formatNumber(global.activeAdmins, lang)}
-          subtitle="Super Admins & Modules"
+          subtitle={t('adminDashboardUi.adminsScope')}
           icon={ShieldCheck}
           accent="primary"
           onClick={() => navigate('/admin/users')}
         />
         <StatCard
-          title="Revenus (USD)"
+          title={t('adminDashboardUi.revenueUsd')}
           value={formatMoney(revenue.USD || 0, 'USD', lang)}
-          subtitle="Chiffre d’affaires global"
+          subtitle={t('adminDashboardUi.globalRevenue')}
           icon={Banknote}
           accent="revenue"
         />
         <StatCard
-          title="Revenus (CDF)"
+          title={t('adminDashboardUi.revenueCdf')}
           value={formatMoney(revenue.CDF || 0, 'CDF', lang)}
-          subtitle="Chiffre d’affaires en Francs Congolais"
+          subtitle={t('adminDashboardUi.cdfRevenue')}
           icon={Banknote}
           accent="revenue"
         />
@@ -182,7 +182,7 @@ export function AdminDashboardPage() {
         <CardHeader style={{ padding: '14px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles size={16} color="#D97706" />
-            <CardTitle style={{ fontSize: '0.95rem' }}>Actions Rapides</CardTitle>
+            <CardTitle style={{ fontSize: '0.95rem' }}>{t('adminDashboardUi.quickActions')}</CardTitle>
           </div>
         </CardHeader>
         <CardContent style={{ padding: '16px 20px' }}>
@@ -193,7 +193,7 @@ export function AdminDashboardPage() {
               icon={UserPlus}
               onClick={() => navigate('/admin/users')}
             >
-              + Nouvel Utilisateur
+              {t('adminDashboardUi.newUser')}
             </Button>
             <Button
               variant="outline"
@@ -201,7 +201,7 @@ export function AdminDashboardPage() {
               icon={Building2}
               onClick={() => navigate('/transport/agencies')}
             >
-              + Nouvelle Agence
+              {t('adminDashboardUi.newAgency')}
             </Button>
             <Button
               variant="outline"
@@ -209,7 +209,7 @@ export function AdminDashboardPage() {
               icon={CarFront}
               onClick={() => navigate('/automobile/vehicles')}
             >
-              + Nouveau Véhicule
+              {t('adminDashboardUi.newVehicle')}
             </Button>
             <Button
               variant="outline"
@@ -217,7 +217,7 @@ export function AdminDashboardPage() {
               icon={HardHat}
               onClick={() => navigate('/construction/projects')}
             >
-              + Nouveau Projet
+              {t('adminDashboardUi.newProject')}
             </Button>
             <Button
               variant="ghost"
@@ -225,7 +225,7 @@ export function AdminDashboardPage() {
               icon={Settings}
               onClick={() => navigate('/admin/account')}
             >
-              Mon Compte
+              {t('adminDashboardUi.myAccount')}
             </Button>
           </div>
         </CardContent>
@@ -240,7 +240,7 @@ export function AdminDashboardPage() {
         margin: '0 0 16px',
         letterSpacing: '-0.02em'
       }}>
-        Synthèse des Départements
+        {t('adminDashboardUi.departmentsSummary')}
       </h2>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '28px' }}>
@@ -262,32 +262,32 @@ export function AdminDashboardPage() {
               </div>
               <div>
                 <CardTitle>Vanguard Coach</CardTitle>
-                <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>Transport interurbain & réservations</p>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>{t('adminDashboardUi.coachDescription')}</p>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '18px' }}>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Réservations</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.reservations')}</span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatNumber(transport.reservations?.total || 0, lang)}
                 </div>
               </div>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Billets</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.tickets')}</span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatNumber(transport.tickets?.total || 0, lang)}
                 </div>
               </div>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Voyages planifiés</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.scheduledTrips')}</span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatNumber(transport.trips?.total || 0, lang)}
                 </div>
               </div>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Recettes Coach</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.coachRevenue')}</span>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatMoney(transport.revenue?.USD || 0, 'USD', lang)}
                 </div>
@@ -299,7 +299,7 @@ export function AdminDashboardPage() {
               style={{ width: '100%', justifyContent: 'space-between' }}
               onClick={() => navigate('/transport')}
             >
-              <span>Accéder au module Coach</span>
+              <span>{t('adminDashboardUi.openCoach')}</span>
               <ArrowRight size={15} />
             </Button>
           </CardContent>
@@ -323,32 +323,32 @@ export function AdminDashboardPage() {
               </div>
               <div>
                 <CardTitle>Vanguard Automobile</CardTitle>
-                <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>Vente de véhicules & réservations</p>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>{t('adminDashboardUi.automobileDescription')}</p>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '18px' }}>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Véhicules en stock</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.vehiclesInStock')}</span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatNumber(autoSales.vehicles?.total || 0, lang)}
                 </div>
               </div>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Demandes clients</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.customerInquiries')}</span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatNumber(autoSales.inquiries?.total || 0, lang)}
                 </div>
               </div>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Réservations</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.reservations')}</span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatNumber(autoSales.reservations?.total || 0, lang)}
                 </div>
               </div>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Recettes Auto</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.autoRevenue')}</span>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatMoney(autoSales.revenue?.USD || 0, 'USD', lang)}
                 </div>
@@ -360,7 +360,7 @@ export function AdminDashboardPage() {
               style={{ width: '100%', justifyContent: 'space-between' }}
               onClick={() => navigate('/automobile')}
             >
-              <span>Accéder au module Automobile</span>
+              <span>{t('adminDashboardUi.openAutomobile')}</span>
               <ArrowRight size={15} />
             </Button>
           </CardContent>
@@ -384,32 +384,32 @@ export function AdminDashboardPage() {
               </div>
               <div>
                 <CardTitle>Vanguard Construction</CardTitle>
-                <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>Chantiers, projets & devis</p>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>{t('adminDashboardUi.constructionDescription')}</p>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '18px' }}>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Total Projets</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.totalProjects')}</span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatNumber(construction.projects?.total || 0, lang)}
                 </div>
               </div>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>En cours</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.inProgress')}</span>
                   <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#EA580C' }}>
                   {formatNumber(construction.projects?.IN_PROGRESS || 0, lang)}
                 </div>
               </div>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Demandes de devis</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.quotes')}</span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatNumber(construction.quoteRequests?.total || 0, lang)}
                 </div>
               </div>
               <div style={{ padding: '10px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Terminés</span>
+                <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>{t('adminDashboardUi.completed')}</span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
                   {formatNumber(construction.projects?.COMPLETED || 0, lang)}
                 </div>
@@ -421,7 +421,7 @@ export function AdminDashboardPage() {
               style={{ width: '100%', justifyContent: 'space-between' }}
               onClick={() => navigate('/construction')}
             >
-              <span>Accéder au module Construction</span>
+              <span>{t('adminDashboardUi.openConstruction')}</span>
               <ArrowRight size={15} />
             </Button>
           </CardContent>
@@ -433,9 +433,9 @@ export function AdminDashboardPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <BarChart3 size={19} color="#2563EB" />
             <div>
-              <CardTitle>Rapport des ventes Vanguard Coach</CardTitle>
+              <CardTitle>{t('adminDashboardUi.coachSalesReport')}</CardTitle>
               <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748B' }}>
-                Données réelles des billets, colis et paiements enregistrés.
+                {t('adminDashboardUi.realData')}
               </p>
             </div>
           </div>
@@ -443,22 +443,22 @@ export function AdminDashboardPage() {
         <CardContent>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'end', marginBottom: '20px' }}>
             <label style={{ display: 'grid', gap: '6px', fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>
-              Période
+              {t('adminDashboardUi.period')}
               <select value={reportPeriod} onChange={(event) => setReportPeriod(event.target.value)} style={{ minWidth: '150px', padding: '9px 10px', border: '1px solid #CBD5E1', borderRadius: '6px' }}>
-                <option value="day">Jour</option>
-                <option value="week">Semaine</option>
-                <option value="month">Mois</option>
-                <option value="custom">Personnalisée</option>
+                <option value="day">{t('adminDashboardUi.day')}</option>
+                <option value="week">{t('adminDashboardUi.week')}</option>
+                <option value="month">{t('adminDashboardUi.month')}</option>
+                <option value="custom">{t('adminDashboardUi.custom')}</option>
               </select>
             </label>
             {reportPeriod === 'custom' && (
               <>
                 <label style={{ display: 'grid', gap: '6px', fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>
-                  Du
+                  {t('adminDashboardUi.from')}
                   <input type="date" value={reportStartDate} onChange={(event) => setReportStartDate(event.target.value)} style={{ padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
                 </label>
                 <label style={{ display: 'grid', gap: '6px', fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>
-                  Au
+                  {t('adminDashboardUi.to')}
                   <input type="date" value={reportEndDate} onChange={(event) => setReportEndDate(event.target.value)} style={{ padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
                 </label>
               </>
@@ -466,10 +466,10 @@ export function AdminDashboardPage() {
           </div>
 
           {salesReportQuery.isPending ? (
-            <LoadingState message="Chargement du rapport des ventes..." />
+            <LoadingState message={t('adminDashboardUi.loadingReport')} />
           ) : salesReportQuery.isError ? (
             <ErrorState
-              title="Impossible de charger le rapport des ventes"
+              title={t('adminDashboardUi.reportLoadError')}
               message={apiErrorMessage(salesReportQuery.error, t)}
               onRetry={() => salesReportQuery.refetch()}
             />
@@ -477,10 +477,10 @@ export function AdminDashboardPage() {
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '20px' }}>
                 {[
-                  ['Billets vendus', salesReportQuery.data?.totals?.tickets || 0],
-                  ['Passagers', salesReportQuery.data?.totals?.passengers || 0],
-                  ['Colis enregistrés', salesReportQuery.data?.totals?.parcels || 0],
-                  ['Paiements payés', salesReportQuery.data?.totals?.paidPayments || 0],
+                  [t('adminDashboardUi.ticketsSold'), salesReportQuery.data?.totals?.tickets || 0],
+                  [t('adminDashboardUi.passengers'), salesReportQuery.data?.totals?.passengers || 0],
+                  [t('adminDashboardUi.parcelsRegistered'), salesReportQuery.data?.totals?.parcels || 0],
+                  [t('adminDashboardUi.paymentsPaid'), salesReportQuery.data?.totals?.paidPayments || 0],
                 ].map(([label, value]) => (
                   <div key={label} style={{ padding: '12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
                     <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>{label}</div>
@@ -508,30 +508,30 @@ export function AdminDashboardPage() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '20px' }}>
                 <div style={{ padding: '14px', border: '1px solid #DBEAFE', borderRadius: '8px', background: '#EFF6FF' }}>
-                  <div style={{ fontSize: '0.78rem', color: '#1D4ED8', fontWeight: 700 }}>Chiffre d’affaires billets</div>
+                  <div style={{ fontSize: '0.78rem', color: '#1D4ED8', fontWeight: 700 }}>{t('adminDashboardUi.ticketRevenue')}</div>
                   <strong>{formatMoney(salesReportQuery.data?.revenue?.tickets?.USD || 0, 'USD', lang)} · {formatMoney(salesReportQuery.data?.revenue?.tickets?.CDF || 0, 'CDF', lang)}</strong>
                 </div>
                 <div style={{ padding: '14px', border: '1px solid #D1FAE5', borderRadius: '8px', background: '#ECFDF5' }}>
-                  <div style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700 }}>Chiffre d’affaires colis</div>
+                  <div style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700 }}>{t('adminDashboardUi.parcelRevenue')}</div>
                   <strong>{formatMoney(salesReportQuery.data?.revenue?.parcels?.USD || 0, 'USD', lang)} · {formatMoney(salesReportQuery.data?.revenue?.parcels?.CDF || 0, 'CDF', lang)}</strong>
                 </div>
                 <div style={{ padding: '14px', border: '1px solid #FED7AA', borderRadius: '8px', background: '#FFF7ED' }}>
-                  <div style={{ fontSize: '0.78rem', color: '#C2410C', fontWeight: 700 }}>Total des ventes</div>
+                  <div style={{ fontSize: '0.78rem', color: '#C2410C', fontWeight: 700 }}>{t('adminDashboardUi.totalSales')}</div>
                   <strong>{formatMoney(salesReportQuery.data?.revenue?.total?.USD || 0, 'USD', lang)} · {formatMoney(salesReportQuery.data?.revenue?.total?.CDF || 0, 'CDF', lang)}</strong>
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
                 <div>
-                  <h3 style={{ margin: '0 0 10px', fontSize: '0.95rem' }}>Ventes par trajet</h3>
-                  {(salesReportQuery.data?.byRoute || []).length === 0 ? <p style={{ color: '#64748B', fontSize: '0.85rem' }}>Aucune vente sur cette période.</p> : (salesReportQuery.data.byRoute || []).map((route) => (
+                  <h3 style={{ margin: '0 0 10px', fontSize: '0.95rem' }}>{t('adminDashboardUi.salesByRoute')}</h3>
+                  {(salesReportQuery.data?.byRoute || []).length === 0 ? <p style={{ color: '#64748B', fontSize: '0.85rem' }}>{t('adminDashboardUi.noSalesPeriod')}</p> : (salesReportQuery.data.byRoute || []).map((route) => (
                     <div key={route.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '8px 0', borderBottom: '1px solid #F1F5F9', fontSize: '0.84rem' }}>
                       <span>{route.code} · {route.label}</span><strong>{route.payments}</strong>
                     </div>
                   ))}
                 </div>
                 <div>
-                  <h3 style={{ margin: '0 0 10px', fontSize: '0.95rem' }}>Ventes par agence</h3>
-                  {(salesReportQuery.data?.byAgency || []).length === 0 ? <p style={{ color: '#64748B', fontSize: '0.85rem' }}>Aucune vente sur cette période.</p> : (salesReportQuery.data.byAgency || []).map((agency) => (
+                  <h3 style={{ margin: '0 0 10px', fontSize: '0.95rem' }}>{t('adminDashboardUi.salesByAgency')}</h3>
+                  {(salesReportQuery.data?.byAgency || []).length === 0 ? <p style={{ color: '#64748B', fontSize: '0.85rem' }}>{t('adminDashboardUi.noSalesPeriod')}</p> : (salesReportQuery.data.byAgency || []).map((agency) => (
                     <div key={agency.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '8px 0', borderBottom: '1px solid #F1F5F9', fontSize: '0.84rem' }}>
                       <span>{agency.code} · {agency.name}</span><strong>{agency.payments}</strong>
                     </div>
@@ -572,10 +572,10 @@ export function AdminDashboardPage() {
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px', fontSize: '1.05rem', fontWeight: 700, color: '#FFFFFF' }}>
-                  Audit & Activité Système
+                  {t('adminDashboardUi.auditActivity')}
                 </h3>
                 <p style={{ margin: 0, fontSize: '0.84rem', color: '#94A3B8' }}>
-                  Consultez le journal complet des événements, connexions et opérations sensibles effectuées sur la plateforme.
+                  {t('adminDashboardUi.auditDescription')}
                 </p>
               </div>
             </div>

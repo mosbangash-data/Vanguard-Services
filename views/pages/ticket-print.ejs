@@ -1,20 +1,20 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="<%= messages.lang %>">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Billet <%= ticket.ticketCode %> — Vanguard Coach</title>
+    <title><%= messages.title %> <%= ticket.ticketCode %> — Vanguard Coach</title>
     <link rel="stylesheet" href="/css/ticket-print.css" />
   </head>
   <body class="ticket-body" data-ticket-format="<%= printFormat %>">
-    <nav class="ticket-print-controls" aria-label="Options d’impression">
-      <span>Format :</span>
+    <nav class="ticket-print-controls" aria-label="<%= messages.options %>">
+      <span><%= messages.format %></span>
       <a href="?format=58mm" class="<%= printFormat === '58mm' ? 'is-active' : '' %>">58 mm</a>
       <a href="?format=80mm" class="<%= printFormat === '80mm' ? 'is-active' : '' %>">80 mm</a>
       <a href="?format=110mm" class="<%= printFormat === '110mm' ? 'is-active' : '' %>">110 mm</a>
       <a href="?format=a4" class="<%= printFormat === 'a4' ? 'is-active' : '' %>">A4</a>
-      <button type="button" id="ticket-print-button">Imprimer</button>
-      <small>Bluetooth et imprimantes intégrées passent par le service d’impression du terminal.</small>
+      <button type="button" id="ticket-print-button"><%= messages.print %></button>
+      <small><%= messages.printerHelp %></small>
     </nav>
 
     <%
@@ -37,7 +37,7 @@
     %>
 
     <main class="ticket-page">
-      <article class="ticket-printable ticket--<%= printFormat %>" aria-label="Billet de voyage Vanguard Coach">
+      <article class="ticket-printable ticket--<%= printFormat %>" aria-label="<%= messages.ariaTicket %>">
         <!-- Logo Vanguard Coach -->
         <header class="ticket-logo-header">
           <img src="/assets/transport/logo.png" alt="Vanguard Coach" class="ticket-logo-img" />
@@ -46,13 +46,13 @@
         <div class="ticket-dashed-divider"></div>
 
         <!-- Bannière Billet de Transport -->
-        <div class="ticket-title-banner">BILLET DE TRANSPORT</div>
+        <div class="ticket-title-banner"><%= messages.transportTicket %></div>
         <div class="ticket-number">N° <%= ticket.ticketCode %></div>
 
         <div class="ticket-dashed-divider"></div>
 
         <!-- Section Trajet -->
-        <section class="ticket-route-section" aria-label="Trajet">
+        <section class="ticket-route-section" aria-label="<%= messages.route %>">
           <div class="ticket-city ticket-city--departure"><%= ticket.departureCity || '—' %></div>
           <div class="ticket-route-arrow" aria-hidden="true">&#9660;</div>
           <div class="ticket-city ticket-city--arrival"><%= ticket.arrivalCity || '—' %></div>
@@ -61,33 +61,33 @@
         <div class="ticket-dashed-divider"></div>
 
         <!-- Détails du voyage -->
-        <section class="ticket-details-table" aria-label="Détails du voyage">
+        <section class="ticket-details-table" aria-label="<%= messages.tripDetails %>">
           <div class="ticket-detail-row">
-            <span class="ticket-detail-label">Date</span>
+            <span class="ticket-detail-label"><%= messages.date %></span>
             <span class="ticket-detail-value"><%= departureDateFormatted %></span>
           </div>
           <div class="ticket-detail-row">
-            <span class="ticket-detail-label">Départ</span>
+            <span class="ticket-detail-label"><%= messages.departure %></span>
             <span class="ticket-detail-value"><%= ticket.departureTime || '—' %></span>
           </div>
           <div class="ticket-detail-row">
-            <span class="ticket-detail-label">Siège</span>
+            <span class="ticket-detail-label"><%= messages.seat %></span>
             <span class="ticket-detail-value"><%= ticket.seatNumber || '—' %></span>
           </div>
           <% if (busLabel) { %>
           <div class="ticket-detail-row">
-            <span class="ticket-detail-label">Bus</span>
+            <span class="ticket-detail-label"><%= messages.bus %></span>
             <span class="ticket-detail-value"><%= busLabel %></span>
           </div>
           <% } %>
           <% if (ticket.class) { %>
           <div class="ticket-detail-row">
-            <span class="ticket-detail-label">Classe</span>
+            <span class="ticket-detail-label"><%= messages.travelClass %></span>
             <span class="ticket-detail-value"><%= ticket.class %></span>
           </div>
           <% } %>
           <div class="ticket-passenger-block">
-            <span class="ticket-detail-label">Passager</span>
+            <span class="ticket-detail-label"><%= messages.passenger %></span>
             <div class="ticket-passenger-name"><%= ticket.customerName || '—' %></div>
             <% if (ticket.customerPhone) { %>
             <div class="ticket-passenger-phone"><%= ticket.customerPhone %></div>
@@ -96,32 +96,32 @@
         </section>
 
         <!-- Cadre Prix -->
-        <section class="ticket-price-box" aria-label="Prix du billet">
-          <span class="ticket-price-label">PRIX</span>
+        <section class="ticket-price-box" aria-label="<%= messages.title %>">
+          <span class="ticket-price-label"><%= messages.price %></span>
           <span class="ticket-price-value"><%= ticket.totalAmount != null ? ticket.totalAmount : '—' %> <%= currency || 'USD' %></span>
         </section>
 
         <!-- Instruction QR -->
-        <div class="ticket-qr-instruction">SCANNEZ À L'EMBARQUEMENT</div>
+        <div class="ticket-qr-instruction"><%= messages.scan %></div>
 
         <!-- QR Code -->
-        <div class="ticket-qr" role="img" aria-label="QR code sécurisé du billet"><%- ticket.qrSvg %></div>
+        <div class="ticket-qr" role="img" aria-label="<%= messages.qr %>"><%- ticket.qrSvg %></div>
 
         <!-- Mentions légales / consignes -->
         <div class="ticket-notes">
-          <div>Présentez ce billet au contrôleur.</div>
-          <div>Non remboursable · Non échangeable</div>
-          <div>Bagages sous la responsabilité du voyageur</div>
+          <div><%= messages.present %></div>
+          <div><%= messages.restrictions %></div>
+          <div><%= messages.luggage %></div>
         </div>
 
         <div class="ticket-dashed-divider"></div>
 
         <!-- Pied de billet -->
         <footer class="ticket-footer">
-          <div>Merci de voyager avec</div>
+          <div><%= messages.thanks %></div>
           <div class="ticket-footer-brand">VANGUARD COACH</div>
           <% if (issuedDateFormatted !== '—') { %>
-          <div class="ticket-footer-issued">Émis le <%= issuedDateFormatted %></div>
+          <div class="ticket-footer-issued"><%= messages.issued %> <%= issuedDateFormatted %></div>
           <% } %>
         </footer>
       </article>

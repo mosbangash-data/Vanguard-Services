@@ -1,19 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { translations } from './translations'
 
-const LanguageContext = createContext(null)
+export const LanguageContext = createContext(null)
 
 const STORAGE_KEY = 'vanguard.client.lang'
 
 const getInitialLanguage = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'fr' || stored === 'en') return stored
+    if (stored === 'fr' || stored === 'en' || stored === 'sw') return stored
   } catch {
     // ignore
   }
   const browserLang = typeof navigator !== 'undefined' ? navigator.language : 'fr'
-  return browserLang?.toLowerCase().startsWith('en') ? 'en' : 'fr'
+  if (browserLang?.toLowerCase().startsWith('en')) return 'en'
+  if (browserLang?.toLowerCase().startsWith('sw')) return 'sw'
+  return 'fr'
 }
 
 export function LanguageProvider({ children }) {
@@ -31,14 +33,15 @@ export function LanguageProvider({ children }) {
   const t = useCallback(
     (key) => {
       const keys = key.split('.')
-      let value = translations[language]
-      for (const k of keys) {
-        if (value && typeof value === 'object' && k in value) {
-          value = value[k]
-        } else {
-          return key
+      const resolve = (dictionary) => {
+        let value = dictionary
+        for (const k of keys) {
+          if (value && typeof value === 'object' && k in value) value = value[k]
+          else return undefined
         }
+        return value
       }
+      const value = resolve(translations[language]) ?? resolve(translations.fr) ?? resolve(translations.en)
       return typeof value === 'string' ? value : key
     },
     [language]

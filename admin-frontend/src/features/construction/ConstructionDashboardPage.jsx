@@ -10,8 +10,8 @@ import { PageHeader, StatCard, Card, CardHeader, CardTitle, CardContent, Button,
 import { ChartCard } from '../../components/dashboard/ChartCard'
 
 const fetchDashboard = async () => (await api.get('/api/construction/dashboard')).data?.data
-const number = (value, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR').format(value ?? 0)
-const date = (value, lang) => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'medium' }).format(new Date(value)) : '—'
+const number = (value, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR').format(value ?? 0)
+const date = (value, lang) => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { dateStyle: 'medium' }).format(new Date(value)) : '—'
 const projectStatusLabel = (status, t) => t(`construction.projects.statuses.${status}`)
 
 function SectionLink({ to, children }) { return <Link to={to} style={{ color: '#2563EB', fontSize: '.85rem', fontWeight: 600, textDecoration: 'none' }}>{children} →</Link> }
@@ -34,7 +34,7 @@ export function ConstructionDashboardPage() {
   const requests = data.customerRequests
   const quotes = data.quoteRequests
   const currency = data.scope?.currency || 'USD'
-  const formatMoney = (amount) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency }).format(Number(amount || 0))
+  const formatMoney = (amount) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { style: 'currency', currency }).format(Number(amount || 0))
   const recentProjects = projects.recentModified || []
 
   return (

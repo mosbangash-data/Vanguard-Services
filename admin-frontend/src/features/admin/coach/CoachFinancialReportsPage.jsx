@@ -36,7 +36,7 @@ export function CoachFinancialReportsPage() {
     if (span > 366) return tx('rangeTooLong')
     return ''
   }
-  const fmtMoney = (amount, currency) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(amount || 0))
+  const fmtMoney = (amount, currency) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(amount || 0))
   const formats = { USD: (value) => fmtMoney(value, 'USD'), CDF: (value) => fmtMoney(value, 'CDF') }
   const apply = (event) => { event.preventDefault(); const error = validate(); setFormError(error); if (!error) setApplied({ ...draft }) }
   const reset = () => { const initial = blankFilters(); setDraft(initial); setApplied(initial); setFormError('') }
@@ -71,7 +71,7 @@ export function CoachFinancialReportsPage() {
       {Object.entries(report.anomalies).filter(([key]) => key !== 'refundReconciliation').some(([, value]) => Number(value) > 0) && <section className="coach-finance-warning"><AlertTriangle/><div><strong>{tx('anomalies')}</strong><p>{Object.entries(report.anomalies).filter(([key]) => key !== 'refundReconciliation' && Number(report.anomalies[key]) > 0).map(([key, value]) => `${tx(key)}: ${value}`).join(' · ')}</p></div></section>}
       <section className="coach-finance-warning"><AlertTriangle/><div><strong>{tx('refundsTitle')}</strong><p>{report.anomalies.refundReconciliation}</p><small>{tx('refundCount')}: {report.anomalies.refundCount}</small></div></section>
       <section className="dashboard-panel coach-finance-history"><h2>{tx('historyTitle')}</h2><p>{tx('historyUnavailable')}</p><p>{tx('aggregatedOnly')}</p></section>
-      <footer className="coach-finance-generated">{tx('generated')}: {new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())} · {tx('notCertified')}</footer>
+      <footer className="coach-finance-generated">{tx('generated')}: {new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())} · {tx('notCertified')}</footer>
     </div>}
   </section>
 }

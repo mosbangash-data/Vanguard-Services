@@ -36,8 +36,8 @@ export function ProjectDetailPage() {
   const projectData = project.data?.project || project.data || {}
   const updateList = toList(updates.data)
   const galleryList = toList(gallery.data)
-  const formatDate = (value) => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', { dateStyle: 'medium' }).format(new Date(value)) : '—'
-  const formatMoney = (value) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency: 'USD' }).format(Number(value || 0))
+  const formatDate = (value) => value ? new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { dateStyle: 'medium' }).format(new Date(value)) : '—'
+  const formatMoney = (value) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { style: 'currency', currency: 'USD' }).format(Number(value || 0))
   const statusLabel = (value) => {
     const key = `status.${String(value || '').toLowerCase()}`
     const translated = t(key)

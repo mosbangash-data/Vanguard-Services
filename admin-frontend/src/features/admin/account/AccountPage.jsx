@@ -147,6 +147,7 @@ export function AccountPage() {
                   <select className="form-control" value={lang} onChange={(event) => setLang(event.target.value)} aria-label={t('layout.language')}>
                     <option value="fr">Français</option>
                     <option value="en">English</option>
+                    <option value="sw">Kiswahili</option>
                   </select>
                 </FormField>
                 <FormField label={t('layout.theme')}>

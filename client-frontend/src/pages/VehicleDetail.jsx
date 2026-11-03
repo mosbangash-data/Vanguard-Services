@@ -108,7 +108,7 @@ export default function VehicleDetail() {
                 {vehicle.mileage != null && (
                   <div className="vehicle-spec">
                     <Gauge size={18} aria-hidden="true" />
-                    <span><strong>{t('automobilePage.mileage')}</strong>{new Intl.NumberFormat('fr-FR').format(vehicle.mileage)} km</span>
+                    <span><strong>{t('automobilePage.mileage')}</strong>{new Intl.NumberFormat(language === 'sw' ? 'sw-TZ' : language === 'fr' ? 'fr-FR' : 'en-US').format(vehicle.mileage)} {t('automobilePage.kilometerShort')}</span>
                   </div>
                 )}
                 {vehicle.fuelType && (

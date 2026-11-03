@@ -120,7 +120,7 @@ export default function Automobile() {
               {vehicle.year != null && <span className="vehicle-card-year">{vehicle.year}</span>}
             </div>
             <div className="vehicle-card-specs">
-              {vehicle.mileage != null && <span><Gauge size={15} aria-hidden="true" />{new Intl.NumberFormat(language === 'fr' ? 'fr-FR' : 'en-US').format(vehicle.mileage)} {t('automobilePage.kilometerShort')}</span>}
+              {vehicle.mileage != null && <span><Gauge size={15} aria-hidden="true" />{new Intl.NumberFormat(language === 'sw' ? 'sw-TZ' : language === 'fr' ? 'fr-FR' : 'en-US').format(vehicle.mileage)} {t('automobilePage.kilometerShort')}</span>}
               {vehicle.fuelType && <span><Fuel size={15} aria-hidden="true" />{vehicle.fuelType}</span>}
               {vehicle.transmission && <span><Cog size={15} aria-hidden="true" />{vehicle.transmission}</span>}
             </div>

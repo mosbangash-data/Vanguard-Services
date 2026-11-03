@@ -100,7 +100,7 @@ export function PermissionsPage() {
     e.preventDefault()
     setFormError('')
     if (!createForm.name) {
-      setFormError('Le nom de la permission est obligatoire.')
+      setFormError(t('permissionUi.nameRequired'))
       return
     }
     createPermissionMutation.mutate(createForm)

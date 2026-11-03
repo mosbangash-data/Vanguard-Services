@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { getMediaUrl } from '../../utils/media'
 import { MediaEmptyState } from './MediaEmptyState'
+import { useLanguage } from '../../i18n/useLanguage'
 
 export function MediaImage({
   media,
@@ -16,6 +17,7 @@ export function MediaImage({
   onClick,
   onError,
 }) {
+  const { t } = useLanguage()
   const resolvedSrc = getMediaUrl(src || media, variant ? { variant } : {})
   const [hasError, setHasError] = useState(false)
 
@@ -40,7 +42,7 @@ export function MediaImage({
     return (
       <MediaEmptyState
         size="sm"
-        title="Aucune image"
+        title={t('mediaUi.noImage')}
         className={className}
         style={style}
         onClick={onClick}

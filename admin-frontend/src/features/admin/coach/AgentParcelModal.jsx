@@ -363,9 +363,9 @@ export function AgentParcelModal({ isOpen, onClose, onSuccess }) {
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                 >
-                  <option value="STANDARD">Standard</option>
-                  <option value="DOCUMENT">Document</option>
-                  <option value="FRAGILE">Fragile</option>
+                  <option value="STANDARD">{t('resourceOptions.category.STANDARD')}</option>
+                  <option value="DOCUMENT">{t('resourceOptions.category.DOCUMENT')}</option>
+                  <option value="FRAGILE">{t('resourceOptions.category.FRAGILE')}</option>
                 </select>
               </div>
               <div className="form-group">

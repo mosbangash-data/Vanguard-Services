@@ -8,14 +8,15 @@ export function LanguageProvider({ children }) {
   const [lang, setLang] = useState(() => {
     try {
       const saved = localStorage.getItem(LANG_KEY)
-      return saved === 'en' ? 'en' : 'fr'
+      return saved === 'en' || saved === 'sw' ? saved : 'fr'
     } catch {
       return 'fr'
     }
   })
 
   const changeLanguage = useCallback((nextLang) => {
-    const normalized = String(nextLang || '').toLowerCase().startsWith('en') ? 'en' : 'fr'
+    const candidate = String(nextLang || '').toLowerCase()
+    const normalized = candidate.startsWith('en') ? 'en' : candidate.startsWith('sw') ? 'sw' : 'fr'
     setLang(normalized)
   }, [])
 

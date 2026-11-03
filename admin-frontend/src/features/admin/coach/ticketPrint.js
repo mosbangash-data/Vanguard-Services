@@ -1,12 +1,12 @@
 import { api } from '../../../services/api'
 
-export async function printTicket(ticketCode, format = '80mm') {
+export async function printTicket(ticketCode, format = '80mm', lang = 'fr') {
   const printWindow = window.open('about:blank', '_blank')
   if (!printWindow) throw new Error('POPUP_BLOCKED')
   printWindow.opener = null
   try {
     const response = await api.get(`/api/tickets/${encodeURIComponent(ticketCode)}/print`, {
-      params: { format },
+      params: { format, lang },
       responseType: 'text',
     })
     const origin = window.location.origin

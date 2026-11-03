@@ -1,6 +1,8 @@
 import { Component } from 'react'
+import { LanguageContext } from '../i18n/LanguageProvider'
 
 export class ErrorBoundary extends Component {
+  static contextType = LanguageContext
   state = { hasError: false }
 
   static getDerivedStateFromError() {
@@ -13,12 +15,13 @@ export class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
+      const { t } = this.context || {}
       return (
         <main role="alert" className="page-state">
-          <h1>Une erreur est survenue.</h1>
-          <p>Veuillez réessayer.</p>
+          <h1>{t?.('states.error') || 'Une erreur est survenue.'}</h1>
+          <p>{t?.('states.retry') || 'Veuillez réessayer.'}</p>
           <button type="button" onClick={() => window.location.reload()}>
-            Réessayer
+            {t?.('states.retry') || 'Réessayer'}
           </button>
         </main>
       )

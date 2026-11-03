@@ -39,7 +39,7 @@ const toPage = (payload) => {
 const formatMoney = (value, locale = 'fr') => {
   const numeric = Number(value || 0)
   if (!Number.isFinite(numeric)) return '—'
-  return `$ ${new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'fr-FR', {
+  return `$ ${new Intl.NumberFormat(locale === 'en' ? 'en-US' : locale === 'sw' ? 'sw-TZ' : 'fr-FR', {
     maximumFractionDigits: 2,
   }).format(numeric)}`
 }
@@ -47,7 +47,7 @@ const formatMoney = (value, locale = 'fr') => {
 const formatDate = (value, locale = 'fr') => {
   if (!value) return '—'
   try {
-    return new Date(value).toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR')
+    return new Date(value).toLocaleDateString(locale === 'en' ? 'en-US' : locale === 'sw' ? 'sw-TZ' : 'fr-FR')
   } catch {
     return '—'
   }

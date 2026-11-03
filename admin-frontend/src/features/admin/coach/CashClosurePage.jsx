@@ -5,7 +5,7 @@ import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
 import { useLanguage } from '../../../i18n/useLanguage'
 
-const formatMoney = (value, currency, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0))
+const formatMoney = (value, currency, lang) => new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0))
 
 function CashClosureReviewPanel() {
   const { user } = useAuth()

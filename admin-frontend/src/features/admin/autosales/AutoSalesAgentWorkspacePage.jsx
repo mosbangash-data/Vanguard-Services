@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../../services/api'
 import { useAuth } from '../../auth/authContext'
 import { hasPermission } from '../../auth/permissions'
+import { useLanguage } from '../../../i18n/useLanguage'
 
 const inquiryStatuses = ['NEW', 'CONTACTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'CONVERTED', 'RESOLVED', 'CLOSED']
 const listItems = (payload) => Array.isArray(payload) ? payload : (payload?.items || payload?.data?.items || payload?.data || [])
@@ -66,6 +67,7 @@ async function fetchAgentPayments(user, reservations = []) {
 }
 
 export function AutoSalesAgentManagementPage() {
+  const { t } = useLanguage()
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '' })
@@ -92,7 +94,7 @@ export function AutoSalesAgentManagementPage() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!autoSalesDepartment || !agentRole) {
-        throw new Error('Le département AutoSales ou le rôle Agent est introuvable.')
+        throw new Error(t('autoAgentUi.departmentMissing'))
       }
       return api.post('/api/users', {
         ...form,
@@ -104,10 +106,10 @@ export function AutoSalesAgentManagementPage() {
       queryClient.invalidateQueries({ queryKey: ['autosales-agents'] })
       setForm({ firstName: '', lastName: '', email: '', phone: '' })
       setError('')
-      window.alert('Agent créé. Un parcours sécurisé de définition du mot de passe est requis.')
+      window.alert(t('autoAgentUi.createdNotice'))
     },
     onError: (err) => {
-      setError(err?.response?.data?.message || 'Échec de la création de l’agent.')
+      setError(err?.response?.data?.message || t('autoAgentUi.createFailed'))
     },
   })
 
@@ -120,8 +122,8 @@ export function AutoSalesAgentManagementPage() {
     return (
       <section className="page">
         <div className="card">
-          <h1>Agents AutoSales</h1>
-          <p className="empty">Vous n’avez pas les droits pour gérer les agents AutoSales.</p>
+          <h1>{t('autoAgentUi.accessTitle')}</h1>
+          <p className="empty">{t('autoAgentUi.accessDenied')}</p>
         </div>
       </section>
     )
@@ -131,14 +133,14 @@ export function AutoSalesAgentManagementPage() {
     <section className="page">
       <div className="page-head">
         <div>
-          <h1>Agents AutoSales</h1>
-          <p>Gestion des comptes agents du département AutoSales.</p>
+          <h1>{t('autoAgentUi.accessTitle')}</h1>
+          <p>{t('autoAgentUi.agentAccounts')}</p>
         </div>
-        <Link className="button secondary" to="/automobile/agent">Retour espace agent</Link>
+        <Link className="button secondary" to="/automobile/agent">{t('autoAgentUi.backWorkspace')}</Link>
       </div>
 
       <div className="card">
-        <h2>Créer un agent</h2>
+        <h2>{t('autoAgentUi.createAgent')}</h2>
         <form
           onSubmit={(event) => {
             event.preventDefault()
@@ -147,43 +149,43 @@ export function AutoSalesAgentManagementPage() {
           className="autosales-form-grid"
         >
           <label>
-            <span>Prénom</span>
+            <span>{t('autoAgentUi.firstName')}</span>
             <input value={form.firstName} onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))} />
           </label>
           <label>
-            <span>Nom</span>
+            <span>{t('autoAgentUi.lastName')}</span>
             <input value={form.lastName} onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))} />
           </label>
           <label>
-            <span>Email</span>
+            <span>{t('autoAgentUi.email')}</span>
             <input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
           </label>
           <label>
-            <span>Téléphone</span>
+            <span>{t('autoAgentUi.phone')}</span>
             <input value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} />
           </label>
           {error && <p className="error">{error}</p>}
           <div>
             <button type="submit" className="button" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Création...' : 'Créer l’agent'}
+              {createMutation.isPending ? t('autoAgentUi.creating') : t('autoAgentUi.create')}
             </button>
           </div>
         </form>
       </div>
 
       <div className="card">
-        <h2>Liste des agents</h2>
-        {agentsQuery.isPending && <p>Chargement...</p>}
-        {agentsQuery.isError && <p className="error">Impossible de charger les agents.</p>}
+        <h2>{t('autoAgentUi.agentList')}</h2>
+        {agentsQuery.isPending && <p>{t('autoAgentUi.loading')}</p>}
+        {agentsQuery.isError && <p className="error">{t('autoAgentUi.loadFailed')}</p>}
         {!agentsQuery.isPending && !agentsQuery.isError && (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Nom</th>
-                  <th>Email</th>
-                  <th>Statut</th>
-                  <th>Actions</th>
+                  <th>{t('autoAgentUi.name')}</th>
+                  <th>{t('autoAgentUi.email')}</th>
+                  <th>{t('autoAgentUi.status')}</th>
+                  <th>{t('autoAgentUi.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -199,7 +201,7 @@ export function AutoSalesAgentManagementPage() {
                         onClick={() => toggleStatusMutation.mutate({ id: agent.id, status: agent.status })}
                         disabled={toggleStatusMutation.isPending}
                       >
-                        {agent.status === 'ACTIVE' ? 'Désactiver' : 'Activer'}
+                        {agent.status === 'ACTIVE' ? t('autoAgentUi.deactivate') : t('autoAgentUi.activate')}
                       </button>
                     </td>
                   </tr>
@@ -215,6 +217,7 @@ export function AutoSalesAgentManagementPage() {
 
 export function AutoSalesAgentWorkspacePage() {
   const { user } = useAuth()
+  const { lang, t } = useLanguage()
 
   const inquiriesQuery = useQuery({
     queryKey: ['autosales-agent-workspace-inquiries', user?.id],
@@ -249,8 +252,8 @@ export function AutoSalesAgentWorkspacePage() {
     return (
       <section className="page">
         <div className="card">
-          <h1>Espace opérationnel</h1>
-          <p className="empty">Cette zone est réservée à l’équipe AutoSales.</p>
+          <h1>{t('autoAgentUi.workspace')}</h1>
+          <p className="empty">{t('autoAgentUi.workspaceRestricted')}</p>
         </div>
       </section>
     )
@@ -260,64 +263,64 @@ export function AutoSalesAgentWorkspacePage() {
     <section className="page autosales-dashboard">
       <div className="page-head">
         <div>
-          <p className="autosales-eyebrow">VANGUARD SERVICES · AGENT</p>
-          <h1>Espace opérationnel AutoSales</h1>
-          <p>Bienvenue {user?.firstName || 'Agent'}.</p>
+          <p className="autosales-eyebrow">VANGUARD SERVICES · {t('roleUi.roleLabels.AGENT')}</p>
+          <h1>{t('autoAgentUi.workspace')}</h1>
+          <p>{t('autoAgentUi.welcome', { name: user?.firstName || t('navigation.sections.agentDashboard') })}</p>
         </div>
       </div>
 
       <div className="dashboard-stats-grid">
         <article className="stat-card">
-          <small>Demandes assignées</small>
+          <small>{t('autoAgentUi.assignedInquiries')}</small>
           <strong className="stat-value">{inquiriesQuery.isPending ? '…' : total}</strong>
         </article>
         <article className="stat-card">
-          <small>Nouvelles</small>
+          <small>{t('autoAgentUi.newInquiries')}</small>
           <strong className="stat-value">{newCount}</strong>
         </article>
         <article className="stat-card">
-          <small>Suivi</small>
+          <small>{t('autoAgentUi.followUp')}</small>
           <strong className="stat-value">{inProgress}</strong>
         </article>
         <article className="stat-card">
-          <small>Réservations actives</small>
+          <small>{t('autoAgentUi.activeReservations')}</small>
           <strong className="stat-value">{reservationsActive}</strong>
         </article>
         <article className="stat-card">
-          <small>Paiements en attente</small>
+          <small>{t('autoAgentUi.pendingPayments')}</small>
           <strong className="stat-value">{pendingPayments}</strong>
         </article>
         <article className="stat-card">
-          <small>Ventes clôturées</small>
+          <small>{t('autoAgentUi.closedSales')}</small>
           <strong className="stat-value">{completedSales}</strong>
         </article>
       </div>
 
       <section className="autosales-quick-actions">
-        <h2>Actions</h2>
+        <h2>{t('autoAgentUi.quickActions')}</h2>
         <div>
-          <Link className="button" to="/automobile/agent/inquiries">Mes demandes</Link>
-          <Link className="button secondary" to="/automobile/reservations">Réservations</Link>
-          <Link className="button secondary" to="/automobile/payments">Paiements</Link>
-          <Link className="button secondary" to="/automobile/vehicles">Véhicules</Link>
-          {hasPermission(user, 'VIEW_USER') && <Link className="button secondary" to="/automobile/agents">Agents</Link>}
+          <Link className="button" to="/automobile/agent/inquiries">{t('autoAgentUi.myInquiries')}</Link>
+          <Link className="button secondary" to="/automobile/reservations">{t('autoAgentUi.reservations')}</Link>
+          <Link className="button secondary" to="/automobile/payments">{t('autoAgentUi.payments')}</Link>
+          <Link className="button secondary" to="/automobile/vehicles">{t('autoAgentUi.vehicles')}</Link>
+          {hasPermission(user, 'VIEW_USER') && <Link className="button secondary" to="/automobile/agents">{t('autoAgentUi.agents')}</Link>}
         </div>
       </section>
 
       <section className="autosales-panel">
         <div className="autosales-panel__head">
-          <h2>Demandes récentes</h2>
-          <Link to="/automobile/agent/inquiries">Voir toutes</Link>
+          <h2>{t('autoAgentUi.recentInquiries')}</h2>
+          <Link to="/automobile/agent/inquiries">{t('autoAgentUi.seeAll')}</Link>
         </div>
-        {inquiriesQuery.isPending ? <p>Chargement...</p> : inquiries.length === 0 ? <p className="empty">Aucune demande assignée.</p> : (
+        {inquiriesQuery.isPending ? <p>{t('autoAgentUi.loading')}</p> : inquiries.length === 0 ? <p className="empty">{t('autoAgentUi.noAssignedInquiries')}</p> : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Client</th>
-                  <th>Véhicule</th>
-                  <th>Statut</th>
-                  <th>Créée</th>
+                  <th>{t('autoAgentUi.customer')}</th>
+                  <th>{t('autoAgentUi.vehicle')}</th>
+                  <th>{t('autoAgentUi.status')}</th>
+                  <th>{t('autoAgentUi.created')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -325,8 +328,8 @@ export function AutoSalesAgentWorkspacePage() {
                   <tr key={inquiry.id}>
                     <td>{inquiry.customerName}</td>
                     <td>{inquiry.vehicle ? `${inquiry.vehicle.brand} ${inquiry.vehicle.model}` : '—'}</td>
-                    <td>{inquiry.status}</td>
-                    <td>{new Date(inquiry.createdAt).toLocaleDateString('fr-FR')}</td>
+                    <td>{t(`status.${inquiry.status.toLowerCase()}`, {}, inquiry.status)}</td>
+                    <td>{new Date(inquiry.createdAt).toLocaleDateString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -337,18 +340,18 @@ export function AutoSalesAgentWorkspacePage() {
 
       <section className="autosales-panel">
         <div className="autosales-panel__head">
-          <h2>Réservations récentes</h2>
-          <Link to="/automobile/reservations">Voir toutes</Link>
+          <h2>{t('autoAgentUi.recentReservations')}</h2>
+          <Link to="/automobile/reservations">{t('autoAgentUi.seeAllReservations')}</Link>
         </div>
-        {reservationsQuery.isPending ? <p>Chargement...</p> : reservations.length === 0 ? <p className="empty">Aucune réservation pour cet agent.</p> : (
+        {reservationsQuery.isPending ? <p>{t('autoAgentUi.loading')}</p> : reservations.length === 0 ? <p className="empty">{t('autoAgentUi.noAgentReservations')}</p> : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Client</th>
-                  <th>Véhicule</th>
-                  <th>Montant</th>
-                  <th>Statut</th>
+                  <th>{t('autoAgentUi.customer')}</th>
+                  <th>{t('autoAgentUi.vehicle')}</th>
+                  <th>{t('autosalesAgent.amount')}</th>
+                  <th>{t('autoAgentUi.status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -357,7 +360,7 @@ export function AutoSalesAgentWorkspacePage() {
                     <td>{reservation.customerName}</td>
                     <td>{reservation.vehicle ? `${reservation.vehicle.brand} ${reservation.vehicle.model}` : '—'}</td>
                     <td>{Number(reservation.reservationAmount || 0).toFixed(2)}</td>
-                    <td>{reservation.status}</td>
+                    <td>{t(`status.${reservation.status.toLowerCase()}`, {}, reservation.status)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -370,6 +373,7 @@ export function AutoSalesAgentWorkspacePage() {
 }
 
 export function AutoSalesAgentInquiryPage() {
+  const { lang, t } = useLanguage()
   const { user } = useAuth()
   const navigate = useNavigate()
   const inquiriesQuery = useQuery({
@@ -384,8 +388,8 @@ export function AutoSalesAgentInquiryPage() {
     return (
       <section className="page">
         <div className="card">
-          <h1>Demandes AutoSales</h1>
-          <p className="empty">Accès limité aux agents AutoSales.</p>
+          <h1>{t('autoAgentUi.inquiryTitle')}</h1>
+          <p className="empty">{t('autoAgentUi.agentOnly')}</p>
         </div>
       </section>
     )
@@ -395,25 +399,25 @@ export function AutoSalesAgentInquiryPage() {
     <section className="page">
       <div className="page-head">
         <div>
-          <h1>Demandes AutoSales</h1>
-          <p>Suivi des demandes assignées.</p>
+          <h1>{t('autoAgentUi.inquiryTitle')}</h1>
+          <p>{t('autoAgentUi.assignedFollowUp')}</p>
         </div>
-        <Link className="button secondary" to="/automobile/agent">Retour</Link>
+        <Link className="button secondary" to="/automobile/agent">{t('autoAgentUi.back')}</Link>
       </div>
 
       <div className="card">
-        {inquiriesQuery.isPending && <p>Chargement...</p>}
-        {inquiriesQuery.isError && <p className="error">Impossible de charger les demandes.</p>}
+        {inquiriesQuery.isPending && <p>{t('autoAgentUi.loadingInquiries')}</p>}
+        {inquiriesQuery.isError && <p className="error">{t('autoAgentUi.inquiriesFailed')}</p>}
         {!inquiriesQuery.isPending && !inquiriesQuery.isError && (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Client</th>
-                  <th>Véhicule</th>
-                  <th>Statut</th>
-                  <th>Créée</th>
-                  <th>Action</th>
+                  <th>{t('autoAgentUi.customer')}</th>
+                  <th>{t('autoAgentUi.vehicle')}</th>
+                  <th>{t('autoAgentUi.status')}</th>
+                  <th>{t('autoAgentUi.created')}</th>
+                  <th>{t('autoAgentUi.action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -421,11 +425,11 @@ export function AutoSalesAgentInquiryPage() {
                   <tr key={inquiry.id}>
                     <td>{inquiry.customerName}</td>
                     <td>{inquiry.vehicle ? `${inquiry.vehicle.brand} ${inquiry.vehicle.model}` : '—'}</td>
-                    <td>{inquiry.status}</td>
-                    <td>{new Date(inquiry.createdAt).toLocaleDateString('fr-FR')}</td>
+                    <td>{t(`status.${inquiry.status.toLowerCase()}`, {}, inquiry.status)}</td>
+                    <td>{new Date(inquiry.createdAt).toLocaleDateString(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR')}</td>
                     <td>
                       <button type="button" className="button secondary sm" onClick={() => navigate(`/automobile/agent/inquiries/${inquiry.id}`)}>
-                        Ouvrir
+                        {t('autoAgentUi.open')}
                       </button>
                     </td>
                   </tr>
@@ -440,6 +444,7 @@ export function AutoSalesAgentInquiryPage() {
 }
 
 export function AutoSalesAgentInquiryDetailPage() {
+  const { t } = useLanguage()
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -480,50 +485,50 @@ export function AutoSalesAgentInquiryDetailPage() {
     },
   })
 
-  if (inquiryQuery.isPending) return <section className="page"><div className="card"><p>Chargement...</p></div></section>
-  if (!inquiry) return <section className="page"><div className="card"><p className="empty">Demande introuvable.</p></div></section>
+  if (inquiryQuery.isPending) return <section className="page"><div className="card"><p>{t('autoAgentUi.loadingDetail')}</p></div></section>
+  if (!inquiry) return <section className="page"><div className="card"><p className="empty">{t('autoAgentUi.inquiryNotFound')}</p></div></section>
 
   return (
     <section className="page">
       <div className="page-head">
         <div>
-          <h1>Demande AutoSales</h1>
-          <p>{inquiry.customerName} · {inquiry.vehicle ? `${inquiry.vehicle.brand} ${inquiry.vehicle.model}` : 'Véhicule'}</p>
+          <h1>{t('autoAgentUi.inquiryTitle')}</h1>
+          <p>{inquiry.customerName} · {inquiry.vehicle ? `${inquiry.vehicle.brand} ${inquiry.vehicle.model}` : t('autoAgentUi.vehicleFallback')}</p>
         </div>
-        <button type="button" className="button secondary" onClick={() => navigate('/automobile/agent/inquiries')}>Retour</button>
+        <button type="button" className="button secondary" onClick={() => navigate('/automobile/agent/inquiries')}>{t('autoAgentUi.back')}</button>
       </div>
 
       <div className="card">
         <div className="autosales-detail-grid">
           <div>
-            <p><strong>Client :</strong> {inquiry.customerName}</p>
-            <p><strong>Email :</strong> {inquiry.customerEmail || '—'}</p>
-            <p><strong>Téléphone :</strong> {inquiry.customerPhone}</p>
-            <p><strong>Type :</strong> {inquiry.inquiryType}</p>
+            <p><strong>{t('autoAgentUi.customerLabel')}</strong> {inquiry.customerName}</p>
+            <p><strong>{t('autoAgentUi.emailLabel')}</strong> {inquiry.customerEmail || '—'}</p>
+            <p><strong>{t('autoAgentUi.phoneLabel')}</strong> {inquiry.customerPhone}</p>
+            <p><strong>{t('autoAgentUi.typeLabel')}</strong> {inquiry.inquiryType}</p>
           </div>
           <div>
-            <p><strong>Véhicule :</strong> {inquiry.vehicle ? `${inquiry.vehicle.brand} ${inquiry.vehicle.model}` : '—'}</p>
-            <p><strong>Assigné à :</strong> {inquiry.assignedTo ? `${inquiry.assignedTo.firstName} ${inquiry.assignedTo.lastName}` : 'Non assigné'}</p>
-            <p><strong>Statut actuel :</strong> {inquiry.status}</p>
+            <p><strong>{t('autoAgentUi.vehicleLabel')}</strong> {inquiry.vehicle ? `${inquiry.vehicle.brand} ${inquiry.vehicle.model}` : '—'}</p>
+            <p><strong>{t('autoAgentUi.assignedToLabel')}</strong> {inquiry.assignedTo ? `${inquiry.assignedTo.firstName} ${inquiry.assignedTo.lastName}` : t('autoAgentUi.unassigned')}</p>
+            <p><strong>{t('autoAgentUi.currentStatus')}</strong> {t(`status.${inquiry.status.toLowerCase()}`, {}, inquiry.status)}</p>
           </div>
         </div>
 
         <div className="autosales-form-grid">
           <label>
-            <span>Statut</span>
+            <span>{t('autoAgentUi.status')}</span>
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
-              {inquiryStatuses.map((item) => <option key={item} value={item}>{item}</option>)}
+              {inquiryStatuses.map((item) => <option key={item} value={item}>{t(`status.${item.toLowerCase()}`, {}, item)}</option>)}
             </select>
           </label>
           <label>
-            <span>Notes internes</span>
+            <span>{t('autoAgentUi.internalNotes')}</span>
             <textarea value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} rows="5" />
           </label>
         </div>
 
         <div>
           <button type="button" className="button" onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
-            {updateMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+            {updateMutation.isPending ? t('autoAgentUi.saving') : t('autoAgentUi.save')}
           </button>
         </div>
       </div>

@@ -41,11 +41,11 @@ const formatMoney = (amount, currency = 'USD', lang = 'fr') => {
   if (!Number.isFinite(num)) return '0'
   const normalized = currency === 'CDF' ? 'CDF' : 'USD'
   if (normalized === 'CDF') {
-    return `${new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
+    return `${new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
       maximumFractionDigits: 0,
     }).format(num)} CDF`
   }
-  return `$ ${new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
+  return `$ ${new Intl.NumberFormat(lang === 'en' ? 'en-US' : lang === 'sw' ? 'sw-TZ' : 'fr-FR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(num)}`
@@ -53,7 +53,7 @@ const formatMoney = (amount, currency = 'USD', lang = 'fr') => {
 
 export function VehicleTemplatesPage() {
   const { user } = useAuth()
-  const { lang } = useLanguage()
+  const { lang, t } = useLanguage()
   const queryClient = useQueryClient()
 
   const [search, setSearch] = useState('')
@@ -121,7 +121,7 @@ export function VehicleTemplatesPage() {
       setEditingTemplate(null)
     },
     onError: (err) => {
-      setFormError(err?.response?.data?.message || 'Erreur lors de l’enregistrement du template.')
+      setFormError(err?.response?.data?.message || t('autosales.vehiclesPage.errors.saveFailed'))
     },
   })
 
@@ -174,11 +174,11 @@ export function VehicleTemplatesPage() {
   const handleFormSubmit = (e) => {
     e.preventDefault()
     if (!formData.brand || !formData.model || !formData.price) {
-      setFormError('La marque, le modèle et le prix indicatif sont obligatoires.')
+      setFormError(t('autosales.vehiclesPage.errors.requiredFields'))
       return
     }
     if (!editingTemplate && !departmentQuery.data?.id) {
-      setFormError(departmentQuery.error?.response?.data?.message || 'Le département AUTO_SALES est indisponible.')
+      setFormError(departmentQuery.error?.response?.data?.message || t('autosales.vehiclesPage.departmentUnavailable'))
       return
     }
     saveMutation.mutate(formData)
@@ -207,7 +207,7 @@ export function VehicleTemplatesPage() {
         />
         <ErrorState
           title="Erreur de chargement des templates"
-          message={error?.response?.data?.message || 'Impossible de récupérer les templates de véhicules.'}
+          message={error?.response?.data?.message || t('autosales.vehiclesPage.loadFailed')}
           onRetry={() => refetch()}
         />
       </div>
@@ -283,7 +283,7 @@ export function VehicleTemplatesPage() {
                     fallback={
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', color: '#94A3B8' }}>
                         <CarFront size={32} />
-                        <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Modèle Template</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{t('autosales.vehiclesPage.templateModel')}</span>
                       </div>
                     }
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -339,7 +339,7 @@ export function VehicleTemplatesPage() {
                     alignItems: 'center',
                     justifyContent: 'space-between'
                   }}>
-                    <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>Prix indicatif</span>
+                    <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>{t('autosales.vehiclesPage.indicativePrice')}</span>
                     <strong style={{ fontSize: '1.05rem', color: '#0F172A' }}>
                       {formatMoney(tpl.price, tpl.currency, lang)}
                     </strong>
@@ -430,8 +430,8 @@ export function VehicleTemplatesPage() {
                   value={formData.transmission}
                   onChange={(e) => setFormData({ ...formData, transmission: e.target.value })}
                 >
-                  <option value="Automatique">Automatique</option>
-                  <option value="Manuelle">Manuelle</option>
+                  <option value="Automatique">{t('autosales.vehiclesPage.automatic')}</option>
+                  <option value="Manuelle">{t('autosales.vehiclesPage.manual')}</option>
                 </Select>
               </FormField>
 
@@ -440,10 +440,10 @@ export function VehicleTemplatesPage() {
                   value={formData.fuelType}
                   onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
                 >
-                  <option value="Essence">Essence</option>
-                  <option value="Diesel">Diesel</option>
-                  <option value="Hybride">Hybride</option>
-                  <option value="Électrique">Électrique</option>
+                  <option value="Essence">{t('autosales.vehiclesPage.gasoline')}</option>
+                  <option value="Diesel">{t('autosales.vehiclesPage.diesel')}</option>
+                  <option value="Hybride">{t('autosales.vehiclesPage.hybrid')}</option>
+                  <option value="Électrique">{t('autosales.vehiclesPage.electric')}</option>
                 </Select>
               </FormField>
 
@@ -491,28 +491,28 @@ export function VehicleTemplatesPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Prix indicatif</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.indicativePrice')}</span>
                 <div style={{ marginTop: '2px', fontWeight: 700, fontSize: '1.1rem', color: '#0F172A' }}>
                   {formatMoney(selectedTemplate.price, selectedTemplate.currency, lang)}
                 </div>
               </div>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Année</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.year')}</span>
                 <div style={{ marginTop: '2px', fontWeight: 600, color: '#0F172A' }}>{selectedTemplate.year}</div>
               </div>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Carburant</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.fuelType')}</span>
                 <div style={{ marginTop: '2px', fontWeight: 600, color: '#0F172A' }}>{selectedTemplate.fuelType || 'Non spécifié'}</div>
               </div>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Transmission</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.transmission')}</span>
                 <div style={{ marginTop: '2px', fontWeight: 600, color: '#0F172A' }}>{selectedTemplate.transmission || 'Non spécifié'}</div>
               </div>
             </div>
 
             {selectedTemplate.description && (
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Description</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>{t('autosales.vehiclesPage.description')}</span>
                 <p style={{ marginTop: '4px', fontSize: '0.875rem', color: '#334155', lineHeight: 1.5 }}>
                   {selectedTemplate.description}
                 </p>
@@ -535,7 +535,7 @@ export function VehicleTemplatesPage() {
           onClose={() => setDeletingTemplate(null)}
           onConfirm={() => deleteMutation.mutate(deletingTemplate.id)}
           title="Supprimer ce template ?"
-          message={`Êtes-vous sûr de vouloir supprimer le modèle template ${deletingTemplate.brand} ${deletingTemplate.model} ?`}
+          message={t('autosales.vehiclesPage.confirmDeleteTemplate', { brand: deletingTemplate.brand, model: deletingTemplate.model })}
           confirmText="Supprimer définitivement"
           loading={deleteMutation.isPending}
           variant="danger"
